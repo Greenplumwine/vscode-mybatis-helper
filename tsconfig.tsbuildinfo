@@ -1,0 +1,12 @@
+{
+	"root": [
+		"./src/extension.ts",
+		"./src/features/consoleloginterceptor.ts",
+		"./src/features/filemapper.ts",
+		"./src/language/sqlparser.ts",
+		"./src/test/extension.test.ts",
+		"./src/types/index.ts",
+		"./src/utils/index.ts"
+	],
+	"version": "5.9.2"
+}

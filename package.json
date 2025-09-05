@@ -1,0 +1,166 @@
+{
+  "name": "mybatis-helper",
+  "displayName": "Mybatis Helper",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "jingzepei",
+  "icon": "static/icon/mybatis-helper-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jingzepei/mybatis-helper.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.3"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "l10n": "./l10n",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mybatis-helper.toggleLogInterceptor",
+        "title": "%command.toggleLogInterceptor.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.showSqlOutput",
+        "title": "%command.showSqlOutput.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.clearSqlHistory",
+        "title": "%command.clearSqlHistory.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.jumpToXml",
+        "title": "%command.jumpToXml.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.jumpToMapper",
+        "title": "%command.jumpToMapper.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.refreshMappings",
+        "title": "%command.refreshMappings.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.refreshData",
+        "title": "%command.refreshData.title%",
+        "category": "MyBatis Helper"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mybatis-helper.jumpToXml",
+        "key": "alt+x",
+        "description": "%command.jumpToXml.title%",
+        "when": "editorTextFocus && resourceExtname == .java"
+      },
+      {
+        "command": "mybatis-helper.jumpToMapper",
+        "key": "alt+m",
+        "when": "editorTextFocus && resourceExtname == .xml"
+      },
+      {
+        "command": "mybatis-helper.toggleLogInterceptor",
+        "key": "alt+l",
+        "when": "mybatisHelper.isActive"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "mybatis-helper.jumpToXml",
+          "group": "navigation@1",
+          "when": "editorTextFocus && resourceExtname == .java && mybatisHelper.isJavaProject"
+        },
+        {
+          "command": "mybatis-helper.jumpToMapper",
+          "group": "navigation@1",
+          "when": "editorTextFocus && resourceExtname == .xml && mybatisHelper.isJavaProject"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Mybatis Helper",
+      "properties": {
+        "mybatisHelper.databaseType": {
+          "type": "string",
+          "enum": [
+            "mysql",
+            "postgresql",
+            "oracle",
+            "sqlserver",
+            "dm",
+            "kingbasees",
+            "other"
+          ],
+          "default": "mysql",
+          "description": "%configuration.databaseType.description%"
+        },
+        "mybatisHelper.enableLogInterceptor": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.enableLogInterceptor.description%"
+        },
+        "mybatisHelper.customLogPattern": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.customLogPattern.description%"
+        },
+        "mybatisHelper.maxHistorySize": {
+          "type": "number",
+          "default": 100,
+          "description": "%configuration.maxHistorySize.description%"
+        },
+        "mybatisHelper.showExecutionTime": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.showExecutionTime.description%"
+        },
+        "mybatisHelper.batchProcessingDelay": {
+          "type": "number",
+          "default": 100,
+          "description": "%configuration.batchProcessingDelay.description%"
+        },
+        "mybatisHelper.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.enableCodeLens.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.100.3",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.32.0",
+    "typescript": "^5.9.2"
+  }
+}

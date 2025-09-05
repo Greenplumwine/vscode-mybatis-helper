@@ -1,0 +1,19 @@
+{
+	"displayName": "MyBatis Helper",
+	"description": "一个功能强大的 VSCode 插件，为 MyBatis 开发者提供全方位的辅助功能，大幅提升开发效率。",
+	"command.toggleLogInterceptor.title": "切换日志拦截",
+	"command.showSqlOutput.title": "显示 SQL 输出",
+	"command.clearSqlHistory.title": "清空 SQL 历史",
+	"command.jumpToXml.title": "跳转到 XML",
+	"command.jumpToMapper.title": "跳转到 Mapper",
+	"command.refreshMappings.title": "刷新映射关系",
+	"command.refreshData.title": "刷新数据",
+	"command.testUIDisplay.title": "测试 UI 显示",
+	"configuration.databaseType.description": "数据库类型",
+	"configuration.enableLogInterceptor.description": "启用日志拦截功能",
+	"configuration.customLogPattern.description": "自定义日志格式模式，支持正则表达式。使用%PREPARING%、%PARAMETERS%、%EXECUTION_TIME%作为占位符。",
+	"configuration.maxHistorySize.description": "SQL历史记录的最大条数",
+	"configuration.showExecutionTime.description": "显示SQL执行时间",
+	"configuration.batchProcessingDelay.description": "批处理日志的延迟时间（毫秒）",
+	"configuration.enableCodeLens.description": "启用 CodeLens 支持，用于在 Java Mapper 接口和 XML 文件之间跳转"
+}
