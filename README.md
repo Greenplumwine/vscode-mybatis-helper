@@ -304,4 +304,4 @@ Parameters: 1(Integer)
 
 ---
 
-希望这个插件能帮助您更高效地开发 MyBatis 应用！如有任何问题或建议，请随时在 GitHub 上提交 Issue 或与我们联系。
+希望这个插件能帮助您更高效地开发 MyBatis 应用！如有任何问题或建议，请随时在 GitHub 或 Gitee 上提交 Issue 或与我们联系。
