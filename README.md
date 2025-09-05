@@ -1,3 +1,6 @@
+![mybatis](static/icon/mybatis-helper-icon.svg)
+[![star](https://gitee.com/Greenplumwine/vscode-mybatis-helper/badge/star.svg?theme=dark)](https://gitee.com/Greenplumwine/vscode-mybatis-helper/stargazers) [![GitHub stars](https://img.shields.io/github/stars/Greenplumwine/vscode-mybatis-helper.svg)](https://github.com/Greenplumwine/vscode-mybatis-helper)
+
 # MyBatis Helper
 
 一个功能强大的 VSCode 插件，为 MyBatis 开发者提供全方位的辅助功能，大幅提升开发效率。
@@ -9,6 +12,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 ## 功能特点
 
 ### 1. 控制台日志拦截与 SQL 转换
+
 - 实时拦截 IDE 控制台中的 MyBatis 日志，自动解析参数化查询
 - 将 MyBatis 参数化查询转换为可直接复制执行的完整 SQL 语句
 - 智能识别并支持 MySQL、PostgreSQL、Oracle、SQL Server、达梦、人大金仓等多种数据库的 SQL 语法
@@ -19,6 +23,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 支持用户自定义日志格式配置，以适应不同的日志输出模式
 
 ### 2. 文件快速跳转
+
 - Mapper 接口与 XML 文件之间的一键双向跳转，无需手动查找文件
 - 智能扫描项目结构，自动建立 Mapper 接口与 XML 文件的映射关系
 - 支持标准 Maven/Gradle 项目结构及自定义项目布局
@@ -30,6 +35,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 缓存存储机制：保存文件查找结果，确保后续相同文件的跳转能够直接使用缓存结果
 
 ### 3. CodeLens 支持
+
 - **Java 文件中的 CodeLens**：在 Java Mapper 接口的方法上方显示"跳转到 XML"的 CodeLens 提示
 - **XML 文件中的 CodeLens**：在 XML 映射文件的 SQL 语句上方显示"跳转到 Mapper"的 CodeLens 提示
 - **智能显示控制**：CodeLens 仅在检测到有效映射关系时显示，避免显示无效的跳转提示
@@ -37,10 +43,12 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 提供配置选项允许用户启用或禁用 CodeLens 功能，默认启用
 
 ### 4. 国际化支持
+
 - 支持多语言界面，能够根据 VSCode 的语言设置自动切换显示语言
 - 提供配置选项允许用户自定义界面语言
 
 ### 5. 用户友好的界面
+
 - 简洁明了的命令菜单，所有功能一目了然
 - 精心设计的快捷键体系，操作高效便捷
 - 编辑器右键菜单深度集成，触手可及
@@ -50,12 +58,14 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 ## 安装方法
 
 ### 方法一：从 VSCode 扩展市场安装
+
 1. 在 VSCode 中打开扩展面板 (快捷键: `Ctrl+Shift+X` 或 `Command+Shift+X`)
 2. 在搜索框中输入 "MyBatis Helper"
 3. 找到插件后点击 "安装" 按钮
 4. 安装完成后，插件会自动激活，无需重启 VSCode
 
 ### 方法二：手动安装
+
 1. 从 GitHub 仓库下载最新的发布版本
 2. 在 VSCode 中执行 "安装从 VSIX..." 命令
 3. 选择下载的 VSIX 文件
@@ -66,14 +76,17 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 ### 控制台日志拦截
 
 #### 启用和使用日志拦截
+
 - **切换日志拦截状态**: 按下 `Alt+L` 快捷键或通过命令面板 (Ctrl+Shift+P / Command+Shift+P) 执行 "MyBatis: 切换日志拦截"
 - **显示 SQL 输出面板**: 通过命令面板执行 "MyBatis: 显示 SQL 输出" 或点击底部状态栏的 "MyBatis SQL" 通道
 - **清空 SQL 历史**: 通过命令面板执行 "MyBatis: 清空 SQL 历史"
 
 #### 工作原理与使用场景
+
 当您启动调试会话时，插件会自动监控控制台输出，实时捕获并解析 MyBatis 执行的 SQL 语句。解析后的完整 SQL 语句（已填充参数值）会显示在专用的 "MyBatis SQL" 输出通道中，方便您直接复制执行或进行调试分析。
 
 这一功能特别适合：
+
 - 快速验证生成的 SQL 是否符合预期
 - 调试复杂的参数化查询
 - 分析性能瓶颈，查看 SQL 执行时间
@@ -82,19 +95,24 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 ### 文件快速跳转
 
 #### 快速跳转操作
+
 - **从 Mapper 接口跳转到 XML 文件**: 在 Java Mapper 接口文件中，按下 `Alt+X` 快捷键、点击 CodeLens 提示或在右键菜单中选择 "MyBatis: 跳转到 XML"
 - **从 XML 文件跳转到 Mapper 接口**: 在 Mapper XML 文件中，按下 `Alt+M` 快捷键、点击 CodeLens 提示或在右键菜单中选择 "MyBatis: 跳转到 Mapper"
 - **刷新映射关系**: 当项目结构变更时，通过命令面板执行 "MyBatis: 刷新映射关系" 以更新文件映射缓存
 
 #### 智能映射机制
+
 插件会自动扫描项目结构，分析 Mapper 接口和 XML 文件之间的关联关系。支持以下映射策略：
+
 - 基于包路径和文件名的匹配
 - 通过 XML 文件中的 namespace 属性关联 Mapper 接口
 - 针对复杂项目结构的智能搜索算法
 - 缓存优化，确保大型项目中也能快速响应
 
 #### 使用场景
+
 这一功能极大提升了开发效率，特别适合：
+
 - 在编写 Mapper 接口后快速查看或编辑对应的 XML 实现
 - 在调试 SQL 问题时，从 XML 文件快速跳转到对应的 Java 接口
 - 在大型项目中快速定位相关文件，避免手动查找
@@ -111,12 +129,12 @@ CodeLens 为文件跳转提供了更加直观的交互方式：
 
 ### 快捷键说明
 
-| 快捷键 | 功能 | 适用场景 |
-|--------|------|----------|
-| `Alt+L` | 切换日志拦截 | 任何编辑器窗口（当插件激活时） |
-| `Alt+X` | 从 Mapper 跳转到 XML | 在 Java Mapper 接口文件中 |
-| `Alt+M` | 从 XML 跳转到 Mapper | 在 Mapper XML 文件中 |
-| `Ctrl+Shift+P` + `MyBatis` | 打开命令面板并搜索 MyBatis 相关命令 | 任何编辑器窗口 |
+| 快捷键                     | 功能                                | 适用场景                       |
+| -------------------------- | ----------------------------------- | ------------------------------ |
+| `Alt+L`                    | 切换日志拦截                        | 任何编辑器窗口（当插件激活时） |
+| `Alt+X`                    | 从 Mapper 跳转到 XML                | 在 Java Mapper 接口文件中      |
+| `Alt+M`                    | 从 XML 跳转到 Mapper                | 在 Mapper XML 文件中           |
+| `Ctrl+Shift+P` + `MyBatis` | 打开命令面板并搜索 MyBatis 相关命令 | 任何编辑器窗口                 |
 
 ## 支持的数据库
 
@@ -160,11 +178,13 @@ Parameters: 1(Integer)
 插件支持以下常见的项目结构和布局：
 
 #### 标准 Maven/Gradle 项目
+
 - `src/main/java` 目录下的 Mapper 接口
 - `src/main/resources` 目录下的 XML 文件
 - 保持相同包路径结构的 Mapper 和 XML 文件
 
 #### 自定义项目结构
+
 - 支持不同目录下的 Mapper 接口和 XML 文件
 - 支持通过 namespace 属性映射的非标准布局
 - 支持多模块 Maven/Gradle 项目
@@ -183,6 +203,7 @@ Parameters: 1(Integer)
 - **精确文件查找**: 通过针对特定文件的精确查找替代全文件夹扫描，显著提高跳转效率
 
 **性能指标**:
+
 - 插件启动时间不超过 2 秒
 - 大型项目（1000+ 文件）扫描时间不超过 10 秒
 - 单次 SQL 转换处理时间不超过 100 毫秒
@@ -206,6 +227,7 @@ Parameters: 1(Integer)
 
 **Q: 为什么我的日志没有被拦截和解析？**
 **A:** 请检查以下几点：
+
 - 确保 MyBatis 日志级别设置正确（通常需要设置为 DEBUG 或 TRACE 级别）
 - 确认日志格式符合标准的 MyBatis 输出格式，或已在设置中配置了正确的自定义日志格式
 - 检查日志拦截功能是否已开启（可通过 `Alt+L` 切换状态）
@@ -218,6 +240,7 @@ Parameters: 1(Integer)
 
 **Q: 为什么找不到对应的 XML 文件或 Mapper 接口？**
 **A:** 请尝试以下解决方案：
+
 - 执行 "MyBatis: 刷新映射关系" 命令，重新扫描项目结构
 - 检查 XML 文件中的 namespace 属性是否正确指向了 Mapper 接口
 - 确认 Mapper 接口和 XML 文件命名是否符合匹配规则
@@ -225,12 +248,14 @@ Parameters: 1(Integer)
 
 **Q: 为什么没有显示 CodeLens 提示？**
 **A:** 请确认：
+
 - CodeLens 功能已在插件设置中启用（mybatisHelper.enableCodeLens 设为 true）
 - VSCode 中已启用 CodeLens 功能（editor.codeLens 设置为 true）
 - 文件中确实存在有效的映射关系
 
 **Q: 快捷键不生效怎么办？**
 **A:** 可能是快捷键冲突导致的。请尝试：
+
 - 在 VSCode 键盘快捷方式设置中检查是否有冲突
 - 重新配置插件快捷键
 - 使用命令面板执行相应功能
@@ -257,6 +282,7 @@ Parameters: 1(Integer)
 5. 推送到您的 Fork 并创建 Pull Request
 
 贡献指南：
+
 - 遵循现有的代码风格和命名规范
 - 为新功能添加适当的文档和测试
 - 在 Pull Request 中详细描述您的更改内容和目的
