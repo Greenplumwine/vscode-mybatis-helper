@@ -9,8 +9,6 @@
 	"command.refreshMappings.title": "Refresh Mappings",
 	"command.refreshData.title": "Refresh Data",
 	"command.testUIDisplay.title": "Test UI Display",
-	"codeLens.jumpToXml": "Jump to XML",
-	"codeLens.jumpToMapper": "Jump to Mapper",
 	"info.extensionActivated": "MyBatis Helper activated. Initializing features...",
 	"info.javaProjectActivated": "Java project detected, MyBatis Helper plugin activated.",
 	"info.javaProjectDeactivated": "Java project removed, MyBatis Helper plugin deactivated.",

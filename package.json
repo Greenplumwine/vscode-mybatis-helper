@@ -3,11 +3,11 @@
   "displayName": "Mybatis Helper",
   "description": "%description%",
   "version": "0.0.1",
-  "publisher": "jingzepei",
+  "publisher": "Greenplumwine",
   "icon": "static/icon/mybatis-helper-icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jingzepei/mybatis-helper.git"
+    "url": "https://github.com/Greenplumwine/vscode-mybatis-helper.git"
   },
   "license": "MIT",
   "engines": {
