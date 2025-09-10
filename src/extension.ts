@@ -318,11 +318,15 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 				}
 
 				if (xmlPath) {
-					let targetPosition = undefined;
+					let targetPosition: vscode.Position | undefined = undefined;
 					if (methodName) {
-						targetPosition = await (fileMapper as any).findMethodPosition(xmlPath, methodName);
+						// 直接调用findMethodPosition方法而不是使用类型断言
+						const position = await fileMapper.findMethodPosition(xmlPath, methodName);
+						// 处理可能的null返回值
+						targetPosition = position || undefined;
 					}
-					await (fileMapper as any).jumpToFile(xmlPath, targetPosition);
+					// 直接调用jumpToFile方法，确保fileOpenMode配置正确应用
+					await fileMapper.jumpToFile(xmlPath, targetPosition);
 				} else {
 					vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noXmlFile"));
 				}
@@ -372,11 +376,15 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 				}
 
 				if (mapperPath) {
-					let targetPosition = undefined;
+					let targetPosition: vscode.Position | undefined = undefined;
 					if (methodName) {
-						targetPosition = await (fileMapper as any).findMethodPosition(mapperPath, methodName);
+						// 直接调用findMethodPosition方法而不是使用类型断言
+						const position = await fileMapper.findMethodPosition(mapperPath, methodName);
+						// 处理可能的null返回值
+						targetPosition = position || undefined;
 					}
-					await (fileMapper as any).jumpToFile(mapperPath, targetPosition);
+					// 直接调用jumpToFile方法，确保fileOpenMode配置正确应用
+					await fileMapper.jumpToFile(mapperPath, targetPosition);
 				} else {
 					vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
 				}

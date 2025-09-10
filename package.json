@@ -2,7 +2,7 @@
   "name": "mybatis-helper",
   "displayName": "Mybatis Helper",
   "description": "%description%",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "Greenplumwine",
   "icon": "static/icon/mybatis-helper-icon.png",
   "repository": {
@@ -11,7 +11,7 @@
   },
   "license": "MIT",
   "engines": {
-    "vscode": "^1.100.3"
+    "vscode": "^1.80.0"
   },
   "categories": [
     "Programming Languages",
@@ -140,6 +140,16 @@
           "type": "boolean",
           "default": true,
           "description": "%configuration.enableCodeLens.description%"
+        },
+        "mybatisHelper.fileOpenMode": {
+          "type": "string",
+          "enum": [
+            "useExisting",
+            "noSplit",
+            "alwaysSplit"
+          ],
+          "default": "useExisting",
+          "description": "%configuration.fileOpenMode.description%"
         }
       }
     }
@@ -155,7 +165,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.100.3",
+    "@types/vscode": "^1.80.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "@vscode/test-cli": "^0.0.11",

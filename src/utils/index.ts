@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { DatabaseType, PluginConfig } from "../types";
+import { DatabaseType, PluginConfig, FileOpenMode } from "../types";
 
 /**
  * Get plugin configuration
@@ -12,6 +12,7 @@ export function getPluginConfig(): PluginConfig {
 		customLogPattern: config.get<string>("customLogPattern", ""),
 		maxHistorySize: config.get<number>("maxHistorySize", 100),
 		showExecutionTime: config.get<boolean>("showExecutionTime", true),
+		fileOpenMode: config.get<FileOpenMode>("fileOpenMode", FileOpenMode.USE_EXISTING),
 	};
 }
 

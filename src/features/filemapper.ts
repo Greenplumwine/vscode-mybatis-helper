@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs/promises"; // Use Promise version of fs module
+import { getPluginConfig } from "../utils";
+import { FileOpenMode } from "../types";
 
 // File mapping cache interface
 export interface FileMapping {
@@ -22,8 +24,20 @@ export class FileMapper {
 	private fileWatcher: vscode.FileSystemWatcher | null = null; // File system watcher
 	private lastJumpTime: Map<string, number> = new Map(); // 用于节流机制，记录每种跳转类型的最后执行时间
 	private readonly jumpThrottleMs = 1000; // 跳转操作的节流时间（毫秒）
+	private fileOpenMode: FileOpenMode; // 文件打开模式
 
 	constructor() {
+		// Initialize configuration
+		const config = getPluginConfig();
+		this.fileOpenMode = config.fileOpenMode || FileOpenMode.USE_EXISTING;
+
+		// Listen for configuration changes
+		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration("mybatisHelper.fileOpenMode")) {
+				this.fileOpenMode = vscode.workspace.getConfiguration("mybatis-helper").get<FileOpenMode>("fileOpenMode", FileOpenMode.USE_EXISTING);
+			}
+		});
+
 		// Initialize file scanning interval
 		this.scanInterval = setInterval(() => {
 			this.scheduleScan();
@@ -556,7 +570,7 @@ export class FileMapper {
 	/**
 	 * Find position of method in target file
 	 */
-	private async findMethodPosition(
+	public async findMethodPosition(
 		filePath: string,
 		methodName: string
 	): Promise<vscode.Position | null> {
@@ -569,7 +583,7 @@ export class FileMapper {
 				// For Java files - look for method signatures with more robust pattern
 				// First try with complete method signature pattern
 				let methodRegex = new RegExp(
-					`^(public|private|protected|default)?\s*(static\s+)?[\w<>,\[\]]+\s+${methodName}\s*\([^)]*\)\s*(throws\s+[\w.]+(,\s*[\w.]+)*)?\s*(\{|\{?\s*\/\*.*\*\/|\{?\s*\/\/.*)$`,
+					`^(public|private|protected|default)?\\s*(static\\s+)?[\\w<>\\[\\]]+\\s+${methodName}\\s*\\([^)]*\\)\\s*(throws\\s+[\\w.]+(,\\s*[\\w.]+)*)?\\s*(\\{|\\{?\\s*\\/\\*.*\\*\\/|\\{?\\s*\\/\\/.*)$`,
 					"gm"
 				);
 				let match = methodRegex.exec(content);
@@ -581,7 +595,7 @@ export class FileMapper {
 
 				// Fallback to simpler pattern for cases with annotations or complex signatures
 				methodRegex = new RegExp(
-					`\s*${methodName}\s*\([^)]*\)\s*(\{|\{?\s*\/\*.*\*\/|\{?\s*\/\/.*)$`,
+					`\\s*${methodName}\\s*\\([^)]*\\)\\s*(\\{|\\{?\\s*\\/\\*.*\\*\\/|\\{?\\s*\\/\\/.*)$`,
 					"gm"
 				);
 				match = methodRegex.exec(content);
@@ -643,15 +657,34 @@ export class FileMapper {
 				return;
 			}
 
-			// Open file in VSCode
-			const document = await vscode.workspace.openTextDocument(filePath);
-			const editor = await vscode.window.showTextDocument(
-				document,
-				vscode.ViewColumn.Beside
-			);
+			// Check if the file is already open
+			let editor = this.findExistingEditor(filePath);
+
+			if (editor) {
+				// File is already open, use the existing editor
+				await vscode.window.showTextDocument(editor.document, editor.viewColumn);
+			} else {
+				// File is not open, determine the view column based on fileOpenMode
+				let viewColumn: vscode.ViewColumn;
+				
+				if (this.fileOpenMode === FileOpenMode.ALWAYS_SPLIT) {
+					// Always split window
+					viewColumn = vscode.ViewColumn.Beside;
+				} else {
+					// For USE_EXISTING and NO_SPLIT, don't split window
+					viewColumn = vscode.ViewColumn.Active;
+				}
+
+				// Open file in VSCode
+				const document = await vscode.workspace.openTextDocument(filePath);
+				editor = await vscode.window.showTextDocument(
+					document,
+					viewColumn
+				);
+			}
 
 			// If position is specified, move cursor to that position
-			if (position) {
+			if (position && editor) {
 				editor.selection = new vscode.Selection(position, position);
 				editor.revealRange(
 					new vscode.Range(position, position),
@@ -664,6 +697,16 @@ export class FileMapper {
 				vscode.l10n.t("fileMapper.cannotOpenFile", { path: filePath })
 			);
 		}
+	}
+
+	/**
+	 * Find an existing editor for the specified file path
+	 */
+	private findExistingEditor(filePath: string): vscode.TextEditor | undefined {
+		const normalizedPath = path.normalize(filePath);
+		return vscode.window.visibleTextEditors.find(
+			(editor) => path.normalize(editor.document.uri.fsPath) === normalizedPath
+		);
 	}
 
 	/**

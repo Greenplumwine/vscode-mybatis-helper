@@ -42,6 +42,16 @@ export enum DatabaseType {
 	OTHER = "other",
 }
 
+// 文件打开模式
+export enum FileOpenMode {
+	// 使用已打开的窗口，如果不存在则不拆分窗口
+	USE_EXISTING = "useExisting",
+	// 始终不拆分窗口
+	NO_SPLIT = "noSplit",
+	// 始终拆分窗口
+	ALWAYS_SPLIT = "alwaysSplit",
+}
+
 // 配置项类型
 export interface PluginConfig {
 	databaseType: DatabaseType;
@@ -50,4 +60,5 @@ export interface PluginConfig {
 	maxHistorySize: number;
 	showExecutionTime: boolean;
 	batchProcessingDelay?: number;
+	fileOpenMode: FileOpenMode;
 }
