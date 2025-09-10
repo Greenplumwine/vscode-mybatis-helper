@@ -94,5 +94,16 @@
 	"sqlResult.exportFailed": "Failed to export SQL: {error}",
 	"sqlResult.dataRefreshed": "Data refreshed",
 	"sqlResult.historyItemSelected": "History item selected: {id}",
-	"sqlResult.tabSwitched": "Switched to tab: {tab}"
+	"sqlResult.tabSwitched": "Switched to tab: {tab}",
+	"warning.notJavaProjectOrFileMapperNotInitialized": "Not in a Java project or file mapper not initialized",
+	"info.logInterceptorActivated": "MyBatis log interception activated",
+	"info.logInterceptorDeactivated": "MyBatis log interception deactivated",
+	"info.sqlHistoryCleared": "SQL history cleared successfully",
+	"info.logInterceptorActivatedByConfig": "MyBatis log interception activated by configuration change",
+	"info.logInterceptorDeactivatedByConfig": "MyBatis log interception deactivated by configuration change",
+	"error.logInterceptorNotInitialized": "Log interceptor not initialized",
+	"error.fileMapperNotInitialized": "File mapper not initialized",
+	"error.jumpToXmlFailed": "Failed to jump to XML file: {error}",
+	"error.jumpToMapperFailed": "Failed to jump to mapper file: {error}"
+
 }

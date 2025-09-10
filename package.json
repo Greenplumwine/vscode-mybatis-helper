@@ -113,7 +113,7 @@
         },
         "mybatisHelper.enableLogInterceptor": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%configuration.enableLogInterceptor.description%"
         },
         "mybatisHelper.customLogPattern": {

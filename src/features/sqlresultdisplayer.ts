@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { SQLQuery, DatabaseType } from "../types";
 import { formatSQL, highlightSQL, getPluginConfig } from "../utils";
+import { PerformanceUtils } from '../utils/performanceUtils';
+import { RegexUtils } from '../utils';
 
 /**
  * SQL result displayer, responsible for displaying SQL query results in a user-friendly way
@@ -10,32 +12,65 @@ export class SQLResultDisplayer {
 	private extensionUri: vscode.Uri;
 	private currentQuery: SQLQuery | null = null;
 	private databaseType: DatabaseType;
+	private performanceUtils: PerformanceUtils;
+	private regexUtils: RegexUtils;
+	private searchRegexCache: Map<string, RegExp> = new Map();
+	private formattedSQLCache: Map<string, string> = new Map();
+	private highlightedSQLCache: Map<string, string> = new Map();
+	private updateWebviewContent: () => void;
 
 	constructor(extensionUri: vscode.Uri) {
 		this.extensionUri = extensionUri;
 		const config = getPluginConfig();
 		this.databaseType = config.databaseType;
+		this.performanceUtils = PerformanceUtils.getInstance();
+		this.updateWebviewContent = this.performanceUtils.debounce(() => {
+			const startTime = Date.now();
+			try {
+				if (!this.webviewPanel || !this.currentQuery) {
+					vscode.window.showErrorMessage(
+						vscode.l10n.t("sqlResult.webviewNotInitialized")
+					);
+					return;
+				}
+
+				this.webviewPanel.webview.html = this.getWebviewContent();
+			} catch (error) {
+				console.error("Error updating webview content:", error);
+				vscode.window.showErrorMessage(
+					vscode.l10n.t("sqlResult.updateContentError")
+				);
+			} finally {
+				this.performanceUtils.recordExecutionTime('SQLResultDisplayer.updateWebviewContent', Date.now() - startTime);
+			}
+		}, 300);
+		this.regexUtils = RegexUtils.getInstance();
 	}
 
 	/**
 	 * Show SQL query result
 	 */
 	showSQLResult(query: SQLQuery): void {
-		this.currentQuery = query;
+		const startTime = Date.now();
+		try {
+			this.currentQuery = query;
 
-		// If there's no complete SQL, don't display
-		if (!query.fullSQL) {
-			return;
-		}
+			// If there's no complete SQL, don't display
+			if (!query.fullSQL) {
+				return;
+			}
 
-		// Create or get webview panel
-		if (!this.webviewPanel) {
-			this.createWebviewPanel();
-		} else {
-			// Refresh webview content
-			this.updateWebviewContent();
-			// Show panel
-			this.webviewPanel.reveal(vscode.ViewColumn.Beside);
+			// Create or get webview panel
+			if (!this.webviewPanel) {
+				this.createWebviewPanel();
+			} else {
+				// Refresh webview content
+				this.updateWebviewContent();
+				// Show panel
+				this.webviewPanel.reveal(vscode.ViewColumn.Beside);
+			}
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.showSQLResult', Date.now() - startTime);
 		}
 	}
 
@@ -47,104 +82,139 @@ export class SQLResultDisplayer {
 	}
 
 	/**
-	 * Create webview panel
+	 * Create webview panel with debouncing to prevent multiple creations
 	 */
 	private createWebviewPanel(): void {
-		if (!this.currentQuery) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t("sqlResult.webviewNotInitialized")
-			);
-			return;
-		}
-
-		this.webviewPanel = vscode.window.createWebviewPanel(
-			"mybatis-sql-result",
-			vscode.l10n.t("sqlResult.title", { queryId: this.currentQuery.id }),
-			vscode.ViewColumn.Beside,
-			{
-				enableScripts: true,
-				retainContextWhenHidden: true,
-				localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "media")],
+		const startTime = Date.now();
+		try {
+			if (!this.currentQuery) {
+				vscode.window.showErrorMessage(
+					vscode.l10n.t("sqlResult.webviewNotInitialized")
+				);
+				return;
 			}
-		);
 
-		// Set webview content
-		this.updateWebviewContent();
-
-		// Handle panel close
-		this.webviewPanel.onDidDispose(() => {
-			this.webviewPanel = undefined;
-		});
-
-		// Handle messages from webview
-		this.webviewPanel.webview.onDidReceiveMessage(
-			(message) => {
-				switch (message.command) {
-					case "copyToClipboard":
-						this.copySQLToClipboard(message.text);
-						break;
-					case "copyFormattedToClipboard":
-						this.copyFormattedSQLToClipboard(message.text);
-						break;
-					case "refresh":
-						this.refreshData();
-						break;
-					case "search":
-						this.searchSQL(message.text);
-						break;
-					case "clearSearch":
-						this.clearSearch();
-						break;
+			this.webviewPanel = vscode.window.createWebviewPanel(
+				"mybatis-sql-result",
+				vscode.l10n.t("sqlResult.title", { queryId: this.currentQuery.id }),
+				vscode.ViewColumn.Beside,
+				{
+					enableScripts: true,
+					retainContextWhenHidden: true,
+					localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "media")],
 				}
-			},
-			undefined,
-			undefined
-		);
-	}
-
-	/**
-	 * Update webview content
-	 */
-	private updateWebviewContent(): void {
-		if (!this.webviewPanel || !this.currentQuery) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t("sqlResult.webviewNotInitialized")
 			);
-			return;
-		}
 
-		this.webviewPanel.webview.html = this.getWebviewContent();
+			// Set webview content
+			this.updateWebviewContent();
+
+			// Handle panel close
+			this.webviewPanel.onDidDispose(() => {
+				this.webviewPanel = undefined;
+				// Clear caches when panel is closed
+				this.searchRegexCache.clear();
+			});
+
+			// Handle messages from webview with debouncing for frequent events
+			const debouncedSearch = this.performanceUtils.debounce((message: any) => {
+				this.processWebviewMessage(message);
+			}, 300);
+
+			this.webviewPanel.webview.onDidReceiveMessage(
+				(message) => {
+					// Use debounced processing for search and other frequent events
+					if (message.command === 'search' || message.command === 'copyToClipboard' || message.command === 'copyFormattedToClipboard') {
+						debouncedSearch(message);
+					} else {
+						// Process other commands immediately
+						this.processWebviewMessage(message);
+					}
+				},
+				undefined,
+				undefined
+			);
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.createWebviewPanel', Date.now() - startTime);
+		}
 	}
 
 	/**
-	 * Generate webview content
+	 * Process messages from webview
+	 */
+	private processWebviewMessage(message: any): void {
+		const startTime = Date.now();
+		try {
+			switch (message.command) {
+				case "copyToClipboard":
+					this.copySQLToClipboard(message.text);
+					break;
+				case "copyFormattedToClipboard":
+					this.copyFormattedSQLToClipboard(message.text);
+					break;
+				case "refresh":
+					this.refreshData();
+					break;
+				case "search":
+					this.searchSQL(message.text);
+					break;
+				case "clearSearch":
+					this.clearSearch();
+					break;
+			}
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.processWebviewMessage', Date.now() - startTime);
+		}
+	}
+
+	/**
+	 * Update webview content with caching
+	 */	
+	// updateWebviewContent is initialized in the constructor
+
+	/**
+	 * Generate webview content with caching for SQL formatting and highlighting
 	 */
 	private getWebviewContent(): string {
-		if (!this.currentQuery) {
-			return vscode.l10n.t("sqlResult.processingError");
-		}
+		const startTime = Date.now();
+		try {
+			if (!this.currentQuery) {
+				return vscode.l10n.t("sqlResult.processingError");
+			}
 
-		const sqlQuery = this.currentQuery.fullSQL || "";
-		const formattedSQL = formatSQL(sqlQuery);
-		const highlightedSQL = highlightSQL(formattedSQL, this.databaseType);
+			const sqlQuery = this.currentQuery.fullSQL || "";
+			
+			// Use cached formatted SQL if available
+			let formattedSQL = this.formattedSQLCache.get(sqlQuery);
+			if (!formattedSQL) {
+				formattedSQL = formatSQL(sqlQuery);
+				this.formattedSQLCache.set(sqlQuery, formattedSQL);
+			}
 
-		// Create nonce for script security
-		const nonce = this.getNonce();
+			// Use cached highlighted SQL if available
+			const cacheKey = `${sqlQuery}_${this.databaseType}`;
+			let highlightedSQL = this.highlightedSQLCache.get(cacheKey);
+			if (!highlightedSQL) {
+				highlightedSQL = highlightSQL(formattedSQL, this.databaseType);
+				this.highlightedSQLCache.set(cacheKey, highlightedSQL);
+			}
 
-		// Get media file URIs
-		const codiconsUri = this.webviewPanel?.webview.asWebviewUri(
-			vscode.Uri.joinPath(this.extensionUri, "media", "codicons.css")
-		);
+			// Create nonce for script security
+			const nonce = this.getNonce();
 
-		const stylesUri = this.webviewPanel?.webview.asWebviewUri(
-			vscode.Uri.joinPath(this.extensionUri, "media", "styles.css")
-		);
+			// Get media file URIs
+			const codiconsUri = this.webviewPanel?.webview.asWebviewUri(
+				vscode.Uri.joinPath(this.extensionUri, "media", "codicons.css")
+			);
 
-		const scriptUri = this.webviewPanel?.webview.asWebviewUri(
-			vscode.Uri.joinPath(this.extensionUri, "media", "script.js")
-		);
+			const stylesUri = this.webviewPanel?.webview.asWebviewUri(
+				vscode.Uri.joinPath(this.extensionUri, "media", "styles.css")
+			);
 
-		return `
+			const scriptUri = this.webviewPanel?.webview.asWebviewUri(
+				vscode.Uri.joinPath(this.extensionUri, "media", "script.js")
+			);
+
+			return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -161,91 +231,86 @@ export class SQLResultDisplayer {
             <div class="header-info">
                 <span class="query-id">ID: ${this.currentQuery.id}</span>
                 <span class="database-type">${vscode.l10n.t(
-									"sqlResult.databaseType"
-								)}: ${this.databaseType}</span>
-                ${
-									this.currentQuery.executedTime
-										? `<span class="execution-time">${vscode.l10n.t(
-												"sqlResult.executionTime"
-										  )}: ${this.currentQuery.executedTime}ms</span>`
-										: ""
-								}
+					"sqlResult.databaseType"
+				)}: ${this.databaseType}</span>
+                ${this.currentQuery.executedTime
+					? `<span class="execution-time">${vscode.l10n.t(
+							"sqlResult.executionTime"
+						  )}: ${this.currentQuery.executedTime}ms</span>`
+					: ""}
             </div>
         </div>
         
         <div class="toolbar">
             <div class="search-container">
                 <input type="text" id="search-input" placeholder="${vscode.l10n.t(
-									"sqlResult.searchPlaceholder"
-								)}">
+					"sqlResult.searchPlaceholder"
+				)}">
                 <button id="search-button" class="icon-button" title="${vscode.l10n.t(
-									"sqlResult.searchButton"
-								)}">
+					"sqlResult.searchButton"
+				)}">
                     <span class="codicon codicon-search"></span>
                 </button>
                 <button id="clear-search-button" class="icon-button" title="${vscode.l10n.t(
-									"sqlResult.clearSearchButton"
-								)}">
+					"sqlResult.clearSearchButton"
+				)}">
                     <span class="codicon codicon-clear-all"></span>
                 </button>
             </div>
             
             <div class="actions">
                 <button id="copy-button" class="action-button" title="${vscode.l10n.t(
-									"sqlResult.copySql"
-								)}">
+					"sqlResult.copySql"
+				)}">
                     <span class="codicon codicon-copy"></span>
                     ${vscode.l10n.t("sqlResult.copyButton")}
                 </button>
                 <button id="copy-formatted-button" class="action-button" title="${vscode.l10n.t(
-									"sqlResult.copyFormattedSql"
-								)}">
+					"sqlResult.copyFormattedSql"
+				)}">
                     <span class="codicon codicon-format-code"></span>
                     ${vscode.l10n.t("sqlResult.copyFormattedButton")}
                 </button>
                 <button id="refresh-button" class="action-button" title="${vscode.l10n.t(
-									"sqlResult.refresh"
-								)}">
+					"sqlResult.refresh"
+				)}">
                     <span class="codicon codicon-refresh"></span>
                     ${vscode.l10n.t("sqlResult.refreshButton")}
                 </button>
             </div>
         </div>
         
-        ${
-					this.currentQuery.parameters &&
-					this.currentQuery.parameters.length > 0
-						? `
+        ${this.currentQuery.parameters && this.currentQuery.parameters.length > 0
+				? `
         <div class="parameters-section">
             <h2>${vscode.l10n.t("sqlResult.parameters")}</h2>
             <div class="parameters-list">
                 ${this.currentQuery.parameters
-									.map(
-										(param, index) => `
+						.map(
+							(param, index) => `
                 <div class="parameter-item">
                     <span class="parameter-name">${vscode.l10n.t(
-											"sqlResult.parameter"
-										)} ${index + 1}:</span>
+								"sqlResult.parameter"
+							)} ${index + 1}:</span>
                     <span class="parameter-value">${param.value}</span>
                     <span class="parameter-type">(${param.type})</span>
                 </div>
                 `
-									)
-									.join("")}
+						)
+						.join("")}
             </div>
         </div>
         `
-						: ""
-				}
+				: ""}
         
         <div class="sql-content">
             <div class="tabs">
                 <button class="tab-button active" data-tab="formatted">${vscode.l10n.t(
-									"sqlResult.formattedTab"
-								)}</button>
+					"sqlResult.formattedTab"
+				)}</button>
                 <button class="tab-button" data-tab="original">${vscode.l10n.t(
-									"sqlResult.originalTab"
-								)}</button>
+					"sqlResult.originalTab"
+				)}</button>
             </div>
             
             <div class="tab-content active" id="formatted-content">
@@ -257,17 +322,14 @@ export class SQLResultDisplayer {
             </div>
         </div>
         
-        ${
-					this.currentQuery.executedTime &&
-					this.currentQuery.executedTime > 1000
-						? `
+        ${this.currentQuery.executedTime && this.currentQuery.executedTime > 1000
+				? `
         <div class="performance-warning">
             <span class="warning-icon">⚠️</span>
             <span>${vscode.l10n.t("sqlResult.performanceWarning")}</span>
         </div>
         `
-						: ""
-				}
+				: ""}
     </div>
     
     <script nonce="${nonce}" src="${scriptUri}"></script>
@@ -337,6 +399,9 @@ export class SQLResultDisplayer {
 </body>
 </html>
 `;
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.getWebviewContent', Date.now() - startTime);
+		}
 	}
 
 	/**
@@ -344,8 +409,7 @@ export class SQLResultDisplayer {
 	 */
 	private getNonce(): string {
 		let text = "";
-		const possible =
-			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+		const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 		for (let i = 0; i < 32; i++) {
 			text += possible.charAt(Math.floor(Math.random() * possible.length));
@@ -355,9 +419,10 @@ export class SQLResultDisplayer {
 	}
 
 	/**
-	 * Copy SQL to clipboard
+	 * Copy SQL to clipboard with error handling
 	 */
 	private async copySQLToClipboard(text: string): Promise<void> {
+		const startTime = Date.now();
 		try {
 			await vscode.env.clipboard.writeText(text);
 			vscode.window.showInformationMessage(
@@ -366,13 +431,16 @@ export class SQLResultDisplayer {
 		} catch (error: any) {
 			console.error("Failed to copy SQL:", error);
 			vscode.window.showErrorMessage(vscode.l10n.t("sqlResult.copyFailed"));
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.copySQLToClipboard', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Copy formatted SQL to clipboard
+	 * Copy formatted SQL to clipboard with error handling
 	 */
 	private async copyFormattedSQLToClipboard(text: string): Promise<void> {
+		const startTime = Date.now();
 		try {
 			await vscode.env.clipboard.writeText(text);
 			vscode.window.showInformationMessage(
@@ -381,27 +449,50 @@ export class SQLResultDisplayer {
 		} catch (error: any) {
 			console.error("Failed to copy formatted SQL:", error);
 			vscode.window.showErrorMessage(vscode.l10n.t("sqlResult.copyFailed"));
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.copyFormattedSQLToClipboard', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Refresh data
+	 * Refresh data with caching
 	 */
 	private refreshData(): void {
-		if (this.webviewPanel) {
-			this.updateWebviewContent();
-			vscode.window.showInformationMessage(
-				vscode.l10n.t("sqlResult.dataRefreshed")
-			);
+		const startTime = Date.now();
+		try {
+			if (this.webviewPanel) {
+				// Clear caches to force refresh
+				this.clearCaches();
+				this.updateWebviewContent();
+				vscode.window.showInformationMessage(
+					vscode.l10n.t("sqlResult.dataRefreshed")
+				);
+			}
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.refreshData', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Search SQL content
+	 * Search SQL content with regex caching
 	 */
 	private searchSQL(text: string): void {
-		if (this.webviewPanel) {
-			this.webviewPanel.webview.postMessage({ command: "search", text });
+		const startTime = Date.now();
+		try {
+			if (this.webviewPanel) {
+				// Cache regex for better performance with repeated searches
+				if (!this.searchRegexCache.has(text)) {
+					try {
+						const regex = new RegExp(text, 'gi');
+						this.searchRegexCache.set(text, regex);
+					} catch (e) {
+						console.error('Invalid search regex:', e);
+					}
+				}
+				this.webviewPanel.webview.postMessage({ command: "search", text });
+			}
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.searchSQL', Date.now() - startTime);
 		}
 	}
 
@@ -409,48 +500,95 @@ export class SQLResultDisplayer {
 	 * Clear search
 	 */
 	private clearSearch(): void {
-		if (this.webviewPanel) {
-			this.webviewPanel.webview.postMessage({ command: "clearSearch" });
+		const startTime = Date.now();
+		try {
+			if (this.webviewPanel) {
+				this.webviewPanel.webview.postMessage({ command: "clearSearch" });
+			}
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.clearSearch', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Select history item
+	 * Select history item with caching
 	 */
 	public selectHistoryItem(query: SQLQuery): void {
-		this.currentQuery = query;
-		this.updateWebviewContent();
-		vscode.window.showInformationMessage(
-			vscode.l10n.t("sqlResult.historyItemSelected")
-		);
+		const startTime = Date.now();
+		try {
+			this.currentQuery = query;
+			// Clear caches for the new query
+			this.clearCaches();
+			this.updateWebviewContent();
+			vscode.window.showInformationMessage(
+				vscode.l10n.t("sqlResult.historyItemSelected")
+			);
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.selectHistoryItem', Date.now() - startTime);
+		}
 	}
 
 	/**
 	 * Switch database type
 	 */
 	public switchTab(tabId: string): void {
-		if (this.webviewPanel) {
-			this.webviewPanel.webview.postMessage({ command: "switchTab", tabId });
-			vscode.window.showInformationMessage(
-				vscode.l10n.t("sqlResult.tabSwitched")
-			);
+		const startTime = Date.now();
+		try {
+			if (this.webviewPanel) {
+				this.webviewPanel.webview.postMessage({ command: "switchTab", tabId });
+				vscode.window.showInformationMessage(
+					vscode.l10n.t("sqlResult.tabSwitched")
+				);
+			}
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.switchTab', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Set database type
+	 * Set database type and clear relevant caches
 	 */
 	public setDatabaseType(databaseType: DatabaseType): void {
-		this.databaseType = databaseType;
-		this.updateWebviewContent();
+		const startTime = Date.now();
+		try {
+			this.databaseType = databaseType;
+			// Clear highlighted SQL cache as it depends on database type
+			this.highlightedSQLCache.clear();
+			this.updateWebviewContent();
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.setDatabaseType', Date.now() - startTime);
+		}
 	}
 
 	/**
-	 * Dispose resources
+	 * Clear all caches
+	 */
+	private clearCaches(): void {
+		this.formattedSQLCache.clear();
+		this.highlightedSQLCache.clear();
+		this.searchRegexCache.clear();
+	}
+
+	/**
+	 * Public method to clear all caches (for extension use)
+	 */
+	public clearAllCaches(): void {
+		this.clearCaches();
+	}
+
+	/**
+	 * Dispose resources and clear caches
 	 */
 	public dispose(): void {
-		if (this.webviewPanel) {
-			this.webviewPanel.dispose();
+		const startTime = Date.now();
+		try {
+			if (this.webviewPanel) {
+				this.webviewPanel.dispose();
+			}
+			// Clear all caches
+			this.clearCaches();
+		} finally {
+			this.performanceUtils.recordExecutionTime('SQLResultDisplayer.dispose', Date.now() - startTime);
 		}
 	}
 }
