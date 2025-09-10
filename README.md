@@ -1,5 +1,4 @@
-![mybatis](static/icon/mybatis-helper-icon.svg)
-[![star](https://gitee.com/Greenplumwine/vscode-mybatis-helper/badge/star.svg?theme=dark)](https://gitee.com/Greenplumwine/vscode-mybatis-helper/stargazers) [![GitHub stars](https://img.shields.io/github/stars/Greenplumwine/vscode-mybatis-helper.svg)](https://github.com/Greenplumwine/vscode-mybatis-helper)
+![mybatis](static/icon/mybatis-helper-icon.png)
 
 # MyBatis Helper
 
