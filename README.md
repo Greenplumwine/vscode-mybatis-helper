@@ -36,6 +36,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 跳转节流控制：防止频繁跳转操作导致性能问题
 - XML 命名空间验证：确保 XML 文件与 Mapper 接口正确关联
 - 方法名提取与位置定位：精确定位到对应的方法位置
+- **精确方法跳转**：支持在跳转时精确定位到对应的具体方法，而仅仅是打开文件
 
 ### 3. CodeLens 支持
 
@@ -93,14 +94,14 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 1. 将光标放在 Java Mapper 接口的方法名或接口名上
 2. 按下快捷键 `Alt+X`（Windows/Linux）或 `Option+X`（macOS）
 3. 或者，右键点击并选择 "跳转到 XML 文件" 上下文菜单选项
-4. 插件会自动打开对应的 XML 文件
+4. 插件会自动打开对应的 XML 文件，并定位到对应的 SQL 语句方法
 
 #### 从 XML 文件跳转到 Java Mapper 接口
 
 1. 将光标放在 XML 文件的 SQL 语句的 id 属性值上
 2. 按下快捷键 `Alt+M`（Windows/Linux）或 `Option+M`（macOS）
 3. 或者，右键点击并选择 "跳转到 Mapper 接口" 上下文菜单选项
-4. 插件会自动打开对应的 Java Mapper 接口文件
+4. 插件会自动打开对应的 Java Mapper 接口文件，并定位到对应的方法定义
 
 #### 使用命令面板
 
@@ -113,7 +114,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 1. 确保在 VSCode 设置中启用了 CodeLens 功能（默认已启用）
 2. 打开 Java Mapper 接口文件
 3. 在方法定义上方会出现 "跳转到 XML" 的 CodeLens
-4. 点击该 CodeLens 直接跳转到对应的 XML 文件
+4. 点击该 CodeLens 直接跳转到对应的 XML 文件中的 SQL 语句
 
 ### 快捷键说明
 
