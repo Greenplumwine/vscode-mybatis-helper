@@ -6,7 +6,7 @@
 
 ## 项目概述
 
-MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。插件采用直接启动机制，确保在 VSCode 启动完成后自动激活，无需依赖命令触发。
+MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。插件采用 `onStartupFinished` 机制激活，确保在 VSCode 启动完成后自动初始化。
 
 ## 功能特点
 
@@ -20,6 +20,8 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 自动保存 SQL 历史记录，方便回溯查询
 - 支持一键清空 SQL 历史记录
 - 支持用户自定义日志格式配置，以适应不同的日志输出模式
+- 日志批处理机制：提高对大量日志的处理效率
+- 批量处理延迟配置：可配置的批量处理延迟时间
 
 ### 2. 文件快速跳转
 
@@ -31,7 +33,9 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 自动刷新映射缓存，确保文件位置变更时仍能正确跳转
 - 按需激活：仅在检测到 Java 项目时才开始执行映射关系处理逻辑
 - 精确文件查找：通过针对特定文件的精确查找替代全文件夹扫描，提高跳转效率
-- 缓存存储机制：保存文件查找结果，确保后续相同文件的跳转能够直接使用缓存结果
+- 跳转节流控制：防止频繁跳转操作导致性能问题
+- XML 命名空间验证：确保 XML 文件与 Mapper 接口正确关联
+- 方法名提取与位置定位：精确定位到对应的方法位置
 
 ### 3. CodeLens 支持
 
@@ -43,8 +47,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 
 ### 4. 国际化支持
 
-- 支持多语言界面，能够根据 VSCode 的语言设置自动切换显示语言
-- 提供配置选项允许用户自定义界面语言
+- 支持多语言界面，能够根据 VSCode 的语言设置自动切换显示语言（支持英文和中文）
 
 ### 5. 用户友好的界面
 
@@ -53,6 +56,9 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 编辑器右键菜单深度集成，触手可及
 - 实时状态反馈，操作结果即时可见
 - 符合 VSCode 设计规范的用户体验，无缝融入开发环境
+- SQL 结果可视化显示：提供 Webview 面板展示格式化和高亮的 SQL 结果
+- Webview 交互功能：包含复制按钮、刷新按钮、搜索功能等
+- 随机 nonce 生成：为 Webview 提供安全保障
 
 ## 安装方法
 
@@ -72,59 +78,42 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 
 ## 使用指南
 
-### 控制台日志拦截
+### 1. 日志拦截与 SQL 转换
 
-#### 启用和使用日志拦截
+1. 确保在 VSCode 设置中启用了日志拦截器功能（默认已启用）
+2. 运行你的 MyBatis 应用程序，查看控制台输出
+3. 插件会自动识别并解析 MyBatis 的 SQL 日志
+4. 解析后的 SQL 将通过 Webview 面板进行可视化显示
+5. 你可以一键复制格式化后的 SQL 语句到剪贴板
 
-- **切换日志拦截状态**: 按下 `Alt+L` 快捷键或通过命令面板 (Ctrl+Shift+P / Command+Shift+P) 执行 "MyBatis: 切换日志拦截"
-- **显示 SQL 输出面板**: 通过命令面板执行 "MyBatis: 显示 SQL 输出" 或点击底部状态栏的 "MyBatis SQL" 通道
-- **清空 SQL 历史**: 通过命令面板执行 "MyBatis: 清空 SQL 历史"
+### 2. 文件快速跳转
 
-#### 工作原理与使用场景
+#### 从 Java Mapper 接口跳转到 XML 文件
 
-当您启动调试会话时，插件会自动监控控制台输出，实时捕获并解析 MyBatis 执行的 SQL 语句。解析后的完整 SQL 语句（已填充参数值）会显示在专用的 "MyBatis SQL" 输出通道中，方便您直接复制执行或进行调试分析。
+1. 将光标放在 Java Mapper 接口的方法名或接口名上
+2. 按下快捷键 `Alt+X`（Windows/Linux）或 `Option+X`（macOS）
+3. 或者，右键点击并选择 "跳转到 XML 文件" 上下文菜单选项
+4. 插件会自动打开对应的 XML 文件
 
-这一功能特别适合：
+#### 从 XML 文件跳转到 Java Mapper 接口
 
-- 快速验证生成的 SQL 是否符合预期
-- 调试复杂的参数化查询
-- 分析性能瓶颈，查看 SQL 执行时间
-- 直接复制完整 SQL 在数据库客户端执行测试
+1. 将光标放在 XML 文件的 SQL 语句的 id 属性值上
+2. 按下快捷键 `Alt+M`（Windows/Linux）或 `Option+M`（macOS）
+3. 或者，右键点击并选择 "跳转到 Mapper 接口" 上下文菜单选项
+4. 插件会自动打开对应的 Java Mapper 接口文件
 
-### 文件快速跳转
+#### 使用命令面板
 
-#### 快速跳转操作
+1. 按下 `Ctrl+Shift+P`（Windows/Linux）或 `Command+Shift+P`（macOS）打开命令面板
+2. 输入 "MyBatis" 查看所有可用命令
+3. 选择相应的命令执行操作
 
-- **从 Mapper 接口跳转到 XML 文件**: 在 Java Mapper 接口文件中，按下 `Alt+X` 快捷键、点击 CodeLens 提示或在右键菜单中选择 "MyBatis: 跳转到 XML"
-- **从 XML 文件跳转到 Mapper 接口**: 在 Mapper XML 文件中，按下 `Alt+M` 快捷键、点击 CodeLens 提示或在右键菜单中选择 "MyBatis: 跳转到 Mapper"
-- **刷新映射关系**: 当项目结构变更时，通过命令面板执行 "MyBatis: 刷新映射关系" 以更新文件映射缓存
+### 3. 使用 CodeLens
 
-#### 智能映射机制
-
-插件会自动扫描项目结构，分析 Mapper 接口和 XML 文件之间的关联关系。支持以下映射策略：
-
-- 基于包路径和文件名的匹配
-- 通过 XML 文件中的 namespace 属性关联 Mapper 接口
-- 针对复杂项目结构的智能搜索算法
-- 缓存优化，确保大型项目中也能快速响应
-
-#### 使用场景
-
-这一功能极大提升了开发效率，特别适合：
-
-- 在编写 Mapper 接口后快速查看或编辑对应的 XML 实现
-- 在调试 SQL 问题时，从 XML 文件快速跳转到对应的 Java 接口
-- 在大型项目中快速定位相关文件，避免手动查找
-
-### CodeLens 使用指南
-
-CodeLens 为文件跳转提供了更加直观的交互方式：
-
-- 在 Java Mapper 接口的方法上方，会显示"跳转到 XML"的提示
-- 在 XML 映射文件的 SQL 语句上方，会显示"跳转到 Mapper"的提示
-- 只需点击这些提示，即可快速跳转到对应的文件
-
-您可以通过插件设置启用或禁用 CodeLens 功能。
+1. 确保在 VSCode 设置中启用了 CodeLens 功能（默认已启用）
+2. 打开 Java Mapper 接口文件
+3. 在方法定义上方会出现 "跳转到 XML" 的 CodeLens
+4. 点击该 CodeLens 直接跳转到对应的 XML 文件
 
 ### 快捷键说明
 
@@ -137,29 +126,73 @@ CodeLens 为文件跳转提供了更加直观的交互方式：
 
 ## 支持的数据库
 
-插件支持多种主流数据库的 SQL 语法解析和格式化：
+MyBatis Helper 支持多种主流数据库，每种数据库都有特定的 SQL 语法高亮和格式化规则。您可以在插件设置中选择适合您项目的数据库类型：
 
-- MySQL (5.7+)
-- PostgreSQL (10+)
-- Oracle (12c+)
-- SQL Server (2016+)
-- 达梦数据库 (DM)
-- 人大金仓数据库 (KingbaseES)
-- 其他兼容标准 SQL 的数据库
-
-针对不同数据库，插件会自动调整 SQL 语法处理方式，确保生成的 SQL 语句符合目标数据库的语法规范。
+- MySQL
+- PostgreSQL
+- Oracle
+- SQL Server
+- SQLite
+- DB2
+- H2
+- MariaDB
 
 ## 项目配置
 
-### 插件配置项
+MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需求进行个性化设置：
 
-插件提供了多种配置选项，可通过 VSCode 的设置面板进行调整：
+### 数据库类型
 
-- **mybatisHelper.enableLogInterceptor**: 启用或禁用日志拦截功能
-- **mybatisHelper.enableCodeLens**: 启用或禁用 CodeLens 功能
-- **mybatisHelper.databaseType**: 设置目标数据库类型
-- **mybatisHelper.customLogPattern**: 自定义日志格式匹配模式
-- **mybatisHelper.language**: 自定义插件界面语言
+- 配置项：`mybatis-helper.databaseType`
+- 说明：设置当前项目使用的数据库类型，不同数据库有特定的 SQL 语法高亮和格式化规则
+- 默认值：`mysql`
+- 可选值：`mysql`, `postgresql`, `oracle`, `sqlserver`, `sqlite`, `db2`, `h2`, `mariadb`
+
+### 启用日志拦截器
+
+- 配置项：`mybatis-helper.enableLogInterceptor`
+- 说明：控制是否启用控制台日志拦截功能
+- 默认值：`true`
+
+### 自定义日志格式
+
+- 配置项：`mybatis-helper.customLogPattern`
+- 说明：当内置的日志格式无法满足需求时，可以自定义日志格式正则表达式
+- 默认值：`''` (空字符串，使用内置的日志格式)
+
+### 启用 CodeLens
+
+- 配置项：`mybatis-helper.enableCodeLens`
+- 说明：控制是否启用 CodeLens 功能
+- 默认值：`true`
+
+### SQL 历史记录大小
+
+- 配置项：`mybatis-helper.sqlHistorySize`
+- 说明：控制 SQL 历史记录的最大条目数
+- 默认值：`100`
+
+### 最大缓存大小
+
+- 配置项：`mybatis-helper.maxCacheSize`
+- 说明：控制文件映射缓存的最大条目数
+- 默认值：`1000`
+
+### 批量处理延迟时间
+
+- 配置项：`mybatis-helper.batchProcessDelay`
+- 说明：日志批量处理的延迟时间（毫秒）
+- 默认值：`200`
+
+### 文件打开模式
+
+- 配置项：`mybatis-helper.fileOpenMode`
+- 说明：控制文件跳转时的行为模式
+- 默认值：`useExisting`
+- 可选值：
+  - `useExisting`: 使用已打开的窗口，如果不存在则不拆分窗口
+  - `noSplit`: 始终不拆分窗口
+  - `alwaysSplit`: 始终拆分窗口
 
 ### 日志格式要求
 
@@ -200,6 +233,8 @@ Parameters: 1(Integer)
 - **事件驱动架构**: 采用事件驱动的方式处理用户交互，确保界面响应迅速
 - **按需激活**: 仅在检测到 Java 项目时才完全激活插件功能
 - **精确文件查找**: 通过针对特定文件的精确查找替代全文件夹扫描，显著提高跳转效率
+- **扫描节流控制**: 防止频繁的扫描操作
+- **批量处理机制**: 对日志等数据进行批量处理，提高效率
 
 **性能指标**:
 
@@ -303,4 +338,4 @@ Parameters: 1(Integer)
 
 ---
 
-希望这个插件能帮助您更高效地开发 MyBatis 应用！如有任何问题或建议，请随时在 GitHub 或 Gitee 上提交 Issue 或与我们联系。
+希望这个插件能帮助您更高效地开发 MyBatis 应用！如有任何问题或建议，请随时在 [GitHub](https://github.com/Greenplumwine/vscode-mybatis-helper) 或 [Gitee](https://gitee.com/Greenplumwine/vscode-mybatis-helper) 上提交 Issue 或与我们联系。
