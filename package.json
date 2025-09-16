@@ -2,7 +2,7 @@
   "name": "mybatis-helper",
   "displayName": "Mybatis Helper",
   "description": "%description%",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "Greenplumwine",
   "icon": "static/icon/mybatis-helper-icon.png",
   "repository": {
