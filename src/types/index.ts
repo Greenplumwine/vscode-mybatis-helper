@@ -61,4 +61,12 @@ export interface PluginConfig {
 	showExecutionTime: boolean;
 	batchProcessingDelay?: number;
 	fileOpenMode: FileOpenMode;
+	// 自定义XML目录配置
+	customXmlDirectories?: string[];
+	// 日志输出级别
+	logOutputLevel?: "info" | "debug";
+	// 性能跟踪开关
+	enablePerformanceTracking?: boolean;
+	// SQL格式化选项
+	sqlFormatOptions?: Record<string, any>;
 }

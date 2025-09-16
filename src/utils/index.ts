@@ -10,10 +10,10 @@ export { RegexUtils, PerformanceUtils };
  * @returns PluginConfig object
  */
 export function getPluginConfig(): PluginConfig {
-  const config = vscode.workspace.getConfiguration("mybatisHelper");
+  const config = vscode.workspace.getConfiguration("mybatis-helper");
   return {
     databaseType: config.get<DatabaseType>("databaseType", DatabaseType.MYSQL),
-    enableLogInterceptor: config.get<boolean>("enableLogInterceptor", false),
+    enableLogInterceptor: config.get<boolean>("enableLogInterceptor", true),
     customLogPattern: config.get<string>("customLogPattern", ""),
     maxHistorySize: config.get<number>("maxHistorySize", 100),
     showExecutionTime: config.get<boolean>("showExecutionTime", true),
@@ -21,6 +21,10 @@ export function getPluginConfig(): PluginConfig {
       "fileOpenMode",
       FileOpenMode.USE_EXISTING
     ),
+    customXmlDirectories: config.get<string[]>("customXmlDirectories", []),
+    logOutputLevel: config.get<"info" | "debug"> ("logOutputLevel", "info"),
+    enablePerformanceTracking: config.get<boolean>("enablePerformanceTracking", false),
+    sqlFormatOptions: config.get<Record<string, any>>("sqlFormatOptions", {})
   };
 }
 

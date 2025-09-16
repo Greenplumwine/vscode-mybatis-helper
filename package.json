@@ -65,91 +65,82 @@
       {
         "command": "mybatis-helper.jumpToXml",
         "key": "alt+x",
-        "description": "%command.jumpToXml.title%",
-        "when": "editorTextFocus && resourceExtname == .java"
+        "when": "editorFocus"
       },
       {
         "command": "mybatis-helper.jumpToMapper",
         "key": "alt+m",
-        "when": "editorTextFocus && resourceExtname == .xml"
-      },
-      {
-        "command": "mybatis-helper.toggleLogInterceptor",
-        "key": "alt+l",
-        "when": "mybatisHelper.isActive"
+        "when": "editorFocus"
       }
     ],
     "menus": {
       "editor/context": [
         {
+          "when": "editorFocus",
           "command": "mybatis-helper.jumpToXml",
-          "group": "navigation@1",
-          "when": "editorTextFocus && resourceExtname == .java && mybatisHelper.isJavaProject"
+          "group": "navigation@1"
         },
         {
+          "when": "editorFocus",
           "command": "mybatis-helper.jumpToMapper",
-          "group": "navigation@1",
-          "when": "editorTextFocus && resourceExtname == .xml && mybatisHelper.isJavaProject"
+          "group": "navigation@2"
         }
       ]
     },
     "configuration": {
       "type": "object",
-      "title": "Mybatis Helper",
+      "title": "MyBatis Helper",
       "properties": {
-        "mybatisHelper.databaseType": {
+        "mybatis-helper.databaseType": {
           "type": "string",
-          "enum": [
-            "mysql",
-            "postgresql",
-            "oracle",
-            "sqlserver",
-            "dm",
-            "kingbasees",
-            "other"
-          ],
           "default": "mysql",
-          "description": "%configuration.databaseType.description%"
+          "description": "Database type for SQL formatting (mysql, oracle, sqlserver, postgresql)"
         },
-        "mybatisHelper.enableLogInterceptor": {
+        "mybatis-helper.enableLogInterceptor": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.enableLogInterceptor.description%"
+          "description": "Enable SQL log interceptor"
         },
-        "mybatisHelper.customLogPattern": {
-          "type": "string",
-          "default": "",
-          "description": "%configuration.customLogPattern.description%"
-        },
-        "mybatisHelper.maxHistorySize": {
-          "type": "number",
-          "default": 100,
-          "description": "%configuration.maxHistorySize.description%"
-        },
-        "mybatisHelper.showExecutionTime": {
+        "mybatis-helper.enableCodeLens": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.showExecutionTime.description%"
+          "description": "Enable CodeLens for jumping between Mapper and XML files"
         },
-        "mybatisHelper.batchProcessingDelay": {
-          "type": "number",
-          "default": 100,
-          "description": "%configuration.batchProcessingDelay.description%"
-        },
-        "mybatisHelper.enableCodeLens": {
-          "type": "boolean",
-          "default": true,
-          "description": "%configuration.enableCodeLens.description%"
-        },
-        "mybatisHelper.fileOpenMode": {
+        "mybatis-helper.fileOpenMode": {
           "type": "string",
           "enum": [
             "useExisting",
-            "noSplit",
-            "alwaysSplit"
+            "noSplit"
           ],
           "default": "useExisting",
-          "description": "%configuration.fileOpenMode.description%"
+          "description": "File open mode"
+        },
+        "mybatis-helper.customXmlDirectories": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Custom XML directories to search for mapper files, relative to workspace root"
+        },
+        "mybatis-helper.logOutputLevel": {
+          "type": "string",
+          "enum": [
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Log output level"
+        },
+        "mybatis-helper.enablePerformanceTracking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable performance tracking"
+        },
+        "mybatis-helper.sqlFormatOptions": {
+          "type": "object",
+          "default": {},
+          "description": "SQL format options"
         }
       }
     }

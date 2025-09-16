@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
+import * as syncFs from 'fs';
 import * as path from 'path';
 import { getPluginConfig } from '../utils';
 import { PerformanceUtils } from '../utils/performanceUtils';
@@ -252,8 +253,103 @@ export class FileMapper {
 	}
 
 	/**
+	 * Try to find XML file by quick path heuristics (without scanning all files)
+	 */	
+	private async findXmlByQuickPath(javaFilePath: string): Promise<string | undefined> {
+		const startTime = Date.now();
+		try {
+			// 尝试通过路径对应关系快速找到XML文件
+			const dirName = path.dirname(javaFilePath);
+			const fileName = path.basename(javaFilePath, '.java');
+			// 增强的路径模式，支持更多常见的项目结构
+			const possibleXmlPaths = [
+				// 同一目录
+				path.join(dirName, fileName + '.xml'),
+				// 同一目录下的mapper子目录
+				path.join(dirName, 'mapper', fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources/mapper
+				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'mapper', fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources根目录
+				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources/xml目录
+				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'xml', fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources/com/...目录（与Java包路径对应）
+				path.join(this.getResourcesPathFromJavaPath(javaFilePath), fileName + '.xml'),
+				// 上层目录的resources目录
+				path.join(path.dirname(dirName), 'resources', 'mapper', fileName + '.xml'),
+				path.join(path.dirname(dirName), 'resources', fileName + '.xml'),
+				path.join(path.dirname(dirName), 'resources', 'xml', fileName + '.xml'),
+				// 上层目录的xml目录
+				path.join(path.dirname(dirName), 'xml', fileName + '.xml'),
+				// 项目根目录的xml目录
+				path.join(this.getProjectRoot(javaFilePath), 'xml', fileName + '.xml'),
+				path.join(this.getProjectRoot(javaFilePath), 'resources', 'xml', fileName + '.xml')
+			];
+
+			// 检查这些可能的路径是否存在
+			for (const xmlPath of possibleXmlPaths) {
+				if (await this.fileUtils.fileExists(xmlPath)) {
+					return xmlPath;
+				}
+			}
+
+			return undefined;
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.findXmlByQuickPath', Date.now() - startTime);
+		}
+	}
+
+	/**
+	 * Get possible XML paths for a given Java file
+	 */	
+	private async getPossibleXmlPaths(javaFilePath: string): Promise<string[]> {
+		const startTime = Date.now();
+		try {
+			// 生成可能的XML路径
+			const dirName = path.dirname(javaFilePath);
+			const fileName = path.basename(javaFilePath, '.java');
+			const possiblePaths = [
+				// 同一目录
+				path.join(dirName, fileName + '.xml'),
+				// 同一目录下的mapper子目录
+				path.join(dirName, 'mapper', fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources/mapper
+				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'mapper', fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources根目录
+				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources/xml目录
+				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'xml', fileName + '.xml'),
+				// Maven/Gradle标准结构 - resources/com/...目录（与Java包路径对应）
+				path.join(this.getResourcesPathFromJavaPath(javaFilePath), fileName + '.xml'),
+				// 上层目录的resources目录
+				path.join(path.dirname(dirName), 'resources', 'mapper', fileName + '.xml'),
+				path.join(path.dirname(dirName), 'resources', fileName + '.xml'),
+				path.join(path.dirname(dirName), 'resources', 'xml', fileName + '.xml'),
+				// 上层目录的xml目录
+				path.join(path.dirname(dirName), 'xml', fileName + '.xml'),
+				// 项目根目录的xml目录
+				path.join(this.getProjectRoot(javaFilePath), 'xml', fileName + '.xml'),
+				path.join(this.getProjectRoot(javaFilePath), 'resources', 'xml', fileName + '.xml')
+			];
+			// 过滤掉不存在的文件
+			const existingPaths: string[] = [];
+			for (const xmlPath of possiblePaths) {
+				if (await this.fileUtils.fileExists(xmlPath)) {
+					existingPaths.push(xmlPath);
+				}
+			}
+			return existingPaths;
+		} catch (error) {
+			console.error('Error getting possible XML paths:', error);
+			return [];
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.getPossibleXmlPaths', Date.now() - startTime);
+		}
+	}
+
+	/**
 	 * Find XML file for a Mapper interface
-	 */
+	 */	
 	private async findXmlForMapper(
 		javaFilePath: string,
 		xmlFiles: vscode.Uri[]
@@ -269,22 +365,42 @@ export class FileMapper {
 			// Get class name from file path
 			const fileName = path.basename(javaFilePath, '.java');
 
-			// Priority 1: Check XML files in mapper/mappers directories first
-			const mapperDirXmlFiles = xmlFiles.filter(
-				(xmlFile) =>
-					xmlFile.fsPath.includes('/mapper/') ||
-					xmlFile.fsPath.includes('/mappers/')
+			// 获取Java包名
+			const javaPackage = await this.fileUtils.parseJavaPackage(javaFilePath);
+			const fullClassName = javaPackage ? `${javaPackage}.${fileName}` : fileName;
+
+			// 增强的目录搜索策略
+			// Priority 1: 检查用户配置的XML目录（如果有）
+			const config = getPluginConfig();
+			const customXmlDirs = config.customXmlDirectories || [];
+			for (const customDir of customXmlDirs) {
+				for (const workspaceFolder of vscode.workspace.workspaceFolders || []) {
+					const customDirPath = path.join(workspaceFolder.uri.fsPath, customDir);
+					if (await this.fileUtils.fileExists(customDirPath)) {
+						const possibleXmlPath = path.join(customDirPath, fileName + '.xml');
+						if (await this.fileUtils.fileExists(possibleXmlPath)) {
+							const namespace = await this.fileUtils.parseXmlNamespace(possibleXmlPath);
+							if (!namespace || namespace === fullClassName) {
+								return possibleXmlPath;
+							}
+						}
+					}
+				}
+			}
+
+			// Priority 2: Check XML files in common mapper directories first
+			const commonXmlDirPatterns = ['/mapper/', '/mappers/', '/xml/', '/dao/', '/mybatis/'];
+			const priorityDirXmlFiles = xmlFiles.filter(
+				(xmlFile) => commonXmlDirPatterns.some(pattern => xmlFile.fsPath.includes(pattern))
 			);
 
-			// Try to find in mapper/mappers directories first
-			for (const xmlFile of mapperDirXmlFiles) {
+			// Try to find in priority directories first
+			for (const xmlFile of priorityDirXmlFiles) {
 				const xmlFileName = path.basename(xmlFile.fsPath, '.xml');
 				if (xmlFileName === fileName || xmlFileName === fileName + 'Mapper') {
-					// 使用缓存的正则表达式
 					const namespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
 					if (namespace) {
-						const javaPackage = await this.fileUtils.parseJavaPackage(javaFilePath);
-						if (javaPackage && namespace === javaPackage + '.' + fileName) {
+						if (namespace === fullClassName) {
 							return xmlFile.fsPath;
 						}
 					} else {
@@ -294,16 +410,37 @@ export class FileMapper {
 				}
 			}
 
-			// 直接处理文件列表
+			// Priority 3: 基于包名的智能查找
+			if (javaPackage) {
+				// 将包名转换为目录路径
+				const packagePath = javaPackage.replace(/\./g, path.sep);
+				// 搜索与Java包路径对应的XML文件
+				for (const xmlFile of xmlFiles) {
+					const xmlFilePath = xmlFile.fsPath;
+					const xmlFileName = path.basename(xmlFilePath, '.xml');
+					// 检查文件名匹配和路径是否包含包路径
+					if ((xmlFileName === fileName || xmlFileName === fileName + 'Mapper') && 
+						xmlFilePath.includes(packagePath)) {
+						const namespace = await this.fileUtils.parseXmlNamespace(xmlFilePath);
+						if (namespace === fullClassName) {
+							return xmlFilePath;
+						}
+					}
+				}
+			}
+
+			// Priority 4: 直接处理剩余的文件列表
 			let result: string | undefined;
-			for (const xmlFile of xmlFiles.filter(f => !f.fsPath.includes('/mapper/') && !f.fsPath.includes('/mappers/'))) {
+			for (const xmlFile of xmlFiles.filter(f => 
+				!commonXmlDirPatterns.some(pattern => f.fsPath.includes(pattern)) &&
+				(!javaPackage || !f.fsPath.includes(javaPackage.replace(/\./g, path.sep)))
+			)) {
 				const xmlFileName = path.basename(xmlFile.fsPath, '.xml');
 				if (xmlFileName === fileName || xmlFileName === fileName + 'Mapper') {
 					// Use namespace verification
 					const namespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
 					if (namespace) {
-						const javaPackage = await this.fileUtils.parseJavaPackage(javaFilePath);
-						if (javaPackage && namespace === javaPackage + '.' + fileName) {
+						if (namespace === fullClassName) {
 							result = xmlFile.fsPath;
 							break;
 						}
@@ -324,70 +461,96 @@ export class FileMapper {
 	}
 
 	/**
-	 * Try to find XML file by quick path heuristics (without scanning all files)
-	 */
-	private async findXmlByQuickPath(javaFilePath: string): Promise<string | undefined> {
+	 * 搜索XML文件的命名空间
+	 */	
+	private async searchXmlByNamespace(namespace: string): Promise<string | undefined> {
 		const startTime = Date.now();
 		try {
-			// 尝试通过路径对应关系快速找到XML文件
-			const dirName = path.dirname(javaFilePath);
-			const fileName = path.basename(javaFilePath, '.java');
-			const possibleXmlPaths = [
-				path.join(dirName, fileName + '.xml'),
-				path.join(dirName, 'mapper', fileName + '.xml'),
-				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'mapper', fileName + '.xml'),
-				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), fileName + '.xml')
+			// 提取类名和包名
+			const className = namespace.substring(namespace.lastIndexOf('.') + 1);
+			const packageName = namespace.substring(0, namespace.lastIndexOf('.'));
+			const packagePath = packageName.replace(/\./g, path.sep);
+
+			// 优先搜索常见的XML目录和与包路径相关的目录
+			const searchPatterns = [
+				`{**/mapper/**/*.xml,**/mappers/**/*.xml,**/xml/**/*.xml,**/dao/**/*.xml,**/mybatis/**/*.xml}`,
+				`**/${packagePath}/**/*.xml`,
+				`**/${className}.xml`,
+				`**/${className}Mapper.xml`,
+				`**/*.xml`
 			];
 
-			// 检查这些可能的路径是否存在
-			for (const xmlPath of possibleXmlPaths) {
-				if (await this.fileUtils.fileExists(xmlPath)) {
-					return xmlPath;
+			// 按优先级搜索
+			for (const pattern of searchPatterns) {
+				const xmlFiles = await vscode.workspace.findFiles(pattern);
+				for (const xmlFile of xmlFiles) {
+					const fileNamespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
+					if (fileNamespace === namespace) {
+						return xmlFile.fsPath;
+					}
 				}
 			}
 
 			return undefined;
+		} catch (error) {
+			console.error('Error searching XML by namespace:', error);
+			return undefined;
 		} finally {
-			this.performanceUtils.recordExecutionTime('FileMapper.findXmlByQuickPath', Date.now() - startTime);
+			this.performanceUtils.recordExecutionTime('FileMapper.searchXmlByNamespace', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Get possible XML paths for a given Java file
-	 */
-	private async getPossibleXmlPaths(javaFilePath: string): Promise<string[]> {
-		const startTime = Date.now();
-		try {
-			// 生成可能的XML路径
-			const dirName = path.dirname(javaFilePath);
-			const fileName = path.basename(javaFilePath, '.java');
-			const possiblePaths = [
-				path.join(dirName, fileName + '.xml'),
-				path.join(dirName, 'mapper', fileName + '.xml'),
-				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'mapper', fileName + '.xml'),
-				path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), fileName + '.xml'),
-				path.join(path.dirname(dirName), 'resources', 'mapper', fileName + '.xml'),
-				path.join(path.dirname(dirName), 'resources', fileName + '.xml')
-			];
-			// 过滤掉不存在的文件
-			const existingPaths: string[] = [];
-			for (const xmlPath of possiblePaths) {
-				if (await this.fileUtils.fileExists(xmlPath)) {
-					existingPaths.push(xmlPath);
+	 * 获取与Java文件对应的resources路径（保留包路径结构）
+	 */	private getResourcesPathFromJavaPath(javaFilePath: string): string {
+		// 尝试多种常见的项目结构
+		const patterns = [
+			// Maven/Gradle标准结构
+			{ java: /java(\\|\/)main(\\|\/)java/, resources: 'java$1main$1resources' },
+			// 简单项目结构
+			{ java: /src(\\|\/)main(\\|\/)java/, resources: 'src$1main$1resources' },
+			{ java: /src(\\|\/)java/, resources: 'src$1resources' },
+			{ java: /java/, resources: 'resources' }
+		];
+
+		for (const pattern of patterns) {
+			const replacedPath = javaFilePath.replace(pattern.java, pattern.resources);
+			if (replacedPath !== javaFilePath) {
+				return path.dirname(replacedPath);
+			}
+		}
+
+		// 默认返回同级目录
+		return path.dirname(javaFilePath);
+	}
+
+	/**
+	 * 获取项目根目录
+	 */	private getProjectRoot(filePath: string): string {
+		// 从文件路径向上查找项目根目录标识（如pom.xml、build.gradle等）
+		let currentDir = path.dirname(filePath);
+		const rootMarkers = ['pom.xml', 'build.gradle', 'build.gradle.kts', 'package.json', '.git'];
+
+		while (currentDir !== path.parse(currentDir).root) {
+			for (const marker of rootMarkers) {
+				try {
+					// 同步检查文件是否存在
+					syncFs.accessSync(path.join(currentDir, marker));
+					return currentDir;
+				} catch {
+					// 文件不存在，继续检查下一个
 				}
 			}
-			return existingPaths;
-		} catch (error) {
-			console.error('Error getting possible XML paths:', error);
-			return [];
-		} finally {
-			this.performanceUtils.recordExecutionTime('FileMapper.getPossibleXmlPaths', Date.now() - startTime);
+			currentDir = path.dirname(currentDir);
 		}
+
+		// 如果找不到项目根目录，返回当前文件的目录
+		return path.dirname(filePath);
 	}
 
 	/**
 	 * Find Java file by class name
-	 */
+	 */	
 	private async findJavaFileByClassName(className: string): Promise<string | undefined> {
 		const startTime = Date.now();
 		try {
@@ -405,50 +568,8 @@ export class FileMapper {
 	}
 
 	/**
-	 * Search XML files by namespace
-	 */
-	private async searchXmlByNamespace(namespace: string): Promise<string | undefined> {
-		const startTime = Date.now();
-		try {
-			// 优先搜索mapper/mappers目录
-			const mapperXmlFiles = await vscode.workspace.findFiles(
-				'{**/mapper/**/*.xml,**/mappers/**/*.xml}'
-			);
-
-			// 直接处理文件列表
-			let result: string | undefined;
-			for (const xmlFile of mapperXmlFiles) {
-				const fileNamespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
-				if (fileNamespace === namespace) {
-					result = xmlFile.fsPath;
-					break;
-				}
-			}
-
-			// 如果在mapper目录没找到，搜索所有XML文件
-			if (!result) {
-				const allXmlFiles = await vscode.workspace.findFiles('**/*.xml');
-				for (const xmlFile of allXmlFiles) {
-					const fileNamespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
-					if (fileNamespace === namespace) {
-						result = xmlFile.fsPath;
-						break;
-					}
-				}
-			}
-
-			return result;
-		} catch (error) {
-			console.error('Error searching XML by namespace:', error);
-			return undefined;
-		} finally {
-			this.performanceUtils.recordExecutionTime('FileMapper.searchXmlByNamespace', Date.now() - startTime);
-		}
-	}
-
-	/**
 	 * Check if we should throttle jump requests
-	 */
+	 */	
 	private shouldThrottleJump(type: string): boolean {
 		const startTime = Date.now();
 		try {
@@ -467,7 +588,7 @@ export class FileMapper {
 
 	/**
 	 * Extract method name or SQL ID from current cursor position
-	 */
+	 */	
 	private extractMethodName(editor: vscode.TextEditor): string | null {
 		const startTime = Date.now();
 		try {
@@ -477,14 +598,14 @@ export class FileMapper {
 
 			if (filePath.endsWith('.java')) {
 				// 使用RegexUtils的缓存正则表达式
-				const methodMatch = this.regexUtils.getRegex("^(public|private|protected|default)?\\s*(static\\s+)?[\\w<>\\[\\]]+(<[^>]+>)?\\s+(\\w+)\\s*\\([^)]*\\)", 
+				const methodMatch = this.regexUtils.getRegex("^(public|private|protected|default)?\s*(static\s+)?[\w<>\[\]]+(<[^>]+>)?\s+(\w+)\s*\([^)]*\)", 
 					""
 				).exec(line);
 				return methodMatch ? methodMatch[4] : null;
 			} else if (filePath.endsWith('.xml')) {
 				// 使用RegexUtils的缓存正则表达式处理单引号和双引号的id属性
 				const idMatch = this.regexUtils.getRegex(
-					`id\\s*=\\s*(?:"([^"]*)"|\\'([^\\']*)\\')`, 
+					`id\s*=\s*(?:"([^\"]*)"|\'([^\']*)\')`, 
 					"i"
 				).exec(line);
 				return idMatch ? (idMatch[1] || idMatch[2]) : null;
@@ -497,7 +618,7 @@ export class FileMapper {
 
 	/**
 	 * Find the position of a method in an XML file
-	 */
+	 */	
 	private async findMethodPosition(xmlPath: string, methodName: string): Promise<vscode.Position | null> {
 		const startTime = Date.now();
 		try {
@@ -542,7 +663,7 @@ export class FileMapper {
 
 	/**
 	 * Jump to a specific file and position
-	 */
+	 */	
 	private async jumpToFile(filePath: string, position?: vscode.Position | null): Promise<void> {
 		const startTime = Date.now();
 		try {
@@ -600,20 +721,19 @@ export class FileMapper {
 			}
 		} catch (error) {
 			console.error('Error jumping to file:', error);
-			vscode.window.showErrorMessage(`Failed to open file: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.jumpToFile', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Find an existing editor for the given URI
-	 */
+	 * Find an existing editor for a file
+	 */	
 	private findExistingEditor(uri: vscode.Uri): vscode.TextEditor | undefined {
 		const startTime = Date.now();
 		try {
-			return vscode.window.visibleTextEditors.find(editor => 
-				editor.document.uri.toString() === uri.toString()
+			return vscode.window.visibleTextEditors.find(
+				(editor) => editor.document.uri.fsPath === uri.fsPath
 			);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.findExistingEditor', Date.now() - startTime);
@@ -621,189 +741,249 @@ export class FileMapper {
 	}
 
 	/**
-	 * Jump from Java Mapper to corresponding XML file
-	 */
+	 * Jump to the corresponding XML file
+	 */	
 	public async jumpToXml(): Promise<void> {
 		const startTime = Date.now();
 		try {
-			// 检查是否需要节流
-			if (this.shouldThrottleJump('xml')) {
+			// 检查是否应该节流
+			if (this.shouldThrottleJump('jumpToXml')) {
 				return;
 			}
 
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.document.uri.fsPath.endsWith('.java')) {
-				vscode.window.showInformationMessage('Please open a Java Mapper interface file first');
 				return;
 			}
 
 			const javaFilePath = editor.document.uri.fsPath;
 
-			// 先尝试从缓存中获取
+			// 尝试从缓存获取对应的XML文件
 			let xmlPath = this.mappings.get(javaFilePath);
 
-			// 如果缓存中没有，则扫描文件
+			// 如果缓存中没有，则尝试查找
 			if (!xmlPath) {
-				// 使用性能工具进行时间跟踪
-				// 查找对应的XML文件
-				const xmlFiles = await vscode.workspace.findFiles('**/*.xml');
-				xmlPath = await this.findXmlForMapper(javaFilePath, xmlFiles);
-
-				// 如果找到了，更新缓存
-				if (xmlPath) {
+				// 使用新的智能查找方式
+				const quickPath = await this.findXmlByQuickPath(javaFilePath);
+				if (quickPath) {
+					xmlPath = quickPath;
+					// 更新缓存
 					this.mappings.set(javaFilePath, xmlPath);
 					this.reverseMappings.set(xmlPath, javaFilePath);
+				} else {
+					// 如果快速路径没找到，搜索所有XML文件
+					const xmlFiles = await vscode.workspace.findFiles('**/*.xml');
+					xmlPath = await this.findXmlForMapper(javaFilePath, xmlFiles);
+					if (xmlPath) {
+						// 更新缓存
+						this.mappings.set(javaFilePath, xmlPath);
+						this.reverseMappings.set(xmlPath, javaFilePath);
+					} else {
+						// 找不到对应的XML文件
+						vscode.window.showInformationMessage('No corresponding XML file found');
+						return;
+					}
 				}
 			}
 
-			if (!xmlPath) {
-				vscode.window.showInformationMessage('Could not find corresponding XML file');
-				return;
-			}
-
-			// 提取方法名并尝试定位到XML中的对应位置
+			// 提取方法名
 			const methodName = this.extractMethodName(editor);
-			let position = undefined;
-
 			if (methodName) {
-				position = await this.findMethodPosition(xmlPath, methodName);
+				// 查找方法在XML中的位置
+				const position = await this.findMethodPosition(xmlPath, methodName);
+				if (position) {
+					await this.jumpToFile(xmlPath, position);
+					return;
+				}
 			}
 
-			// 跳转到XML文件
-			await this.jumpToFile(xmlPath, position);
+			// 直接跳转到文件开头
+			await this.jumpToFile(xmlPath);
 		} catch (error) {
 			console.error('Error jumping to XML:', error);
-			vscode.window.showErrorMessage(`Failed to jump to XML file: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.jumpToXml', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Jump from XML file to corresponding Java Mapper interface
-	 */
+	 * Jump to the corresponding Mapper interface
+	 */	
 	public async jumpToMapper(): Promise<void> {
 		const startTime = Date.now();
 		try {
-			// 检查是否需要节流
-			if (this.shouldThrottleJump('mapper')) {
+			// 检查是否应该节流
+			if (this.shouldThrottleJump('jumpToMapper')) {
 				return;
 			}
 
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.document.uri.fsPath.endsWith('.xml')) {
-				vscode.window.showInformationMessage('Please open a MyBatis XML file first');
 				return;
 			}
 
 			const xmlFilePath = editor.document.uri.fsPath;
 
-			// 先尝试从缓存中获取
+			// 尝试从缓存获取对应的Mapper文件
 			let mapperPath = this.reverseMappings.get(xmlFilePath);
 
-			// 如果缓存中没有，则从XML的namespace查找
+			// 如果缓存中没有，则尝试查找
 			if (!mapperPath) {
-				// 使用性能工具进行时间跟踪
-				// 获取XML命名空间
+				// 解析XML命名空间
 				const namespace = await this.fileUtils.parseXmlNamespace(xmlFilePath);
-
 				if (namespace) {
-					// 从namespace提取类名
-					const className = namespace.substring(namespace.lastIndexOf('.') + 1);
-					// 查找对应的Java文件
-					mapperPath = await this.findJavaFileByClassName(className);
-
-					// 如果找到了，更新缓存
+					// 使用新的命名空间搜索方法
+					mapperPath = await this.searchXmlByNamespace(namespace);
 					if (mapperPath) {
-						this.mappings.set(mapperPath, xmlFilePath);
+						// 更新缓存
 						this.reverseMappings.set(xmlFilePath, mapperPath);
+						this.mappings.set(mapperPath, xmlFilePath);
+					} else {
+						// 找不到对应的Mapper文件
+						vscode.window.showInformationMessage('No corresponding Mapper file found');
+						return;
 					}
+				} else {
+					// 找不到命名空间
+					vscode.window.showInformationMessage('Cannot parse namespace from XML file');
+					return;
 				}
 			}
 
-			if (!mapperPath) {
-				vscode.window.showInformationMessage('Could not find corresponding Mapper interface');
-				return;
-			}
-
-			// 提取SQL ID并尝试定位到Java中的对应方法
+			// 提取SQL ID
 			const sqlId = this.extractMethodName(editor);
-			let position = undefined;
-
 			if (sqlId) {
-				// 在Java文件中查找对应方法
-				// 读取Java文件内容
-				const content = await this.fileUtils.safeReadFile(mapperPath);
-				if (content) {
-					const lines = content.split('\n');
-					const methodRegex = this.regexUtils.getRegex(
-						`\\b${sqlId}\\s*\\(`, 
-						""
-					);
-
-					// 逐行查找匹配
-					for (let i = 0; i < lines.length; i++) {
-						const line = lines[i];
-						const match = methodRegex.exec(line);
-						if (match) {
-							position = new vscode.Position(i, 0);
-							break;
-						}
-					}
-				}
+				// 由于Java文件没有像XML那样的ID属性，我们只能跳转到文件
+				// 可以在未来增强此功能，查找对应的方法定义
 			}
 
-			// 跳转到Mapper接口
-			await this.jumpToFile(mapperPath, position);
+			// 跳转到Mapper文件
+			await this.jumpToFile(mapperPath);
 		} catch (error) {
 			console.error('Error jumping to Mapper:', error);
-			vscode.window.showErrorMessage(`Failed to jump to Mapper interface: ${error instanceof Error ? error.message : String(error)}`);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.jumpToMapper', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Public method to refresh all mappings (for extension use)
-	 */
+	 * Refresh all mappings between Java and XML files
+	 */	
 	public async refreshAllMappings(): Promise<void> {
-		await this.scanFolder();
-	}
+		const startTime = Date.now();
+		try {
+			// 清除现有映射
+			this.mappings.clear();
+			this.reverseMappings.clear();
 
-	/**
-	 * Public method to jump to a specific file (for extension use)
-	 */
-	public async publicJumpToFile(filePath: string, methodName?: string): Promise<void> {
-		let position: vscode.Position | null = null;
-		if (methodName) {
-			position = await this.findMethodPosition(filePath, methodName);
+			// 重新扫描
+			await this.scanFolder();
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.refreshAllMappings', Date.now() - startTime);
 		}
-		await this.jumpToFile(filePath, position);
 	}
 
 	/**
-	 * Public method to find Java file by class name (for extension use)
-	 */
-	public async findJavaFileByClassNamePublic(className: string): Promise<string | undefined> {
-		const javaFiles = await vscode.workspace.findFiles('**/*.java');
-		for (const javaFile of javaFiles) {
-			if (path.basename(javaFile.fsPath, '.java') === className) {
-				return javaFile.fsPath;
+	 * Public method to jump to a specific file
+	 */	
+	public async publicJumpToFile(filePath: string, methodNameOrPosition?: string | vscode.Position): Promise<void> {
+		const startTime = Date.now();
+		try {
+			let position: vscode.Position | null = null;
+			// 检查第二个参数的类型
+			if (typeof methodNameOrPosition === 'string' && filePath.endsWith('.xml')) {
+				// 如果是方法名，查找位置
+				position = await this.findMethodPosition(filePath, methodNameOrPosition);
+			} else if (methodNameOrPosition instanceof vscode.Position) {
+				// 如果是位置，直接使用
+				position = methodNameOrPosition;
 			}
+			await this.jumpToFile(filePath, position);
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.publicJumpToFile', Date.now() - startTime);
 		}
-		return undefined;
 	}
 
 	/**
-	 * Public method to extract namespace from XML file (for extension use)
+	 * Public method to find Java file by class name
+	 */	
+	public async findJavaFileByClassNamePublic(className: string): Promise<string | undefined> {
+		const startTime = Date.now();
+		try {
+			return await this.findJavaFileByClassName(className);
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.findJavaFileByClassNamePublic', Date.now() - startTime);
+		}
+	}
+
+	/**
+	 * Public method to get all mappings
+	 */	
+	public getMappings(): Map<string, string> {
+		return new Map(this.mappings);
+	}
+
+	/**
+	 * Public method to get all reverse mappings
+	 */	
+	public getReverseMappings(): Map<string, string> {
+		return new Map(this.reverseMappings);
+	}
+
+	/**
+	 * Dispose resources
+	 */	
+	public dispose(): void {
+		// 清理定时器
+		if (this.scanTimer) {
+			clearTimeout(this.scanTimer);
+			this.scanTimer = null;
+		}
+
+		// 清理文件监听器
+		if (this.fileWatcher) {
+			this.fileWatcher.dispose();
+			this.fileWatcher = null;
+		}
+
+		// 清理防抖处理函数缓存
+		this.debounceHandlers.clear();
+	}
+
+	/**
+	 * Public method to get possible XML paths for a Java file (for backward compatibility)
 	 */
-	public async extractNamespacePublic(xmlPath: string): Promise<string | undefined> {
-		const namespace = await this.fileUtils.parseXmlNamespace(xmlPath);
-		return namespace || undefined;
+	public getPossibleXmlPathsPublic(javaFilePath: string): string[] {
+		// 直接返回静态的路径列表，不进行异步文件检查
+		const dirName = path.dirname(javaFilePath);
+		const fileName = path.basename(javaFilePath, '.java');
+		return [
+			// 同一目录
+			path.join(dirName, fileName + '.xml'),
+			// 同一目录下的mapper子目录
+			path.join(dirName, 'mapper', fileName + '.xml'),
+			// Maven/Gradle标准结构 - resources/mapper
+			path.join(dirName.replace(/java(\|\/)main(\|\/)java/, 'java$1main$1resources'), 'mapper', fileName + '.xml'),
+			// Maven/Gradle标准结构 - resources根目录
+			path.join(dirName.replace(/java(\|\/)main(\|\/)java/, 'java$1main$1resources'), fileName + '.xml'),
+			// Maven/Gradle标准结构 - resources/xml目录
+			path.join(dirName.replace(/java(\|\/)main(\|\/)java/, 'java$1main$1resources'), 'xml', fileName + '.xml'),
+			// Maven/Gradle标准结构 - resources/com/...目录（与Java包路径对应）
+			path.join(this.getResourcesPathFromJavaPath(javaFilePath), fileName + '.xml'),
+			// 上层目录的resources目录
+			path.join(path.dirname(dirName), 'resources', 'mapper', fileName + '.xml'),
+			path.join(path.dirname(dirName), 'resources', fileName + '.xml'),
+			path.join(path.dirname(dirName), 'resources', 'xml', fileName + '.xml'),
+			// 上层目录的xml目录
+			path.join(path.dirname(dirName), 'xml', fileName + '.xml'),
+			// 项目根目录的xml目录
+			path.join(this.getProjectRoot(javaFilePath), 'xml', fileName + '.xml'),
+			path.join(this.getProjectRoot(javaFilePath), 'resources', 'xml', fileName + '.xml')
+		];
 	}
 
 	/**
-	 * Public method to get all mappings (for extension use)
+	 * Public method to get all mappings (for backward compatibility)
 	 */
 	public getMappingsPublic(): { mapperPath: string; xmlPath: string }[] {
 		const result: { mapperPath: string; xmlPath: string }[] = [];
@@ -814,7 +994,7 @@ export class FileMapper {
 	}
 
 	/**
-	 * Public method to get execution time recorder (for extension use)
+	 * Public method to get execution time recorder (for backward compatibility)
 	 */
 	public getExecutionTimeRecorder(): (operation: string, duration: number) => void {
 		return (operation: string, duration: number) => {
@@ -823,35 +1003,10 @@ export class FileMapper {
 	}
 
 	/**
-	 * Public method to get possible XML paths for a Java file (for extension use)
+	 * Public method to extract namespace from XML file (for backward compatibility)
 	 */
-	public getPossibleXmlPathsPublic(javaFilePath: string): string[] {
-		const dirName = path.dirname(javaFilePath);
-		const fileName = path.basename(javaFilePath, '.java');
-		return [
-			path.join(dirName, fileName + '.xml'),
-			path.join(dirName, 'mapper', fileName + '.xml'),
-			path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), 'mapper', fileName + '.xml'),
-			path.join(dirName.replace(/java(\\|\/)main(\\|\/)java/, 'java$1main$1resources'), fileName + '.xml')
-		];
-	}
-
-	/**
-	 * Dispose resources when extension is deactivated
-	 */
-	public dispose(): void {
-		if (this.scanTimer) {
-			clearTimeout(this.scanTimer);
-			this.scanTimer = null;
-		}
-
-		if (this.fileWatcher) {
-			this.fileWatcher.dispose();
-			this.fileWatcher = null;
-		}
-
-		// 清空缓存
-		this.mappings.clear();
-		this.reverseMappings.clear();
+	public async extractNamespacePublic(xmlPath: string): Promise<string | undefined> {
+		const namespace = await this.fileUtils.parseXmlNamespace(xmlPath);
+		return namespace || undefined;
 	}
 }
