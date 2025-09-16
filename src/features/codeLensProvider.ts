@@ -130,13 +130,21 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
     private provideJavaCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
         const startTime = Date.now();
         try {
+            // First check if the Java file is a Mapper interface
+            const text = document.getText();
+            const isMapperInterface = this.isMapperInterface(text);
+            
+            // Only provide CodeLenses for Mapper interfaces
+            if (!isMapperInterface) {
+                return [];
+            }
+
             // Get or create cached regex for method signatures
             const methodRegex = this.regexUtils.getRegex(
                 /^(\s*(public|private|protected|default)?\s*(static\s+)?[\w<>,\[\]]+(\s+\w+(<[^>]+>)?)?\s+(\w+)\s*\([^)]*\))/gm
             );
 
             const lenses: vscode.CodeLens[] = [];
-            const text = document.getText();
             let match;
 
             // Reset regex state
@@ -181,6 +189,33 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
             return [];
         } finally {
             this.performanceUtils.recordExecutionTime('MyBatisCodeLensProvider.provideJavaCodeLenses', Date.now() - startTime);
+        }
+    }
+
+    /**
+     * Check if the Java file is a Mapper interface
+     * @param fileContent The content of the Java file
+     * @returns True if the file is a Mapper interface
+     */
+    private isMapperInterface(fileContent: string): boolean {
+        try {
+            // Common indicators of a Mapper interface
+            const mapperIndicators = [
+                // Check for @Mapper annotation
+                /@Mapper\b/g,
+                // Check for @Repository annotation (often used with Mappers)
+                /@Repository\b/g,
+                // Check for MyBatis specific imports
+                /import\s+org\.apache\.ibatis\.annotations\./g,
+                // Check for method signatures that look like database operations
+                /\b(select|insert|update|delete)\b.*\(/g
+            ];
+
+            // If any of the indicators are found, consider it a Mapper interface
+            return mapperIndicators.some(indicator => indicator.test(fileContent));
+        } catch (error) {
+            console.error("Error checking if file is a Mapper interface:", error);
+            return false;
         }
     }
 
