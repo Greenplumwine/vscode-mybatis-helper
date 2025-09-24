@@ -23,6 +23,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "extensionDependencies": [
+    "redhat.java"
+  ],
   "contributes": {
     "commands": [
       {

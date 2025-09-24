@@ -6,7 +6,7 @@ import { SQLResultDisplayer } from "./features/sqlresultdisplayer";
 import { FileMapper } from "./features/filemapper";
 import { MyBatisCodeLensProvider } from "./features/codeLensProvider";
 import { SQLQuery } from "./types";
-import { PerformanceUtils } from "./utils";
+import { PerformanceUtils, JavaExtensionAPI, AdvancedCacheManager, IncrementalScanner, MappingIndexManager } from "./utils";
 
 let isJavaProject: boolean = false;
 let consoleLogInterceptor: ConsoleLogInterceptor | undefined;
@@ -17,6 +17,26 @@ let codeLensProvider: MyBatisCodeLensProvider | undefined;
 
 // 性能监控工具实例
 const perfUtils = PerformanceUtils.getInstance();
+const javaExtApi = JavaExtensionAPI.getInstance();
+const cacheManager = AdvancedCacheManager.getInstance();
+const incrementalScanner = IncrementalScanner.getInstance();
+const mappingIndexManager = MappingIndexManager.getInstance();
+
+// 初始化性能优化组件
+async function initializePerformanceComponents(context: vscode.ExtensionContext) {
+  try {
+    // 初始化 Java 扩展 API
+    await javaExtApi.initialize(context);
+    
+    // 初始化映射索引管理器
+    await mappingIndexManager.initialize();
+    
+    console.log("Performance components initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize performance components:", error);
+  }
+}
+
 // Display sample logs in console log panel for testing log interception functionality
 function displaySampleLogsForTesting() {
 	// Create sample log output channel
@@ -48,6 +68,9 @@ function displaySampleLogsForTesting() {
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 	console.log("MyBatis Helper extension activating...");
+
+	// 初始化性能优化组件
+	initializePerformanceComponents(context);
 
 	// 创建状态栏项
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);

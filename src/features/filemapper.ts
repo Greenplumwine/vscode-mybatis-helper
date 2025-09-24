@@ -587,6 +587,23 @@ export class FileMapper {
 	}
 
 	/**
+	 * 提取命名空间
+	 */
+	private async extractNamespace(xmlPath: string): Promise<string | null> {
+		const startTime = Date.now();
+		try {
+			const content = await this.fileUtils.safeReadFile(xmlPath);
+			const namespaceMatch = content.match(/namespace=["']([^"']+)["']/);
+			return namespaceMatch ? namespaceMatch[1] : null;
+		} catch (error) {
+			console.error('Error extracting namespace:', error);
+			return null;
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.extractNamespace', Date.now() - startTime);
+		}
+	}
+
+	/**
 	 * Extract method name or SQL ID from current cursor position
 	 */	
 	private extractMethodName(editor: vscode.TextEditor): string | null {
@@ -932,13 +949,10 @@ export class FileMapper {
 
 	/**
 	 * Dispose resources
-	 */	
+	 */
 	public dispose(): void {
 		// 清理定时器
-		if (this.scanTimer) {
-			clearTimeout(this.scanTimer);
-			this.scanTimer = null;
-		}
+		// (当前实现中没有定时器)
 
 		// 清理文件监听器
 		if (this.fileWatcher) {
