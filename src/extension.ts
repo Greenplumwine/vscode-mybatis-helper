@@ -6,7 +6,7 @@ import { SQLResultDisplayer } from "./features/sqlresultdisplayer";
 import { FileMapper } from "./features/filemapper";
 import { MyBatisCodeLensProvider } from "./features/codeLensProvider";
 import { SQLQuery } from "./types";
-import { PerformanceUtils } from "./utils";
+import { PerformanceUtils, JavaExtensionAPI, AdvancedCacheManager, IncrementalScanner, MappingIndexManager } from "./utils";
 
 let isJavaProject: boolean = false;
 let consoleLogInterceptor: ConsoleLogInterceptor | undefined;
@@ -17,6 +17,26 @@ let codeLensProvider: MyBatisCodeLensProvider | undefined;
 
 // 性能监控工具实例
 const perfUtils = PerformanceUtils.getInstance();
+const javaExtApi = JavaExtensionAPI.getInstance();
+const cacheManager = AdvancedCacheManager.getInstance();
+const incrementalScanner = IncrementalScanner.getInstance();
+const mappingIndexManager = MappingIndexManager.getInstance();
+
+// 初始化性能优化组件
+async function initializePerformanceComponents(context: vscode.ExtensionContext) {
+  try {
+    // 初始化 Java 扩展 API
+    await javaExtApi.initialize(context);
+    
+    // 初始化映射索引管理器
+    await mappingIndexManager.initialize();
+    
+    console.log("Performance components initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize performance components:", error);
+  }
+}
+
 // Display sample logs in console log panel for testing log interception functionality
 function displaySampleLogsForTesting() {
 	// Create sample log output channel
@@ -49,6 +69,9 @@ function displaySampleLogsForTesting() {
 export function activate(context: vscode.ExtensionContext) {
 	console.log("MyBatis Helper extension activating...");
 
+	// 初始化性能优化组件
+	initializePerformanceComponents(context);
+
 	// 创建状态栏项
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 	statusBarItem.text = `$(database) MyBatis Helper`;
@@ -60,13 +83,19 @@ export function activate(context: vscode.ExtensionContext) {
 	// 立即注册所有命令，不要等到检查完项目类型
 	activatePluginFeatures(context);
 
-	// 显示插件启动提示
-	vscode.window.showInformationMessage(vscode.l10n.t("info.extensionActivated"));
-
-	// 后台异步快速检查项目类型并显示进度
-	runFastProjectTypeCheck().catch(error => {
-		console.error("Error during project initialization:", error);
-		updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
+	// 使用进度通知替代信息通知显示插件启动提示
+	vscode.window.withProgress({
+		location: vscode.ProgressLocation.Notification,
+		title: vscode.l10n.t("info.extensionActivated"),
+		cancellable: false
+	}, async (progress) => {
+		// 后台异步快速检查项目类型并显示进度
+		try {
+			await runFastProjectTypeCheck();
+		} catch (error) {
+			console.error("Error during project initialization:", error);
+			updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
+		}
 	});
 
 	// 设置文件系统监听器来检测Java文件的添加/删除
@@ -147,26 +176,44 @@ function updateStatusBar(message: string, isWorking: boolean = true) {
 /**
  * 快速检查项目类型，使用轻量级方法
  */
-async function runFastProjectTypeCheck() {
+async function runFastProjectTypeCheck(): Promise<void> {
 	const startTime = Date.now();
 	try {
-		// 显示检查项目类型的进度
-		updateStatusBar(vscode.l10n.t("status.checkingJavaProject"));
-
-		// 先快速检查根目录下是否有常见的Java项目文件
-		const projectFiles = await vscode.workspace.findFiles(
-			"{pom.xml,build.gradle,build.gradle.kts,settings.gradle}",
-			null,
-			1
+		// 快速检查工作区根目录下的常见Java项目文件
+		const quickCheckFiles = await vscode.workspace.findFiles(
+			"{pom.xml,build.gradle,build.gradle.kts,*.java,*.xml}",
+			"**/node_modules/**,**/.git/**,**/out/**,**/target/**,**/build/**",
+			50
 		);
-		const hasProjectFiles = projectFiles.length > 0;
 
-		if (hasProjectFiles) {
-			console.log("Java project detected (fast check).");
+		const hasJavaFiles = quickCheckFiles.some(file => file.path.endsWith(".java"));
+		const hasXmlFiles = quickCheckFiles.some(file => file.path.endsWith(".xml"));
+		const hasBuildFiles = quickCheckFiles.some(file =>
+			file.path.endsWith("pom.xml") ||
+			file.path.endsWith("build.gradle") ||
+			file.path.endsWith("build.gradle.kts")
+		);
+
+		// 如果找到Java构建文件或同时找到Java和XML文件，则认为是Java项目
+		if (hasBuildFiles || (hasJavaFiles && hasXmlFiles)) {
 			isJavaProject = true;
-			// 显示建立映射的进度
+			console.log("Fast project type check: Java project detected");
 			updateStatusBar(vscode.l10n.t("status.buildingMappings"));
-			// 后台执行完整检查
+
+			// 如果fileMapper已初始化，刷新映射
+			if (fileMapper) {
+				try {
+					await fileMapper.refreshAllMappings();
+				} catch (error) {
+					console.error("Error during initial mapping refresh:", error);
+				} finally {
+					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+				}
+			} else {
+				// 如果fileMapper未初始化，也更新为完成状态，等待后续激活
+				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+			}
+			// 后台执行完整检查以确保准确性
 			setTimeout(() => checkIfJavaProject(), 1000);
 			return;
 		}
@@ -207,13 +254,16 @@ async function checkIfJavaProject() {
 			// 如果fileMapper已初始化，刷新映射
 			if (fileMapper) {
 				try {
-				await fileMapper.refreshAllMappings();
-				// 映射完成后更新状态栏
-				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
-			} catch (error) {
+					await fileMapper.refreshAllMappings();
+					// 映射完成后更新状态栏
+					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+				} catch (error) {
 					console.error("Error refreshing mappings:", error);
 					updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 				}
+			} else {
+				// 即使没有fileMapper，也要更新状态
+				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 			}
 			
 			vscode.window.showInformationMessage(
@@ -233,6 +283,9 @@ async function checkIfJavaProject() {
 			vscode.window.showInformationMessage(
 				vscode.l10n.t("status.nonJavaProject")
 			);
+		} else if (newIsJavaProject && isJavaProject) {
+			// 仍然是Java项目，更新状态栏为完成状态
+			updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 		}
 	} catch (error) {
 		console.error("Error checking project type:", error);
@@ -340,65 +393,30 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 
 				// If filePath is provided (from CodeLens), use it
 				if (filePath && filePath.endsWith(".java")) {
-					// 直接跳转到XML文件，不创建虚拟编辑器
-					// 先检查缓存中是否有对应的XML文件
-					// 获取所有映射，然后查找对应的XML路径
-					const mappings = fileMapper.getMappingsPublic();
-					let xmlPath = null;
-					
-					// 遍历映射数组查找对应的XML路径
-					for (const mapping of mappings) {
-						if (mapping.mapperPath === filePath) {
-							xmlPath = mapping.xmlPath;
-							break;
-						}
-					}
-					
-					if (!xmlPath) {
-						// 如果缓存中没有，尝试直接查找
-							try {
-								if (fileMapper) {
-									const possibleXmlPaths = fileMapper.getPossibleXmlPathsPublic(filePath);
-									for (const xmlPathCandidate of possibleXmlPaths) {
-										if (await fs.promises.stat(xmlPathCandidate).then(() => true).catch(() => false)) {
-											xmlPath = xmlPathCandidate;
-											break;
-										}
-									}
-								}
-							} catch (error) {
-								console.error("Error finding XML paths:", error);
-							}
-					}
-
-					if (xmlPath) {
-						let targetPosition: vscode.Position | undefined = undefined;
-						// 使用公共方法jumpToFile
-							await fileMapper.publicJumpToFile(xmlPath, methodName);
-					} else {
-						vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noXmlFile"));
-					}
+					// 使用Java到XML导航器
+					await fileMapper['javaToXmlNavigator'].navigateToXml(filePath, methodName);
 				}
-				// Check if current file is a Java file
+				// Check if current file is a Java file (快捷键触发的情况)
 				else {
 					const editor = vscode.window.activeTextEditor;
 					if (!editor || editor.document.languageId !== "java") {
 						vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notJavaFile"));
 						return;
 					}
-					await fileMapper.jumpToXml();
+					
+					// 从当前编辑器获取Java文件路径和方法名
+					const javaFilePath = editor.document.uri.fsPath;
+					const currentMethodName = fileMapper.extractMethodNamePublic(editor);
+					await fileMapper['javaToXmlNavigator'].navigateToXml(javaFilePath, currentMethodName);
 				}
 			} catch (error) {
 				console.error("Error jumping to XML file:", error);
 				vscode.window.showErrorMessage(
-					vscode.l10n.t("error.jumpToXmlFailed", { error: error instanceof Error ? error.message : "Unknown error" })
+					vscode.l10n.t("error.cannotOpenFile", { error: error instanceof Error ? error.message : "Unknown error" })
 				);
 			} finally {
-			if (fileMapper) {
-				const executionTimeRecorder = fileMapper.getExecutionTimeRecorder();
-				executionTimeRecorder("jumpToXml", Date.now() - startTime);
+				perfUtils.recordExecutionTime("jumpToXml", Date.now() - startTime);
 			}
-		}
 		}
 	);
 
@@ -417,56 +435,26 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 
 				// If filePath is provided (from CodeLens), use it
 				if (filePath && filePath.endsWith(".xml")) {
-					// 直接跳转到Mapper文件，不创建虚拟编辑器
-					// 先检查缓存中是否有对应的Mapper文件
-					let mapperPath = null;
-					if (fileMapper) {
-						const mappings = fileMapper.getMappingsPublic();
-						
-						// 遍历映射数组查找对应的Mapper路径
-						for (const mapping of mappings) {
-							if (mapping.xmlPath === filePath) {
-								mapperPath = mapping.mapperPath;
-								break;
-							}
-						}
-					}
-					
-					if (!mapperPath) {
-						// 如果缓存中没有，尝试直接查找
-						try {
-							const namespace = await fileMapper.extractNamespacePublic(filePath);
-							if (namespace) {
-								const className = namespace.substring(namespace.lastIndexOf(".") + 1);
-								mapperPath = await fileMapper.findJavaFileByClassNamePublic(className);
-							}
-						} catch (error) {
-							console.error("Error finding mapper file:", error);
-						}
-					}
-
-					if (mapperPath) {
-						let targetPosition: vscode.Position | undefined = undefined;
-						// 不再需要单独调用findMethodPosition，publicJumpToFile会处理这个逻辑
-						// 使用公共方法jumpToFile
-						await fileMapper.publicJumpToFile(mapperPath, methodName);
-					} else {
-						vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
-					}
+					// 使用XML到Java导航器
+					await fileMapper['xmlToJavaNavigator'].navigateToJava(filePath, methodName);
 				}
-				// Check if current file is an XML file
+				// Check if current file is a XML file (快捷键触发的情况)
 				else {
 					const editor = vscode.window.activeTextEditor;
 					if (!editor || editor.document.languageId !== "xml") {
 						vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notXmlFile"));
 						return;
 					}
-					await fileMapper.jumpToMapper();
+					
+					// 从当前编辑器获取XML文件路径和方法名
+					const xmlFilePath = editor.document.uri.fsPath;
+					const currentMethodName = fileMapper.extractMethodNamePublic(editor);
+					await fileMapper['xmlToJavaNavigator'].navigateToJava(xmlFilePath, currentMethodName);
 				}
 			} catch (error) {
 				console.error("Error jumping to mapper file:", error);
 				vscode.window.showErrorMessage(
-					vscode.l10n.t("error.jumpToMapperFailed", { error: error instanceof Error ? error.message : "Unknown error" })
+					vscode.l10n.t("error.cannotOpenFile", { error: error instanceof Error ? error.message : "Unknown error" })
 				);
 			} finally {
 				perfUtils.recordExecutionTime("jumpToMapper", Date.now() - startTime);
@@ -503,6 +491,8 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 					}
 				} else {
 					vscode.window.showErrorMessage(vscode.l10n.t("error.fileMapperNotInitialized"));
+					// 即使没有初始化fileMapper，也要更新状态栏
+					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 				}
 			} finally {
 				perfUtils.recordExecutionTime("refreshMappings", Date.now() - startTime);

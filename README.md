@@ -37,7 +37,9 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 跳转节流控制：防止频繁跳转操作导致性能问题
 - XML 命名空间验证：确保 XML 文件与 Mapper 接口正确关联
 - 方法名提取与位置定位：精确定位到对应的方法位置
-- **精确方法跳转**：支持在跳转时精确定位到对应的具体方法，而仅仅是打开文件
+- **精确方法跳转**：支持在跳转时精确定位到对应的具体方法，而不仅仅是打开文件
+- **重构跳转逻辑**：采用独立的导航器模式（JavaToXmlNavigator和XmlToJavaNavigator），提高代码可维护性
+- **优先使用Java插件API**：优先使用Red Hat Java插件提供的API进行精确导航，提升跳转准确性
 
 ### 3. CodeLens 支持
 
@@ -238,6 +240,8 @@ Parameters: 1(Integer)
 - **精确文件查找**: 通过针对特定文件的精确查找替代全文件夹扫描，显著提高跳转效率
 - **扫描节流控制**: 防止频繁的扫描操作
 - **批量处理机制**: 对日志等数据进行批量处理，提高效率
+- **重构跳转逻辑**: 采用模块化设计，将跳转逻辑封装到独立的导航器类中，提高代码可维护性和执行效率
+- **优先使用Java插件API**: 优先使用Red Hat Java插件提供的API进行精确导航，减少文件扫描和正则表达式匹配的开销
 
 **性能指标**:
 
@@ -255,6 +259,7 @@ Parameters: 1(Integer)
 - **复杂项目结构**: 对于非常规项目结构，可能需要手动刷新映射关系或调整项目布局
 - **特殊字符处理**: 在处理包含特殊字符的 SQL 参数时，可能会偶尔出现格式化问题
 - **Java 项目检测**: 在某些特殊情况下，可能会出现误判，导致在非 Java 项目中错误激活插件或在 Java 项目中未能正确激活
+- **Java插件依赖**: 插件依赖于Red Hat Java扩展以提供最佳性能，如果该扩展不可用，插件将降级使用文件扫描和正则表达式匹配
 
 我们正在持续改进插件，以解决这些问题并提升用户体验。
 
@@ -325,7 +330,7 @@ Parameters: 1(Integer)
 - 在 Pull Request 中详细描述您的更改内容和目的
 - 对于大型更改，建议先创建 Issue 进行讨论
 
-如果您发现了问题或者有新的功能建议，也欢迎在 GitHub 上提交 Issue。
+如果您发现了问题或者有新的功能建议，也欢迎在 GitHub 或 Gitee 上提交 Issue。
 
 ## 许可证
 
@@ -338,6 +343,7 @@ Parameters: 1(Integer)
 - [Visual Studio Code Extension API](https://code.visualstudio.com/api)
 - [TypeScript](https://www.typescriptlang.org/)
 - [MyBatis](https://mybatis.org/mybatis-3/)
+- [Lingma](https://lingma.aliyun.com/)
 
 ---
 

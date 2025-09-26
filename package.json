@@ -2,7 +2,7 @@
   "name": "mybatis-helper-vscode",
   "displayName": "Mybatis Helper",
   "description": "%description%",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "Greenplumwine",
   "icon": "static/icon/mybatis-helper-icon.png",
   "repository": {
@@ -22,6 +22,9 @@
   "l10n": "./l10n",
   "activationEvents": [
     "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "redhat.java"
   ],
   "contributes": {
     "commands": [
@@ -65,12 +68,12 @@
       {
         "command": "mybatis-helper.jumpToXml",
         "key": "alt+x",
-        "when": "editorFocus"
+        "when": "editorFocus && resourceExtname == '.java'"
       },
       {
         "command": "mybatis-helper.jumpToMapper",
         "key": "alt+m",
-        "when": "editorFocus"
+        "when": "editorFocus && resourceExtname == '.xml'"
       }
     ],
     "menus": {

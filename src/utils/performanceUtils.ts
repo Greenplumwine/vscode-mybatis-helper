@@ -225,6 +225,13 @@ export class FileUtils {
    * @returns 是否存在
    */
   public async fileExists(filePath: string): Promise<boolean> {
+    // 检查文件路径是否有效，避免尝试访问Git相关文件
+    if (filePath.includes('/.git/') || 
+        filePath.includes('\\.git\\') ||
+        filePath.endsWith('.git')) {
+      return false;
+    }
+
     const cached = this.fileAccessCache.get(filePath);
     if (cached && Date.now() - cached.timestamp < FileUtils.FILE_ACCESS_CACHE_TTL) {
       return cached.exists;
@@ -246,6 +253,13 @@ export class FileUtils {
    * @returns 文件内容
    */
   public async safeReadFile(filePath: string): Promise<string> {
+    // 检查文件路径是否有效，避免尝试访问Git相关文件
+    if (filePath.includes('/.git/') || 
+        filePath.includes('\\.git\\') ||
+        filePath.endsWith('.git')) {
+      throw new Error(`Cannot read Git-related file: ${filePath}`);
+    }
+
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (error) {
@@ -337,6 +351,13 @@ export class FileUtils {
    * @returns 命名空间
    */
   public async parseXmlNamespace(filePath: string, fileContent?: string): Promise<string | null> {
+    // 检查文件路径是否有效，避免尝试访问Git相关文件
+    if (filePath.includes('/.git/') || 
+        filePath.includes('\\.git\\') ||
+        filePath.endsWith('.git')) {
+      return null;
+    }
+
     try {
       const content = fileContent || await this.safeReadFile(filePath);
       const namespaceMatch = content.match(/namespace=["']([^"']+)["']/);

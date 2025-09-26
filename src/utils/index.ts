@@ -1,9 +1,20 @@
 import * as vscode from "vscode";
 import { DatabaseType, PluginConfig, FileOpenMode } from "../types";
 import { RegexUtils, PerformanceUtils } from "./performanceUtils";
+import { JavaExtensionAPI } from "./javaExtensionAPI";
+import { AdvancedCacheManager } from "./advancedCacheManager";
+import { IncrementalScanner } from "./incrementalScanner";
+import { MappingIndexManager } from "./mappingIndexManager";
 
 // 导出工具类
-export { RegexUtils, PerformanceUtils };
+export { 
+  RegexUtils, 
+  PerformanceUtils,
+  JavaExtensionAPI,
+  AdvancedCacheManager,
+  IncrementalScanner,
+  MappingIndexManager
+};
 
 /**
  * Get plugin configuration
