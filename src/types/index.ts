@@ -52,3 +52,16 @@ export enum FileOpenMode {
 	ALWAYS_SPLIT = "alwaysSplit",
 }
 
+// 插件配置
+export interface PluginConfig {
+	databaseType: DatabaseType;
+	enableLogInterceptor: boolean;
+	customLogPattern: string;
+	maxHistorySize: number;
+	showExecutionTime: boolean;
+	fileOpenMode: FileOpenMode;
+	customXmlDirectories: string[];
+	logOutputLevel: "info" | "debug";
+	enablePerformanceTracking: boolean;
+	sqlFormatOptions: Record<string, any>;
+}

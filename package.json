@@ -73,7 +73,7 @@
       {
         "command": "mybatis-helper.jumpToMapper",
         "key": "alt+m",
-        "when": "editorFocus"
+        "when": "editorFocus && resourceExtname == '.xml'"
       }
     ],
     "menus": {

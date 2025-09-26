@@ -103,6 +103,13 @@ export class IncrementalScanner {
    * 扫描单个文件
    */
   private async scanFile(filePath: string): Promise<void> {
+    // 检查文件路径是否有效，避免尝试访问Git相关文件
+    if (filePath.includes('/.git/') || 
+        filePath.includes('\\.git\\') ||
+        filePath.endsWith('.git')) {
+      return;
+    }
+
     try {
       // 获取文件的修改时间
       const stats = await fs.stat(filePath);

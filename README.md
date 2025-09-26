@@ -325,7 +325,7 @@ Parameters: 1(Integer)
 - 在 Pull Request 中详细描述您的更改内容和目的
 - 对于大型更改，建议先创建 Issue 进行讨论
 
-如果您发现了问题或者有新的功能建议，也欢迎在 GitHub 上提交 Issue。
+如果您发现了问题或者有新的功能建议，也欢迎在 GitHub 或 Gitee 上提交 Issue。
 
 ## 许可证
 
@@ -338,6 +338,7 @@ Parameters: 1(Integer)
 - [Visual Studio Code Extension API](https://code.visualstudio.com/api)
 - [TypeScript](https://www.typescriptlang.org/)
 - [MyBatis](https://mybatis.org/mybatis-3/)
+- [Lingma](https://lingma.aliyun.com/)
 
 ---
 

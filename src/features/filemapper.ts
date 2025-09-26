@@ -6,6 +6,7 @@ import { getPluginConfig } from '../utils';
 import { PerformanceUtils } from '../utils/performanceUtils';
 import { RegexUtils } from '../utils/performanceUtils';
 import { FileUtils } from '../utils/performanceUtils';
+import { JavaExtensionAPI } from '../utils/javaExtensionAPI';
 import type { FileMapping } from '../types';
 import { FileOpenMode } from '../types';
 
@@ -42,21 +43,20 @@ export class FileMapper {
 	private fileUtils: FileUtils;
 
 	constructor() {
-		// 初始化工具类单例实例
+		// 初始化配置
+		const config = vscode.workspace.getConfiguration("mybatis-helper");
+		this.scanInterval = config.get<number>("scanInterval", 5000);
+		this.scanTimeoutMs = config.get<number>("scanTimeoutMs", 30000);
+		this.jumpThrottleMs = config.get<number>("jumpThrottleMs", 1000);
+		this.fileOpenMode = config.get<FileOpenMode>("fileOpenMode", FileOpenMode.USE_EXISTING);
+
+		// 初始化工具类实例
 		this.performanceUtils = PerformanceUtils.getInstance();
 		this.regexUtils = RegexUtils.getInstance();
 		this.fileUtils = FileUtils.getInstance();
 
-		// 从配置获取参数
-		const config = getPluginConfig();
-		this.scanInterval = 30000; // 使用默认值
-		this.scanTimeoutMs = 30000; // 使用默认值
-		this.jumpThrottleMs = 500; // 使用默认值
-		this.fileOpenMode = config.fileOpenMode || FileOpenMode.USE_EXISTING;
-
-		// 初始化
-		this.setupFileWatchers();
-		this.scheduleScan();
+		// 初始化映射
+		// this.initializeMappings(); // 移除不存在的方法调用
 	}
 
 	/**
@@ -90,8 +90,15 @@ export class FileMapper {
 
 			// 直接执行异步操作
 			const startTimeFindFiles = Date.now();
-			const javaFiles = await vscode.workspace.findFiles('**/*.java');
-			const xmlFiles = await vscode.workspace.findFiles('**/*.xml');
+			// 添加排除规则，避免扫描.git目录和临时文件
+			const javaFiles = await vscode.workspace.findFiles(
+				'**/*.java', 
+				'**/{node_modules,.git}/**'
+			);
+			const xmlFiles = await vscode.workspace.findFiles(
+				'**/*.xml', 
+				'**/{node_modules,.git}/**'
+			);
 			this.performanceUtils.recordExecutionTime('FileMapper.findFiles', Date.now() - startTimeFindFiles);
 
 			// 直接处理文件列表
@@ -109,7 +116,7 @@ export class FileMapper {
 						this.reverseMappings.set(xmlPath, javaFile.fsPath);
 					}
 				}
-		}
+			}
 		} catch (error) {
 			console.error('Error scanning folder:', error);
 		} finally {
@@ -129,8 +136,12 @@ export class FileMapper {
 			}
 
 			// Watch for changes in Java and XML files
+			// 添加排除规则，避免监听.git目录和临时文件
 			this.fileWatcher = vscode.workspace.createFileSystemWatcher(
-				'**/*.{java,xml}',
+				new vscode.RelativePattern(
+					vscode.workspace.workspaceFolders[0], 
+					'**/*.{java,xml}'
+				),
 				false, // ignoreCreateEvents
 				true, // ignoreChangeEvents
 				true // ignoreDeleteEvents
@@ -138,8 +149,11 @@ export class FileMapper {
 
 			// 使用防抖处理文件创建事件
 			const handleFileCreate = this.performanceUtils.debounce((uri: vscode.Uri) => {
-				// Only trigger a scan if file is in the workspace
-				if (this.isFileInWorkspace(uri.fsPath)) {
+				// Only trigger a scan if file is in the workspace and not in excluded directories
+				if (this.isFileInWorkspace(uri.fsPath) && 
+					!uri.fsPath.includes('/.git/') && 
+					!uri.fsPath.includes('\\.git\\') &&
+					!uri.fsPath.endsWith('.git')) {
 					this.scheduleScan();
 				}
 			}, 1000);
@@ -176,6 +190,13 @@ export class FileMapper {
 					debouncedChangeHandler(uri);
 				} else {
 					const handleFileChange = this.performanceUtils.debounce((changedUri: vscode.Uri) => {
+						// Skip files in excluded directories
+						if (changedUri.fsPath.includes('/.git/') || 
+							changedUri.fsPath.includes('\\.git\\') ||
+							changedUri.fsPath.endsWith('.git')) {
+							return;
+						}
+						
 						if (this.isFileInWorkspace(changedUri.fsPath)) {
 							// 仅清除与变更文件相关的映射
 							if (changedUri.fsPath.endsWith('.java')) {
@@ -397,7 +418,10 @@ export class FileMapper {
 			// Try to find in priority directories first
 			for (const xmlFile of priorityDirXmlFiles) {
 				const xmlFileName = path.basename(xmlFile.fsPath, '.xml');
-				if (xmlFileName === fileName || xmlFileName === fileName + 'Mapper') {
+				// �nhanced匹配规则，支持更多命名方式
+				if (xmlFileName === fileName || 
+					xmlFileName === fileName + 'Mapper' ||
+					xmlFileName === fileName + 'Dao') {
 					const namespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
 					if (namespace) {
 						if (namespace === fullClassName) {
@@ -419,7 +443,9 @@ export class FileMapper {
 					const xmlFilePath = xmlFile.fsPath;
 					const xmlFileName = path.basename(xmlFilePath, '.xml');
 					// 检查文件名匹配和路径是否包含包路径
-					if ((xmlFileName === fileName || xmlFileName === fileName + 'Mapper') && 
+					if ((xmlFileName === fileName || 
+					     xmlFileName === fileName + 'Mapper' || 
+					     xmlFileName === fileName + 'Dao') && 
 						xmlFilePath.includes(packagePath)) {
 						const namespace = await this.fileUtils.parseXmlNamespace(xmlFilePath);
 						if (namespace === fullClassName) {
@@ -436,7 +462,10 @@ export class FileMapper {
 				(!javaPackage || !f.fsPath.includes(javaPackage.replace(/\./g, path.sep)))
 			)) {
 				const xmlFileName = path.basename(xmlFile.fsPath, '.xml');
-				if (xmlFileName === fileName || xmlFileName === fileName + 'Mapper') {
+				// 增强匹配规则
+				if (xmlFileName === fileName || 
+				    xmlFileName === fileName + 'Mapper' || 
+				    xmlFileName === fileName + 'Dao') {
 					// Use namespace verification
 					const namespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
 					if (namespace) {
@@ -484,6 +513,13 @@ export class FileMapper {
 			for (const pattern of searchPatterns) {
 				const xmlFiles = await vscode.workspace.findFiles(pattern);
 				for (const xmlFile of xmlFiles) {
+					// 检查文件路径是否有效，避免尝试访问Git相关文件
+					if (xmlFile.fsPath.includes('/.git/') || 
+						xmlFile.fsPath.includes('\\.git\\') ||
+						xmlFile.fsPath.endsWith('.git')) {
+						continue;
+					}
+					
 					const fileNamespace = await this.fileUtils.parseXmlNamespace(xmlFile.fsPath);
 					if (fileNamespace === namespace) {
 						return xmlFile.fsPath;
@@ -614,18 +650,29 @@ export class FileMapper {
 			const filePath = editor.document.uri.fsPath;
 
 			if (filePath.endsWith('.java')) {
-				// 使用RegexUtils的缓存正则表达式
-				const methodMatch = this.regexUtils.getRegex("^(public|private|protected|default)?\s*(static\s+)?[\w<>\[\]]+(<[^>]+>)?\s+(\w+)\s*\([^)]*\)", 
+				// 使用更准确的正则表达式匹配Java方法
+				const methodMatch = this.regexUtils.getRegex(
+					/^(?=.*\b(?:public|private|protected)\s+)(?:\s*(?:public|private|protected)\s+)?(?:static\s+)?[\w<>\[\],\s]+\s+(\w+)\s*\([^)]*\)/,
 					""
 				).exec(line);
-				return methodMatch ? methodMatch[4] : null;
+				return methodMatch ? methodMatch[1] : null;
 			} else if (filePath.endsWith('.xml')) {
-				// 使用RegexUtils的缓存正则表达式处理单引号和双引号的id属性
+				// 使用更准确的正则表达式处理XML标签中的id属性
 				const idMatch = this.regexUtils.getRegex(
+					/<\w+\s+[^>]*id\s*=\s*["']([^"']+)["'][^>]*>/,
+					"i"
+				).exec(line);
+				
+				if (idMatch) {
+					return idMatch[1];
+				}
+				
+				// 备用方案：处理单引号和双引号的id属性
+				const altMatch = this.regexUtils.getRegex(
 					`id\s*=\s*(?:"([^\"]*)"|\'([^\']*)\')`, 
 					"i"
 				).exec(line);
-				return idMatch ? (idMatch[1] || idMatch[2]) : null;
+				return altMatch ? (altMatch[1] || altMatch[2]) : null;
 			}
 			return null;
 		} finally {
@@ -639,6 +686,13 @@ export class FileMapper {
 	private async findMethodPosition(xmlPath: string, methodName: string): Promise<vscode.Position | null> {
 		const startTime = Date.now();
 		try {
+			// 检查文件路径是否有效，避免尝试访问Git相关文件
+			if (xmlPath.includes('/.git/') || 
+				xmlPath.includes('\\.git\\') ||
+				xmlPath.endsWith('.git')) {
+				return null;
+			}
+
 			// 检查文件是否存在
 			if (!await this.fileUtils.fileExists(xmlPath)) {
 				return null;
@@ -653,9 +707,10 @@ export class FileMapper {
 			// 将内容拆分为行
 			const lines = content.split('\n');
 
-			// 使用缓存的正则表达式来匹配方法节点
+			// 使用正则表达式匹配MyBatis XML中的SQL语句定义
+			// 匹配类似 <select id="methodName"> 或 <update id="methodName"> 的模式
 			const methodRegex = this.regexUtils.getRegex(
-				`<\\w+\\s+id\\s*=\\s*(?:"${methodName}"|'${methodName}')`, 
+				`\\b(id\\s*=\\s*["']${methodName}["'])`, 
 				"i"
 			);
 
@@ -665,6 +720,11 @@ export class FileMapper {
 				const match = methodRegex.exec(line);
 				if (match) {
 					// 找到匹配行，返回位置
+					// 尝试找到方法名的确切位置
+					const methodIndex = line.indexOf(methodName);
+					if (methodIndex !== -1) {
+						return new vscode.Position(i, methodIndex);
+					}
 					return new vscode.Position(i, 0);
 				}
 			}
@@ -679,21 +739,165 @@ export class FileMapper {
 	}
 
 	/**
+	 * Find the position of a method in a Java file
+	 */	
+	private async findJavaMethodPosition(javaPath: string, methodName: string): Promise<vscode.Position | null> {
+		const startTime = Date.now();
+		try {
+			// 检查文件路径是否有效，避免尝试访问Git相关文件
+			if (javaPath.includes('/.git/') || 
+				javaPath.includes('\\.git\\') ||
+				javaPath.endsWith('.git')) {
+				return null;
+			}
+
+			// 检查文件是否存在
+			if (!await this.fileUtils.fileExists(javaPath)) {
+				return null;
+			}
+
+			// 首先尝试使用Java扩展API查找方法位置
+			const javaExtApi = JavaExtensionAPI.getInstance();
+			if (javaExtApi.isReady) {
+				try {
+					// 注意：这里需要根据实际的 Java 扩展 API 进行调整
+					// 目前使用模拟实现，将来可以替换为真实的API调用
+					// 例如：const position = await this.javaExtApi.findMethodPosition(javaPath, methodName);
+					// 如果成功获取到位置，则直接返回
+				} catch (error) {
+					console.warn('Failed to use Java Extension API to find method position:', error);
+				}
+			}
+
+			// 如果Java扩展API不可用或查找失败，则使用正则表达式方式
+			// 读取Java文件内容
+			const content = await this.fileUtils.safeReadFile(javaPath);
+			if (!content) {
+				return null;
+			}
+
+			// 将内容拆分为行
+			const lines = content.split('\n');
+			
+			// 添加调试日志
+			console.log(`Searching for method ${methodName} in ${javaPath}`);
+
+			// 使用更准确的正则表达式匹配Java方法定义
+			// 匹配各种访问修饰符、返回类型和方法签名格式
+			// 支持泛型返回类型、数组返回类型、带注解的方法等
+			const methodRegex = this.regexUtils.getRegex(
+				`(?:(?:public|private|protected)\\s+)?(?:static\\s+)?(?:final\\s+)?(?:synchronized\\s+)?[\\w<>\\[\\]\\?\\s,]*\\b${methodName}\\s*\\(`
+			);
+
+			// 逐行查找匹配
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i];
+				// 跳过注释行和空行
+				if (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*') || line.trim() === '') {
+					continue;
+				}
+				
+				const match = methodRegex.exec(line);
+				if (match) {
+					// 找到匹配行，返回位置
+					// 尝试找到方法名的确切位置
+					const methodIndex = line.indexOf(methodName);
+					console.log(`Found method ${methodName} at line ${i}, column ${methodIndex}`);
+					if (methodIndex !== -1) {
+						return new vscode.Position(i, methodIndex);
+					}
+					return new vscode.Position(i, 0);
+				}
+			}
+
+			// 如果没有精确匹配，尝试模糊匹配
+			const fuzzyRegex = this.regexUtils.getRegex(
+				`\\b${methodName}\\s*\\(`
+			);
+			
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i];
+				// 跳过注释行和空行
+				if (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*') || line.trim() === '') {
+					continue;
+				}
+				
+				const match = fuzzyRegex.exec(line);
+				if (match) {
+					// 找到匹配行，返回位置
+					// 尝试找到方法名的确切位置
+					const methodIndex = line.indexOf(methodName);
+					console.log(`Found method ${methodName} at line ${i}, column ${methodIndex} with fuzzy matching`);
+					if (methodIndex !== -1) {
+						return new vscode.Position(i, methodIndex);
+					}
+					return new vscode.Position(i, 0);
+				}
+			}
+
+			// 如果仍然找不到，尝试更宽松的匹配模式
+			const looseRegex = this.regexUtils.getRegex(
+				`${methodName}\\s*\\(`
+			);
+			
+			for (let i = 0; i < lines.length; i++) {
+				const line = lines[i];
+				// 跳过注释行和空行
+				if (line.trim().startsWith('//') || line.trim().startsWith('/*') || line.trim().startsWith('*') || line.trim() === '') {
+					continue;
+				}
+				
+				if (looseRegex.test(line)) {
+					// 找到匹配行，返回位置
+					// 尝试找到方法名的确切位置
+					const methodIndex = line.indexOf(methodName);
+					console.log(`Found method ${methodName} at line ${i}, column ${methodIndex} with loose matching`);
+					if (methodIndex !== -1) {
+						return new vscode.Position(i, methodIndex);
+					}
+					return new vscode.Position(i, 0);
+				}
+			}
+			
+			console.log(`Method ${methodName} not found in ${javaPath}`);
+			return null;
+		} catch (error) {
+			console.error('Error finding Java method position:', error);
+			return null;
+		} finally {
+			this.performanceUtils.recordExecutionTime('FileMapper.findJavaMethodPosition', Date.now() - startTime);
+		}
+	}
+
+	/**
 	 * Jump to a specific file and position
 	 */	
 	private async jumpToFile(filePath: string, position?: vscode.Position | null): Promise<void> {
 		const startTime = Date.now();
 		try {
+			console.log("[FileMapper.jumpToFile] Jumping to file:", filePath, "at position:", position);
+			
+			// 检查文件路径是否有效，避免尝试访问Git相关文件
+			if (filePath.includes('/.git/') || 
+				filePath.includes('\\.git\\') ||
+				filePath.endsWith('.git')) {
+				console.warn(`[FileMapper.jumpToFile] Attempted to jump to Git-related file path: ${filePath}`);
+				return;
+			}
+
 			// 检查文件是否存在
 			if (!await this.fileUtils.fileExists(filePath)) {
+				console.error(`[FileMapper.jumpToFile] File not found: ${filePath}`);
 				vscode.window.showErrorMessage(`File not found: ${filePath}`);
 				return;
 			}
 
 			const uri = vscode.Uri.file(filePath);
+			console.log("[FileMapper.jumpToFile] File URI:", uri.toString());
 
 			// 查找是否已存在对应的编辑器
 			const existingEditor = this.findExistingEditor(uri);
+			console.log("[FileMapper.jumpToFile] Existing editor found:", !!existingEditor);
 
 			// 根据文件打开模式决定如何打开文件
 			let viewColumn = undefined;
@@ -701,10 +905,12 @@ export class FileMapper {
 				case FileOpenMode.NO_SPLIT:
 					// 不拆分窗口
 					viewColumn = undefined;
+					console.log("[FileMapper.jumpToFile] Using NO_SPLIT mode");
 					break;
 				case FileOpenMode.USE_EXISTING:
 					// 优先使用已存在的编辑器
 					if (existingEditor) {
+						console.log("[FileMapper.jumpToFile] Using existing editor");
 						// 聚焦到已存在的编辑器
 						vscode.window.showTextDocument(existingEditor.document, {
 							preserveFocus: false,
@@ -712,19 +918,23 @@ export class FileMapper {
 						});
 						// 如果指定了位置，则设置光标位置
 						if (position) {
+							console.log("[FileMapper.jumpToFile] Setting cursor position:", position);
 							existingEditor.selection = new vscode.Selection(position, position);
 							existingEditor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.AtTop);
 						}
 						return;
 					}
 					// 如果没有已存在的编辑器，则在当前列打开
+					console.log("[FileMapper.jumpToFile] No existing editor found, opening in current column");
 					break;
 				default:
 					// 默认行为
+					console.log("[FileMapper.jumpToFile] Using default mode");
 					break;
 			}
 
 			// 打开文件
+			console.log("[FileMapper.jumpToFile] Opening file with viewColumn:", viewColumn);
 			const editor = await vscode.window.showTextDocument(uri, {
 				viewColumn: viewColumn,
 				preserveFocus: false,
@@ -733,11 +943,14 @@ export class FileMapper {
 
 			// 如果指定了位置，则设置光标位置
 			if (position) {
+				console.log("[FileMapper.jumpToFile] Setting cursor position:", position);
 				editor.selection = new vscode.Selection(position, position);
 				editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.AtTop);
 			}
+			
+			console.log("[FileMapper.jumpToFile] Successfully jumped to file");
 		} catch (error) {
-			console.error('Error jumping to file:', error);
+			console.error('[FileMapper.jumpToFile] Error jumping to file:', error);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.jumpToFile', Date.now() - startTime);
 		}
@@ -790,7 +1003,13 @@ export class FileMapper {
 				} else {
 					// 如果快速路径没找到，搜索所有XML文件
 					const xmlFiles = await vscode.workspace.findFiles('**/*.xml');
-					xmlPath = await this.findXmlForMapper(javaFilePath, xmlFiles);
+					// 过滤掉Git相关文件
+					const filteredXmlFiles = xmlFiles.filter(xmlFile => 
+						!xmlFile.fsPath.includes('/.git/') && 
+						!xmlFile.fsPath.includes('\\.git\\') &&
+						!xmlFile.fsPath.endsWith('.git')
+					);
+					xmlPath = await this.findXmlForMapper(javaFilePath, filteredXmlFiles);
 					if (xmlPath) {
 						// 更新缓存
 						this.mappings.set(javaFilePath, xmlPath);
@@ -829,55 +1048,100 @@ export class FileMapper {
 	public async jumpToMapper(): Promise<void> {
 		const startTime = Date.now();
 		try {
+			console.log("[FileMapper.jumpToMapper] Called via shortcut key");
+			
 			// 检查是否应该节流
 			if (this.shouldThrottleJump('jumpToMapper')) {
+				console.log("[FileMapper.jumpToMapper] Throttled");
 				return;
 			}
 
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.document.uri.fsPath.endsWith('.xml')) {
+				console.log("[FileMapper.jumpToMapper] Not an XML file");
+				// 显示错误信息，当前文件不是XML文件
+				vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notXmlFile"));
 				return;
 			}
 
 			const xmlFilePath = editor.document.uri.fsPath;
+			console.log("[FileMapper.jumpToMapper] Current XML file:", xmlFilePath);
 
-			// 尝试从缓存获取对应的Mapper文件
-			let mapperPath = this.reverseMappings.get(xmlFilePath);
-
-			// 如果缓存中没有，则尝试查找
-			if (!mapperPath) {
-				// 解析XML命名空间
-				const namespace = await this.fileUtils.parseXmlNamespace(xmlFilePath);
-				if (namespace) {
-					// 使用新的命名空间搜索方法
-					mapperPath = await this.searchXmlByNamespace(namespace);
-					if (mapperPath) {
-						// 更新缓存
-						this.reverseMappings.set(xmlFilePath, mapperPath);
-						this.mappings.set(mapperPath, xmlFilePath);
-					} else {
-						// 找不到对应的Mapper文件
-						vscode.window.showInformationMessage('No corresponding Mapper file found');
-						return;
-					}
-				} else {
-					// 找不到命名空间
-					vscode.window.showInformationMessage('Cannot parse namespace from XML file');
-					return;
-				}
+			// 检查文件路径是否有效，避免尝试访问Git相关文件
+			if (xmlFilePath.includes('/.git/') || 
+				xmlFilePath.includes('\\.git\\') ||
+				xmlFilePath.endsWith('.git')) {
+				console.log("[FileMapper.jumpToMapper] Ignoring Git-related file");
+				return;
 			}
 
 			// 提取SQL ID
 			const sqlId = this.extractMethodName(editor);
-			if (sqlId) {
-				// 由于Java文件没有像XML那样的ID属性，我们只能跳转到文件
-				// 可以在未来增强此功能，查找对应的方法定义
+			console.log("[FileMapper.jumpToMapper] SQL ID extracted:", sqlId);
+			
+			// 解析XML命名空间
+			const namespace = await this.extractNamespace(xmlFilePath);
+			console.log("[FileMapper.jumpToMapper] Namespace extracted:", namespace);
+			
+			if (!namespace) {
+				console.log("[FileMapper.jumpToMapper] No namespace found");
+				// 找不到命名空间
+				vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noNamespace"));
+				return;
 			}
-
-			// 跳转到Mapper文件
-			await this.jumpToFile(mapperPath);
+			
+			// 查找对应的Java文件
+			const className = namespace.substring(namespace.lastIndexOf(".") + 1);
+			const mapperPath = await this.findJavaFileByClassName(className);
+			console.log("[FileMapper.jumpToMapper] Mapper path found:", mapperPath);
+			
+			if (!mapperPath) {
+				console.log("[FileMapper.jumpToMapper] No mapper file found");
+				// 找不到对应的Mapper文件
+				vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
+				return;
+			}
+			// 如果在根节点跳转（没有具体方法），则跳转到类上
+			if (!sqlId) {
+				console.log("[FileMapper.jumpToMapper] No SQL ID found, jumping to class at path:", mapperPath);
+				// 跳转到Java文件，但不指定具体位置（跳转到类上）
+				await this.jumpToFile(mapperPath);
+				return;
+			}
+			
+			// 如果有具体方法，则跳转到对应方法
+			// 优先使用Java插件API进行跳转
+			const javaExtApi = JavaExtensionAPI.getInstance();
+			if (javaExtApi.isReady) {
+				try {
+					console.log("[FileMapper.jumpToMapper] Trying to use Java Extension API to navigate to method:", sqlId);
+					// 尝试使用Java插件API跳转到具体方法
+					const success = await javaExtApi.navigateToMethod(mapperPath, sqlId);
+					if (success) {
+						console.log("[FileMapper.jumpToMapper] Successfully navigated using Java Extension API");
+						// 成功使用Java插件API跳转，直接返回
+						return;
+					} else {
+						console.log("[FileMapper.jumpToMapper] Java Extension API navigation failed");
+					}
+				} catch (error) {
+					console.warn('[FileMapper.jumpToMapper] Failed to use Java Extension API to navigate to method:', error);
+				}
+			}
+			
+			// 如果Java插件API不可用或跳转失败，则使用正则表达式方式
+			// 跳转到Mapper文件，如果提供了sqlId则尝试定位到对应的方法
+			console.log("[FileMapper.jumpToMapper] Using regex method to find Java method position for:", sqlId);
+			const methodPosition = sqlId ? await this.findJavaMethodPosition(mapperPath, sqlId) : null;
+			console.log("[FileMapper.jumpToMapper] Method position found:", methodPosition);
+			
+			console.log("[FileMapper.jumpToMapper] Jumping to file:", mapperPath);
+			await this.jumpToFile(mapperPath, methodPosition);
 		} catch (error) {
-			console.error('Error jumping to Mapper:', error);
+			console.error('[FileMapper.jumpToMapper] Error jumping to Mapper:', error);
+			vscode.window.showErrorMessage(
+				vscode.l10n.t("error.jumpToMapperFailed", { error: error instanceof Error ? error.message : "Unknown error" })
+			);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.jumpToMapper', Date.now() - startTime);
 		}
@@ -906,16 +1170,64 @@ export class FileMapper {
 	public async publicJumpToFile(filePath: string, methodNameOrPosition?: string | vscode.Position): Promise<void> {
 		const startTime = Date.now();
 		try {
+			console.log("publicJumpToFile called with:", { filePath, methodNameOrPosition });
+			
+			// 如果filePath是XML文件且methodNameOrPosition是字符串（方法名）
+			// 则需要跳转到对应的Java Mapper文件中的方法
+			if (filePath.endsWith('.xml') && typeof methodNameOrPosition === 'string') {
+				console.log("Processing XML to Java jump request");
+				
+				// 解析XML文件的命名空间
+				const namespace = await this.fileUtils.parseXmlNamespace(filePath);
+				if (namespace) {
+					console.log("XML namespace found:", namespace);
+					
+					// 从命名空间中提取类名
+					const className = namespace.substring(namespace.lastIndexOf(".") + 1);
+					console.log("Class name extracted:", className);
+					
+					// 查找对应的Java文件
+					const javaFilePath = await this.findJavaFileByClassName(className);
+					if (javaFilePath) {
+						console.log("Java file found:", javaFilePath);
+						
+						// 查找Java文件中方法的位置
+						const position = await this.findJavaMethodPosition(javaFilePath, methodNameOrPosition);
+						console.log("Java method position found:", position);
+						
+						// 跳转到Java文件
+						await this.jumpToFile(javaFilePath, position);
+						return;
+					} else {
+						console.log("Java file not found for namespace:", namespace);
+					}
+				} else {
+					console.log("No namespace found in XML file");
+				}
+			}
+			
 			let position: vscode.Position | null = null;
 			// 检查第二个参数的类型
-			if (typeof methodNameOrPosition === 'string' && filePath.endsWith('.xml')) {
-				// 如果是方法名，查找位置
-				position = await this.findMethodPosition(filePath, methodNameOrPosition);
+			if (typeof methodNameOrPosition === 'string') {
+				if (filePath.endsWith('.xml')) {
+					// 如果是XML文件且参数是方法名，查找XML中的位置
+					position = await this.findMethodPosition(filePath, methodNameOrPosition);
+				} else if (filePath.endsWith('.java')) {
+					// 如果是Java文件且参数是方法名，查找Java中的位置
+					console.log(`Finding Java method position for ${methodNameOrPosition} in ${filePath}`);
+					position = await this.findJavaMethodPosition(filePath, methodNameOrPosition);
+					console.log(`Found Java method position:`, position);
+				}
 			} else if (methodNameOrPosition instanceof vscode.Position) {
 				// 如果是位置，直接使用
 				position = methodNameOrPosition;
 			}
+			
+			// 添加调试日志
+			console.log(`Jumping to file: ${filePath}, position:`, position);
 			await this.jumpToFile(filePath, position);
+		} catch (error) {
+			console.error('Error in publicJumpToFile:', error);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.publicJumpToFile', Date.now() - startTime);
 		}

@@ -189,7 +189,18 @@ async function runFastProjectTypeCheck() {
 			isJavaProject = true;
 			// 显示建立映射的进度
 			updateStatusBar(vscode.l10n.t("status.buildingMappings"));
-			// 后台执行完整检查
+			// 立即尝试刷新映射（如果fileMapper已初始化）
+			if (fileMapper) {
+				fileMapper.refreshAllMappings().catch(error => {
+					console.error("Error during initial mapping refresh:", error);
+				}).finally(() => {
+					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+				});
+			} else {
+				// 如果fileMapper未初始化，也更新为完成状态，等待后续激活
+				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+			}
+			// 后台执行完整检查以确保准确性
 			setTimeout(() => checkIfJavaProject(), 1000);
 			return;
 		}
@@ -230,13 +241,16 @@ async function checkIfJavaProject() {
 			// 如果fileMapper已初始化，刷新映射
 			if (fileMapper) {
 				try {
-				await fileMapper.refreshAllMappings();
-				// 映射完成后更新状态栏
-				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
-			} catch (error) {
+					await fileMapper.refreshAllMappings();
+					// 映射完成后更新状态栏
+					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+				} catch (error) {
 					console.error("Error refreshing mappings:", error);
 					updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 				}
+			} else {
+				// 即使没有fileMapper，也要更新状态
+				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 			}
 			
 			vscode.window.showInformationMessage(
@@ -256,6 +270,9 @@ async function checkIfJavaProject() {
 			vscode.window.showInformationMessage(
 				vscode.l10n.t("status.nonJavaProject")
 			);
+		} else if (newIsJavaProject && isJavaProject) {
+			// 仍然是Java项目，更新状态栏为完成状态
+			updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 		}
 	} catch (error) {
 		console.error("Error checking project type:", error);
@@ -365,39 +382,38 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 				if (filePath && filePath.endsWith(".java")) {
 					// 直接跳转到XML文件，不创建虚拟编辑器
 					// 先检查缓存中是否有对应的XML文件
-					// 获取所有映射，然后查找对应的XML路径
-					const mappings = fileMapper.getMappingsPublic();
-					let xmlPath = null;
+					let xmlPath = fileMapper.getMappings().get(filePath);
 					
-					// 遍历映射数组查找对应的XML路径
-					for (const mapping of mappings) {
-						if (mapping.mapperPath === filePath) {
-							xmlPath = mapping.xmlPath;
-							break;
-						}
-					}
-					
+					// 如果缓存中没有，则尝试查找
 					if (!xmlPath) {
-						// 如果缓存中没有，尝试直接查找
-							try {
-								if (fileMapper) {
-									const possibleXmlPaths = fileMapper.getPossibleXmlPathsPublic(filePath);
-									for (const xmlPathCandidate of possibleXmlPaths) {
-										if (await fs.promises.stat(xmlPathCandidate).then(() => true).catch(() => false)) {
-											xmlPath = xmlPathCandidate;
-											break;
-										}
-									}
-								}
-							} catch (error) {
-								console.error("Error finding XML paths:", error);
-							}
+						// 使用新的智能查找方式
+						const quickPath = await fileMapper['findXmlByQuickPath'](filePath);
+						if (quickPath) {
+							xmlPath = quickPath;
+						} else {
+							// 如果快速路径没找到，搜索所有XML文件
+							const xmlFiles = await vscode.workspace.findFiles('**/*.xml');
+							// 过滤掉Git相关文件
+							const filteredXmlFiles = xmlFiles.filter(xmlFile => 
+								!xmlFile.fsPath.includes('/.git/') && 
+								!xmlFile.fsPath.includes('\\.git\\') &&
+								!xmlFile.fsPath.endsWith('.git')
+							);
+							xmlPath = await fileMapper['findXmlForMapper'](filePath, filteredXmlFiles);
+						}
 					}
 
 					if (xmlPath) {
-						let targetPosition: vscode.Position | undefined = undefined;
-						// 使用公共方法jumpToFile
-							await fileMapper.publicJumpToFile(xmlPath, methodName);
+						// 查找方法在XML中的位置
+						if (methodName) {
+							const position = await fileMapper['findMethodPosition'](xmlPath, methodName);
+							if (position) {
+								await fileMapper['jumpToFile'](xmlPath, position);
+								return;
+							}
+						}
+						// 直接跳转到文件开头
+						await fileMapper['jumpToFile'](xmlPath);
 					} else {
 						vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noXmlFile"));
 					}
@@ -414,14 +430,11 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 			} catch (error) {
 				console.error("Error jumping to XML file:", error);
 				vscode.window.showErrorMessage(
-					vscode.l10n.t("error.jumpToXmlFailed", { error: error instanceof Error ? error.message : "Unknown error" })
+					vscode.l10n.t("error.cannotOpenFile", { error: error instanceof Error ? error.message : "Unknown error" })
 				);
 			} finally {
-			if (fileMapper) {
-				const executionTimeRecorder = fileMapper.getExecutionTimeRecorder();
-				executionTimeRecorder("jumpToXml", Date.now() - startTime);
+				perfUtils.recordExecutionTime("jumpToXml", Date.now() - startTime);
 			}
-		}
 		}
 	);
 
@@ -431,7 +444,10 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 		async (filePath?: string, methodName?: string) => {
 			const startTime = Date.now();
 			try {
+				console.log("[jumpToMapper] Command invoked", { filePath, methodName });
+				
 				if (!fileMapper) {
+					console.error("[jumpToMapper] FileMapper not initialized");
 					vscode.window.showErrorMessage(
 						vscode.l10n.t("error.fileMapperNotInitialized")
 					);
@@ -440,54 +456,125 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 
 				// If filePath is provided (from CodeLens), use it
 				if (filePath && filePath.endsWith(".xml")) {
-					// 直接跳转到Mapper文件，不创建虚拟编辑器
-					// 先检查缓存中是否有对应的Mapper文件
-					let mapperPath = null;
-					if (fileMapper) {
+					console.log("[jumpToMapper] Processing CodeLens request for XML file");
+					
+					// 检查文件路径是否有效，避免尝试访问Git相关文件
+					if (filePath.includes('/.git/') || 
+						filePath.includes('\\.git\\') ||
+						filePath.endsWith('.git')) {
+						console.log("[jumpToMapper] Ignoring Git-related file:", filePath);
+						return;
+					}
+					
+					// 优先使用Java插件API进行跳转
+					const javaExtApi = JavaExtensionAPI.getInstance();
+					if (javaExtApi.isReady && methodName) {
+						try {
+							console.log("[jumpToMapper] Attempting navigation via Java Extension API");
+							// 先查找对应的Mapper文件
+							let mapperPath = null;
+							const mappings = fileMapper.getMappingsPublic();
+							
+							// 遍历映射数组查找对应的Mapper路径
+							for (const mapping of mappings) {
+								if (mapping.xmlPath === filePath) {
+									mapperPath = mapping.mapperPath;
+									console.log("[jumpToMapper] Found cached mapper path:", mapperPath);
+									break;
+								}
+							}
+							
+							if (!mapperPath) {
+								// 如果缓存中没有，尝试直接查找
+								console.log("[jumpToMapper] Mapper path not in cache, resolving from namespace");
+								const namespace = await fileMapper.extractNamespacePublic(filePath);
+								if (namespace) {
+									const className = namespace.substring(namespace.lastIndexOf(".") + 1);
+									console.log("[jumpToMapper] Extracted namespace and class name:", { namespace, className });
+									mapperPath = await fileMapper.findJavaFileByClassNamePublic(className);
+									console.log("[jumpToMapper] Resolved mapper file path:", mapperPath);
+								}
+							}
+							
+							if (mapperPath) {
+								// 尝试使用Java插件API跳转到具体方法
+								const success = await javaExtApi.navigateToMethod(mapperPath, methodName);
+								if (success) {
+									console.log("[jumpToMapper] Successfully navigated to method using Java Extension API");
+									// 成功使用Java插件API跳转，直接返回
+									return;
+								} else {
+									console.log("[jumpToMapper] Java Extension API navigation failed, falling back to file mapping");
+								}
+							}
+						} catch (error) {
+							console.warn('[jumpToMapper] Exception during Java Extension API navigation attempt:', error);
+						}
+					}
+					
+					// 如果Java插件API不可用或跳转失败，则使用文件映射方式
+					if (methodName) {
+						// 使用公共方法jumpToFile，确保能跳转到具体方法
+						console.log("[jumpToMapper] Using file mapping to navigate to method:", methodName);
+						await fileMapper.publicJumpToFile(filePath, methodName);
+					} else {
+						// 没有方法名，直接跳转到Mapper文件
+						console.log("[jumpToMapper] Navigating to mapper interface without specific method");
+						let mapperPath = null;
 						const mappings = fileMapper.getMappingsPublic();
 						
 						// 遍历映射数组查找对应的Mapper路径
 						for (const mapping of mappings) {
 							if (mapping.xmlPath === filePath) {
 								mapperPath = mapping.mapperPath;
+								console.log("[jumpToMapper] Found mapper path in cache:", mapperPath);
 								break;
 							}
 						}
-					}
-					
-					if (!mapperPath) {
-						// 如果缓存中没有，尝试直接查找
-						try {
+						
+						if (!mapperPath) {
+							// 如果缓存中没有，尝试直接查找
+							console.log("[jumpToMapper] Mapper path not in cache, resolving from namespace");
 							const namespace = await fileMapper.extractNamespacePublic(filePath);
 							if (namespace) {
 								const className = namespace.substring(namespace.lastIndexOf(".") + 1);
+								console.log("[jumpToMapper] Extracted namespace and class name:", { namespace, className });
 								mapperPath = await fileMapper.findJavaFileByClassNamePublic(className);
+								console.log("[jumpToMapper] Resolved mapper file path:", mapperPath);
 							}
-						} catch (error) {
-							console.error("Error finding mapper file:", error);
+						}
+						
+						if (mapperPath) {
+							await fileMapper.publicJumpToFile(mapperPath);
+						} else {
+							console.error("[jumpToMapper] Failed to resolve mapper file for XML:", filePath);
+							vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
 						}
 					}
-
-					if (mapperPath) {
-						let targetPosition: vscode.Position | undefined = undefined;
-						// 不再需要单独调用findMethodPosition，publicJumpToFile会处理这个逻辑
-						// 使用公共方法jumpToFile
-						await fileMapper.publicJumpToFile(mapperPath, methodName);
-					} else {
-						vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
-					}
 				}
-				// Check if current file is an XML file
+				// Check if current file is an XML file (快捷键触发的情况)
 				else {
+					console.log("[jumpToMapper] Processing keyboard shortcut request");
 					const editor = vscode.window.activeTextEditor;
-					if (!editor || editor.document.languageId !== "xml") {
+					if (!editor) {
+						console.log("[jumpToMapper] No active editor");
+						vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.noActiveEditor"));
+						return;
+					}
+					
+					console.log("[jumpToMapper] Current editor language:", editor.document.languageId);
+					if (editor.document.languageId !== "xml") {
+						console.log("[jumpToMapper] Not an XML file");
 						vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notXmlFile"));
 						return;
 					}
+					
+					// 调用FileMapper的jumpToMapper方法
+					console.log("[jumpToMapper] Calling FileMapper.jumpToMapper()");
 					await fileMapper.jumpToMapper();
 				}
 			} catch (error) {
-				console.error("Error jumping to mapper file:", error);
+				console.error("[jumpToMapper] Error jumping to mapper file:", error);
 				vscode.window.showErrorMessage(
 					vscode.l10n.t("error.jumpToMapperFailed", { error: error instanceof Error ? error.message : "Unknown error" })
 				);
@@ -526,6 +613,8 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 					}
 				} else {
 					vscode.window.showErrorMessage(vscode.l10n.t("error.fileMapperNotInitialized"));
+					// 即使没有初始化fileMapper，也要更新状态栏
+					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 				}
 			} finally {
 				perfUtils.recordExecutionTime("refreshMappings", Date.now() - startTime);

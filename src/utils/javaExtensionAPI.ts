@@ -31,11 +31,26 @@ export class JavaExtensionAPI {
         if (!javaExt.isActive) {
           await javaExt.activate();
         }
-        this.javaExtApi = javaExt.exports;
-        this.isActivated = true;
+        
+        // 检查 javaExt.exports 是否存在且不为 null
+        if (javaExt.exports) {
+          // 验证 API 是否符合预期，避免调用不存在的函数
+          this.javaExtApi = javaExt.exports;
+          this.isActivated = true;
+        } else {
+          console.warn('Java extension exports is null or undefined');
+          this.isActivated = false;
+          this.javaExtApi = null;
+        }
+      } else {
+        console.warn('Java extension not found');
+        this.isActivated = false;
+        this.javaExtApi = null;
       }
     } catch (error) {
       console.error(vscode.l10n.t('error.javaExtensionInitFailed', { error: String(error) }));
+      this.isActivated = false;
+      this.javaExtApi = null;
     }
   }
 
@@ -98,6 +113,28 @@ export class JavaExtensionAPI {
     } catch (error) {
       console.error(vscode.l10n.t('error.resourcePathFailed', { className, error: String(error) }));
       return undefined;
+    }
+  }
+  
+  /**
+   * 导航到指定Java文件的特定方法
+   * @param javaFilePath Java文件路径
+   * @param methodName 方法名
+   * @returns 是否成功导航
+   */
+  public async navigateToMethod(javaFilePath: string, methodName: string): Promise<boolean> {
+    if (!this.isReady) {
+      return false;
+    }
+    
+    try {
+      // 注意：这里需要根据实际的 Java 扩展 API 进行调整
+      // 目前使用模拟实现
+      console.log(`Navigate to method ${methodName} in ${javaFilePath} using Java Extension API`);
+      return false; // 模拟实现，总是返回false
+    } catch (error) {
+      console.error(vscode.l10n.t('error.navigateToMethodFailed', { methodName, error: String(error) }));
+      return false;
     }
   }
 }

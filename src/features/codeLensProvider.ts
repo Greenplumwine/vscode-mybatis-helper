@@ -140,8 +140,9 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
             }
 
             // Get or create cached regex for method signatures
+            // 改进正则表达式以更好地匹配Java方法
             const methodRegex = this.regexUtils.getRegex(
-                /^(\s*(public|private|protected|default)?\s*(static\s+)?[\w<>,\[\]]+(\s+\w+(<[^>]+>)?)?\s+(\w+)\s*\([^)]*\))/gm
+                /^(?=.*\b(?:public|private|protected)\s+)(?:\s*(?:public|private|protected)\s+)?(?:static\s+)?[\w<>\[\],\s]+\s+(\w+)\s*\([^)]*\)/gm
             );
 
             const lenses: vscode.CodeLens[] = [];
@@ -160,7 +161,7 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
                     break;
                 }
 
-                const methodName = match[5];
+                const methodName = match[1]; // 修复索引，应该是第1个捕获组
                 const line = document.positionAt(match.index).line;
                 const position = new vscode.Position(line, 0);
                 const range = new vscode.Range(position, position);
@@ -202,13 +203,14 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
             // Common indicators of a Mapper interface
             const mapperIndicators = [
                 // Check for @Mapper annotation
-                /@Mapper\b/g,
-                // Check for @Repository annotation (often used with Mappers)
-                /@Repository\b/g,
+                /@Mapper\b/,
                 // Check for MyBatis specific imports
-                /import\s+org\.apache\.ibatis\.annotations\./g,
-                // Check for method signatures that look like database operations
-                /\b(select|insert|update|delete)\b.*\(/g
+                /import\s+org\.apache\.ibatis\.annotations\./,
+                // Check for MyBatis Spring annotations
+                /import\s+org\.mybatis\.spring\.annotation\.MapperScan;/,
+                // Check for interface declaration with common Mapper naming
+                /interface\s+\w*Mapper\s*\{/,
+                /interface\s+\w*Dao\s*\{/
             ];
 
             // If any of the indicators are found, consider it a Mapper interface
@@ -226,8 +228,9 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
         const startTime = Date.now();
         try {
             // Get or create cached regex for SQL tags
+            // 改进正则表达式以更好地匹配XML标签
             const tagRegex = this.regexUtils.getRegex(
-                /<(select|update|insert|delete)\s+[^>]*id="([^"]+)"/gmi
+                /<(select|update|insert|delete)\s+[^>]*id\s*=\s*["']([^"']+)["'][^>]*>/gmi
             );
 
             const lenses: vscode.CodeLens[] = [];
@@ -259,6 +262,9 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
                     command: "mybatis-helper.jumpToMapper",
                     arguments: [document.uri.fsPath, methodName]
                 };
+                
+                // 添加调试日志
+                console.log(`Creating CodeLens for method: ${methodName} at line: ${line}`);
 
                 lenses.push(codeLens);
                 matchCount++;
