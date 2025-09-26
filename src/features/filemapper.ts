@@ -3,21 +3,24 @@ import * as fs from 'fs/promises';
 import * as syncFs from 'fs';
 import * as path from 'path';
 import { getPluginConfig } from '../utils';
-import { PerformanceUtils } from '../utils/performanceUtils';
-import { RegexUtils } from '../utils/performanceUtils';
-import { FileUtils } from '../utils/performanceUtils';
-import { JavaExtensionAPI } from '../utils/javaExtensionAPI';
-import type { FileMapping } from '../types';
-import { FileOpenMode } from '../types';
+import { PerformanceUtils, RegexUtils, FileUtils } from "../utils/performanceUtils";
+import { JavaExtensionAPI } from "../utils/javaExtensionAPI";
+import { FileOpenMode } from "../types";
+import { JavaToXmlNavigator } from "./navigator/javaToXmlNavigator";
+import { XmlToJavaNavigator } from "./navigator/xmlToJavaNavigator";
 
 /**
- * Utility class for mapping Java Mapper interfaces to XML files and vice versa
- * Handles file searching, caching, and jumping between corresponding files
+ * FileMapper 类负责管理 Java Mapper 接口和 XML 文件之间的映射关系
+ * 并提供跳转功能
  */
 export class FileMapper {
 	// 缓存映射关系
 	private readonly mappings: Map<string, string> = new Map(); // java -> xml
 	private readonly reverseMappings: Map<string, string> = new Map(); // xml -> java
+
+	// 导航器实例
+	private javaToXmlNavigator: JavaToXmlNavigator;
+	private xmlToJavaNavigator: XmlToJavaNavigator;
 
 	// 文件扫描配置
 	private readonly scanInterval: number;
@@ -54,6 +57,10 @@ export class FileMapper {
 		this.performanceUtils = PerformanceUtils.getInstance();
 		this.regexUtils = RegexUtils.getInstance();
 		this.fileUtils = FileUtils.getInstance();
+
+		// 初始化导航器实例
+		this.javaToXmlNavigator = new JavaToXmlNavigator(this);
+		this.xmlToJavaNavigator = new XmlToJavaNavigator(this);
 
 		// 初始化映射
 		// this.initializeMappings(); // 移除不存在的方法调用
@@ -976,10 +983,7 @@ export class FileMapper {
 	public async jumpToXml(): Promise<void> {
 		const startTime = Date.now();
 		try {
-			// 检查是否应该节流
-			if (this.shouldThrottleJump('jumpToXml')) {
-				return;
-			}
+			console.log("[FileMapper.jumpToXml] Called via shortcut key");
 
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.document.uri.fsPath.endsWith('.java')) {
@@ -987,54 +991,12 @@ export class FileMapper {
 			}
 
 			const javaFilePath = editor.document.uri.fsPath;
-
-			// 尝试从缓存获取对应的XML文件
-			let xmlPath = this.mappings.get(javaFilePath);
-
-			// 如果缓存中没有，则尝试查找
-			if (!xmlPath) {
-				// 使用新的智能查找方式
-				const quickPath = await this.findXmlByQuickPath(javaFilePath);
-				if (quickPath) {
-					xmlPath = quickPath;
-					// 更新缓存
-					this.mappings.set(javaFilePath, xmlPath);
-					this.reverseMappings.set(xmlPath, javaFilePath);
-				} else {
-					// 如果快速路径没找到，搜索所有XML文件
-					const xmlFiles = await vscode.workspace.findFiles('**/*.xml');
-					// 过滤掉Git相关文件
-					const filteredXmlFiles = xmlFiles.filter(xmlFile => 
-						!xmlFile.fsPath.includes('/.git/') && 
-						!xmlFile.fsPath.includes('\\.git\\') &&
-						!xmlFile.fsPath.endsWith('.git')
-					);
-					xmlPath = await this.findXmlForMapper(javaFilePath, filteredXmlFiles);
-					if (xmlPath) {
-						// 更新缓存
-						this.mappings.set(javaFilePath, xmlPath);
-						this.reverseMappings.set(xmlPath, javaFilePath);
-					} else {
-						// 找不到对应的XML文件
-						vscode.window.showInformationMessage('No corresponding XML file found');
-						return;
-					}
-				}
-			}
-
+			
 			// 提取方法名
 			const methodName = this.extractMethodName(editor);
-			if (methodName) {
-				// 查找方法在XML中的位置
-				const position = await this.findMethodPosition(xmlPath, methodName);
-				if (position) {
-					await this.jumpToFile(xmlPath, position);
-					return;
-				}
-			}
-
-			// 直接跳转到文件开头
-			await this.jumpToFile(xmlPath);
+			
+			// 使用新的导航器进行跳转
+			await this.javaToXmlNavigator.navigateToXml(javaFilePath, methodName || undefined);
 		} catch (error) {
 			console.error('Error jumping to XML:', error);
 		} finally {
@@ -1049,99 +1011,21 @@ export class FileMapper {
 		const startTime = Date.now();
 		try {
 			console.log("[FileMapper.jumpToMapper] Called via shortcut key");
-			
-			// 检查是否应该节流
-			if (this.shouldThrottleJump('jumpToMapper')) {
-				console.log("[FileMapper.jumpToMapper] Throttled");
-				return;
-			}
 
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || !editor.document.uri.fsPath.endsWith('.xml')) {
-				console.log("[FileMapper.jumpToMapper] Not an XML file");
-				// 显示错误信息，当前文件不是XML文件
-				vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notXmlFile"));
 				return;
 			}
 
 			const xmlFilePath = editor.document.uri.fsPath;
-			console.log("[FileMapper.jumpToMapper] Current XML file:", xmlFilePath);
-
-			// 检查文件路径是否有效，避免尝试访问Git相关文件
-			if (xmlFilePath.includes('/.git/') || 
-				xmlFilePath.includes('\\.git\\') ||
-				xmlFilePath.endsWith('.git')) {
-				console.log("[FileMapper.jumpToMapper] Ignoring Git-related file");
-				return;
-			}
-
-			// 提取SQL ID
-			const sqlId = this.extractMethodName(editor);
-			console.log("[FileMapper.jumpToMapper] SQL ID extracted:", sqlId);
 			
-			// 解析XML命名空间
-			const namespace = await this.extractNamespace(xmlFilePath);
-			console.log("[FileMapper.jumpToMapper] Namespace extracted:", namespace);
+			// 提取方法名
+			const methodName = this.extractMethodName(editor);
 			
-			if (!namespace) {
-				console.log("[FileMapper.jumpToMapper] No namespace found");
-				// 找不到命名空间
-				vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noNamespace"));
-				return;
-			}
-			
-			// 查找对应的Java文件
-			const className = namespace.substring(namespace.lastIndexOf(".") + 1);
-			const mapperPath = await this.findJavaFileByClassName(className);
-			console.log("[FileMapper.jumpToMapper] Mapper path found:", mapperPath);
-			
-			if (!mapperPath) {
-				console.log("[FileMapper.jumpToMapper] No mapper file found");
-				// 找不到对应的Mapper文件
-				vscode.window.showErrorMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
-				return;
-			}
-			// 如果在根节点跳转（没有具体方法），则跳转到类上
-			if (!sqlId) {
-				console.log("[FileMapper.jumpToMapper] No SQL ID found, jumping to class at path:", mapperPath);
-				// 跳转到Java文件，但不指定具体位置（跳转到类上）
-				await this.jumpToFile(mapperPath);
-				return;
-			}
-			
-			// 如果有具体方法，则跳转到对应方法
-			// 优先使用Java插件API进行跳转
-			const javaExtApi = JavaExtensionAPI.getInstance();
-			if (javaExtApi.isReady) {
-				try {
-					console.log("[FileMapper.jumpToMapper] Trying to use Java Extension API to navigate to method:", sqlId);
-					// 尝试使用Java插件API跳转到具体方法
-					const success = await javaExtApi.navigateToMethod(mapperPath, sqlId);
-					if (success) {
-						console.log("[FileMapper.jumpToMapper] Successfully navigated using Java Extension API");
-						// 成功使用Java插件API跳转，直接返回
-						return;
-					} else {
-						console.log("[FileMapper.jumpToMapper] Java Extension API navigation failed");
-					}
-				} catch (error) {
-					console.warn('[FileMapper.jumpToMapper] Failed to use Java Extension API to navigate to method:', error);
-				}
-			}
-			
-			// 如果Java插件API不可用或跳转失败，则使用正则表达式方式
-			// 跳转到Mapper文件，如果提供了sqlId则尝试定位到对应的方法
-			console.log("[FileMapper.jumpToMapper] Using regex method to find Java method position for:", sqlId);
-			const methodPosition = sqlId ? await this.findJavaMethodPosition(mapperPath, sqlId) : null;
-			console.log("[FileMapper.jumpToMapper] Method position found:", methodPosition);
-			
-			console.log("[FileMapper.jumpToMapper] Jumping to file:", mapperPath);
-			await this.jumpToFile(mapperPath, methodPosition);
+			// 使用新的导航器进行跳转
+			await this.xmlToJavaNavigator.navigateToJava(xmlFilePath, methodName || undefined);
 		} catch (error) {
-			console.error('[FileMapper.jumpToMapper] Error jumping to Mapper:', error);
-			vscode.window.showErrorMessage(
-				vscode.l10n.t("error.jumpToMapperFailed", { error: error instanceof Error ? error.message : "Unknown error" })
-			);
+			console.error('Error jumping to mapper:', error);
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.jumpToMapper', Date.now() - startTime);
 		}
@@ -1243,6 +1127,38 @@ export class FileMapper {
 		} finally {
 			this.performanceUtils.recordExecutionTime('FileMapper.findJavaFileByClassNamePublic', Date.now() - startTime);
 		}
+	}
+
+	/**
+	 * Public method to extract method name from editor
+	 */	
+	public extractMethodNamePublic(editor: vscode.TextEditor): string | undefined {
+		const methodName = this.extractMethodName(editor);
+		return methodName || undefined;
+	}
+
+	/**
+	 * Public method to parse XML namespace
+	 */
+	public async parseXmlNamespacePublic(xmlPath: string): Promise<string | undefined> {
+		const namespace = await this.fileUtils.parseXmlNamespace(xmlPath);
+		return namespace || undefined;
+	}
+
+
+	/**
+	 * Public method to find Java method position
+	 */
+	public async findJavaMethodPositionPublic(javaPath: string, methodName: string): Promise<vscode.Position | undefined> {
+		const position = await this.findJavaMethodPosition(javaPath, methodName);
+		return position || undefined;
+	}
+
+	/**
+	 * Public method to jump to file
+	 */
+	public async jumpToFilePublic(filePath: string, position?: vscode.Position): Promise<void> {
+		await this.jumpToFile(filePath, position);
 	}
 
 	/**

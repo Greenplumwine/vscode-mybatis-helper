@@ -68,7 +68,7 @@
       {
         "command": "mybatis-helper.jumpToXml",
         "key": "alt+x",
-        "when": "editorFocus"
+        "when": "editorFocus && resourceExtname == '.java'"
       },
       {
         "command": "mybatis-helper.jumpToMapper",
