@@ -894,8 +894,8 @@ export class FileMapper {
 
 			// 检查文件是否存在
 			if (!await this.fileUtils.fileExists(filePath)) {
-				console.error(`[FileMapper.jumpToFile] File not found: ${filePath}`);
-				vscode.window.showErrorMessage(`File not found: ${filePath}`);
+				console.error(`[FileMapper.jumpToFile] ${vscode.l10n.t("error.fileNotFound")}: ${filePath}`);
+				vscode.window.showErrorMessage(vscode.l10n.t("error.fileNotFound", { filePath }));
 				return;
 			}
 

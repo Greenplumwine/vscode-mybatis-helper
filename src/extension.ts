@@ -83,13 +83,19 @@ export function activate(context: vscode.ExtensionContext) {
 	// 立即注册所有命令，不要等到检查完项目类型
 	activatePluginFeatures(context);
 
-	// 显示插件启动提示
-	vscode.window.showInformationMessage(vscode.l10n.t("info.extensionActivated"));
-
-	// 后台异步快速检查项目类型并显示进度
-	runFastProjectTypeCheck().catch(error => {
-		console.error("Error during project initialization:", error);
-		updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
+	// 使用进度通知替代信息通知显示插件启动提示
+	vscode.window.withProgress({
+		location: vscode.ProgressLocation.Notification,
+		title: vscode.l10n.t("info.extensionActivated"),
+		cancellable: false
+	}, async (progress) => {
+		// 后台异步快速检查项目类型并显示进度
+		try {
+			await runFastProjectTypeCheck();
+		} catch (error) {
+			console.error("Error during project initialization:", error);
+			updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
+		}
 	});
 
 	// 设置文件系统监听器来检测Java文件的添加/删除
@@ -170,32 +176,39 @@ function updateStatusBar(message: string, isWorking: boolean = true) {
 /**
  * 快速检查项目类型，使用轻量级方法
  */
-async function runFastProjectTypeCheck() {
+async function runFastProjectTypeCheck(): Promise<void> {
 	const startTime = Date.now();
 	try {
-		// 显示检查项目类型的进度
-		updateStatusBar(vscode.l10n.t("status.checkingJavaProject"));
-
-		// 先快速检查根目录下是否有常见的Java项目文件
-		const projectFiles = await vscode.workspace.findFiles(
-			"{pom.xml,build.gradle,build.gradle.kts,settings.gradle}",
-			null,
-			1
+		// 快速检查工作区根目录下的常见Java项目文件
+		const quickCheckFiles = await vscode.workspace.findFiles(
+			"{pom.xml,build.gradle,build.gradle.kts,*.java,*.xml}",
+			"**/node_modules/**,**/.git/**,**/out/**,**/target/**,**/build/**",
+			50
 		);
-		const hasProjectFiles = projectFiles.length > 0;
 
-		if (hasProjectFiles) {
-			console.log("Java project detected (fast check).");
+		const hasJavaFiles = quickCheckFiles.some(file => file.path.endsWith(".java"));
+		const hasXmlFiles = quickCheckFiles.some(file => file.path.endsWith(".xml"));
+		const hasBuildFiles = quickCheckFiles.some(file =>
+			file.path.endsWith("pom.xml") ||
+			file.path.endsWith("build.gradle") ||
+			file.path.endsWith("build.gradle.kts")
+		);
+
+		// 如果找到Java构建文件或同时找到Java和XML文件，则认为是Java项目
+		if (hasBuildFiles || (hasJavaFiles && hasXmlFiles)) {
 			isJavaProject = true;
-			// 显示建立映射的进度
+			console.log("Fast project type check: Java project detected");
 			updateStatusBar(vscode.l10n.t("status.buildingMappings"));
-			// 立即尝试刷新映射（如果fileMapper已初始化）
+
+			// 如果fileMapper已初始化，刷新映射
 			if (fileMapper) {
-				fileMapper.refreshAllMappings().catch(error => {
+				try {
+					await fileMapper.refreshAllMappings();
+				} catch (error) {
 					console.error("Error during initial mapping refresh:", error);
-				}).finally(() => {
+				} finally {
 					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
-				});
+				}
 			} else {
 				// 如果fileMapper未初始化，也更新为完成状态，等待后续激活
 				updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
