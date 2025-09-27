@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.0.5] - 2025-09-27
+
+- 修复CodeLens显示问题，现在只在真正的Mapper接口和对应的方法上显示CodeLens
+- 优化CodeLens的resolve逻辑，提高跳转准确性
+- 修复正则表达式语法错误，确保XML标签正确解析
+- 完善错误处理和国际化支持
+
 ## [0.0.4] - 2025-09-26
 
 - 重构文件跳转逻辑，引入独立的导航器模式（JavaToXmlNavigator和XmlToJavaNavigator）
