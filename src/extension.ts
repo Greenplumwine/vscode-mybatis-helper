@@ -37,33 +37,6 @@ async function initializePerformanceComponents(context: vscode.ExtensionContext)
   }
 }
 
-// Display sample logs in console log panel for testing log interception functionality
-function displaySampleLogsForTesting() {
-	// Create sample log output channel
-	const testLogChannel = vscode.window.createOutputChannel("MyBatis Test Logs");
-
-	// Sample MyBatis logs
-	const sampleLogs = [
-		"==>  Preparing: SELECT * FROM users WHERE id = ?",
-		"==> Parameters: 123(Integer)",
-		"<==    Columns: id, name, email",
-		"<==        Row: 123, John Doe, john.doe@example.com",
-		"<==      Total: 1",
-		"==>  Preparing: INSERT INTO products (name, price) VALUES (?, ?)",
-		"==> Parameters: Laptop(String), 999.99(Double)",
-		"<==    Updates: 1",
-	];
-
-	// Display sample logs
-	sampleLogs.forEach((log) => {
-		console.log(log);
-		testLogChannel.appendLine(log);
-	});
-
-	// Show the log channel
-	testLogChannel.show();
-}
-
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -108,18 +81,14 @@ const debouncedCheckProject = perfUtils.debounce(() => {
 
 // 处理文件创建
 watcher.onDidCreate(() => {
-	if (!isJavaProject) {
-		// 异步检查，不阻塞主线程
-		debouncedCheckProject();
-	}
+	// 异步检查，不阻塞主线程
+	debouncedCheckProject();
 });
 
 // 处理文件删除
 watcher.onDidDelete(() => {
-	if (isJavaProject) {
-		// 异步检查，不阻塞主线程
-		debouncedCheckProject();
-	}
+	// 异步检查，不阻塞主线程
+	debouncedCheckProject();
 });
 
 	// 注册监听器以便清理
@@ -216,6 +185,10 @@ async function runFastProjectTypeCheck(): Promise<void> {
 			// 后台执行完整检查以确保准确性
 			setTimeout(() => checkIfJavaProject(), 1000);
 			return;
+		} else {
+			// 确认是非Java项目
+			isJavaProject = false;
+			updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 		}
 
 		// 如果没有找到项目文件，再进行标准检查
@@ -280,9 +253,6 @@ async function checkIfJavaProject() {
 		} else if (!newIsJavaProject && !isJavaProject) {
 			// 确认是非Java项目
 			updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
-			vscode.window.showInformationMessage(
-				vscode.l10n.t("status.nonJavaProject")
-			);
 		} else if (newIsJavaProject && isJavaProject) {
 			// 仍然是Java项目，更新状态栏为完成状态
 			updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);

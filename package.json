@@ -21,7 +21,8 @@
   "main": "./out/extension.js",
   "l10n": "./l10n",
   "activationEvents": [
-    "onStartupFinished"
+    "workspaceContains:**/pom.xml",
+    "workspaceContains:**/build.gradle"
   ],
   "extensionDependencies": [
     "redhat.java"
