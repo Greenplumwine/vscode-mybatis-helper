@@ -6,7 +6,7 @@
 
 ## 项目概述
 
-MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。插件采用 `onStartupFinished` 机制激活，确保在 VSCode 启动完成后自动初始化。
+MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。
 
 ## 功能特点
 
