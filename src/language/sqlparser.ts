@@ -1,15 +1,12 @@
 import { formatSQL, highlightSQL, safeRegexMatch } from "../utils";
 import { DatabaseType, SQLQuery } from "../types";
-import { PerformanceUtils } from '../utils/performanceUtils';
-import { RegexUtils } from '../utils';
+import { logger } from "../utils/logger";
 
 /**
  * SQL parser for parsing SQL statements and parameters from MyBatis logs
  */
 export class SQLParser {
 	private databaseType: DatabaseType;
-	private performanceUtils: PerformanceUtils;
-	private regexUtils: RegexUtils;
 
 	// Cache regular expressions for performance improvement
 	private preparingRegex = /Preparing:\s*(.+)/i;
@@ -33,35 +30,39 @@ export class SQLParser {
 		["array", this.formatArrayParam.bind(this)],
 	]);
 
+	/**
+	 * Creates a new SQLParser instance
+	 * @param databaseType The database type to use for parsing (default: MySQL)
+	 */
 	constructor(databaseType: DatabaseType = DatabaseType.MYSQL) {
 		this.databaseType = databaseType;
-		this.performanceUtils = PerformanceUtils.getInstance();
-		this.regexUtils = RegexUtils.getInstance();
 	}
 
 	/**
 	 * Set database type and clear relevant caches
+	 * @param type The database type to set
 	 */
 	setDatabaseType(type: DatabaseType): void {
-		const startTime = Date.now();
 		try {
 			this.databaseType = type;
 			// Clear SQL processing cache when database type changes
 			this.clearCache();
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.setDatabaseType', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error setting database type: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
 	/**
 	 * Set custom regular expressions and clear regex cache
+	 * @param preparingPattern Optional custom pattern for preparing SQL statements
+	 * @param parametersPattern Optional custom pattern for parameters
+	 * @param executionTimePattern Optional custom pattern for execution time
 	 */
 	setCustomPatterns(
 		preparingPattern?: string,
 		parametersPattern?: string,
 		executionTimePattern?: string
 	): void {
-		const startTime = Date.now();
 		try {
 			// Clear operation type regex cache when patterns change
 			this.operationTypeRegexCache.clear();
@@ -70,7 +71,7 @@ export class SQLParser {
 				try {
 					this.preparingRegex = new RegExp(preparingPattern, "i");
 				} catch (error) {
-					console.error("Error setting preparing regex:", error);
+					logger.error(`Error setting preparing regex: ${error instanceof Error ? error.message : String(error)}`);
 				}
 			}
 
@@ -78,7 +79,7 @@ export class SQLParser {
 				try {
 					this.parametersRegex = new RegExp(parametersPattern, "i");
 				} catch (error) {
-					console.error("Error setting parameters regex:", error);
+					logger.error(`Error setting parameters regex: ${error instanceof Error ? error.message : String(error)}`);
 				}
 			}
 
@@ -86,11 +87,11 @@ export class SQLParser {
 				try {
 					this.executionTimeRegex = new RegExp(executionTimePattern, "i");
 				} catch (error) {
-					console.error("Error setting execution time regex:", error);
+					logger.error(`Error setting execution time regex: ${error instanceof Error ? error.message : String(error)}`);
 				}
 			}
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.setCustomPatterns', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error setting custom patterns: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
@@ -98,39 +99,41 @@ export class SQLParser {
 	 * Reset to default regular expressions and clear caches
 	 */
 	resetToDefaultPatterns(): void {
-		const startTime = Date.now();
 		try {
 			this.preparingRegex = /Preparing:\s*(.+)/i;
 			this.parametersRegex = /Parameters:\s*(.+)/i;
 			this.executionTimeRegex = /Executed\s+in\s+(\d+)ms/i;
 			this.operationTypeRegexCache.clear();
 			this.clearCache();
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.resetToDefaultPatterns', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error resetting to default patterns: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
 	/**
-	 * Parse log line for preparing SQL statement with performance tracking
+	 * Parse log line for preparing SQL statement
+	 * @param line The log line to parse
+	 * @returns The parsed SQL statement or null if no match found
 	 */
 	parsePreparingLog(line: string): string | null {
-		const startTime = Date.now();
 		try {
-			return this.regexUtils.safeMatch(line, this.preparingRegex)?.[1]?.trim() || null;
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.parsePreparingLog', Date.now() - startTime);
+			return safeRegexMatch(line, this.preparingRegex)?.[1]?.trim() || null;
+		} catch (error) {
+			logger.error(`Error parsing preparing log: ${error instanceof Error ? error.message : String(error)}`);
+			return null;
 		}
 	}
 
 	/**
-	 * Parse log line for parameters with performance tracking
+	 * Parse log line for parameters
+	 * @param line The log line to parse
+	 * @returns Array of parameter objects with value and type, or null if no match found
 	 */
 	parseParametersLog(
 		line: string
 	): Array<{ value: string; type: string }> | null {
-		const startTime = Date.now();
 		try {
-			const parametersMatch = this.regexUtils.safeMatch(line, this.parametersRegex);
+			const parametersMatch = safeRegexMatch(line, this.parametersRegex);
 			if (!parametersMatch || !parametersMatch[1]) {
 				return null;
 			}
@@ -154,51 +157,51 @@ export class SQLParser {
 
 				// Prevent infinite loops
 				if (paramCount > 1000) {
-					console.warn('Possible infinite loop detected in parameter parsing');
+					logger.warn('Possible infinite loop detected in parameter parsing');
 					break;
 				}
 			}
 
 			return params.length > 0 ? params : null;
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.parseParametersLog', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error parsing parameters log: ${error instanceof Error ? error.message : String(error)}`);
+			return null;
 		}
 	}
 
 	/**
-	 * Parse log line for execution time with performance tracking
+	 * Parse log line for execution time
+	 * @param line The log line to parse
+	 * @returns The execution time in milliseconds or null if no match found
 	 */
 	parseExecutionTimeLog(line: string): number | null {
-		const startTime = Date.now();
 		try {
-			const timeMatch = this.regexUtils.safeMatch(line, this.executionTimeRegex);
+			const timeMatch = safeRegexMatch(line, this.executionTimeRegex);
 			if (timeMatch && timeMatch[1]) {
 				return parseInt(timeMatch[1], 10);
 			}
 			return null;
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.parseExecutionTimeLog', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error parsing execution time log: ${error instanceof Error ? error.message : String(error)}`);
+			return null;
 		}
 	}
 
 	/**
-	 * Fill parameters into SQL statement with performance tracking
+	 * Fill parameters into SQL statement
+	 * @param sql The SQL statement with placeholders
+	 * @param params Array of parameter objects with value and type
+	 * @returns The SQL statement with filled parameters
 	 */
 	fillParametersToSQL(
 		sql: string,
 		params: Array<{ value: string; type: string }>
 	): string {
-		const startTime = Date.now();
 		try {
 			// Create cache key based on SQL and parameters
 			const cacheKey = `${sql}_${JSON.stringify(params)}`;
-			let filledSQL: string = this.performanceUtils.getCache(cacheKey) || "";
-
-			if (filledSQL) {
-				return filledSQL;
-			}
-
-			filledSQL = sql;
+			
+			let filledSQL: string = "";
 
 			// Process question mark parameters
 			let placeholderIndex = 0;
@@ -215,17 +218,18 @@ export class SQLParser {
 			// Process array parameter expansion (IN clause) - optimized
 			filledSQL = this.processArrayParameters(filledSQL, params);
 
-			// Cache the result
-			this.performanceUtils.setCache(cacheKey, filledSQL);
-
 			return filledSQL;
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.fillParametersToSQL', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error filling parameters to SQL: ${error instanceof Error ? error.message : String(error)}`);
+			return sql; // Return original SQL on error
 		}
 	}
 
 	/**
-	 * Process array parameters in SQL with optimized performance
+	 * Process array parameters in SQL
+	 * @param filledSQL The SQL statement with filled parameters
+	 * @param params Array of parameter objects with value and type
+	 * @returns The SQL statement with processed array parameters
 	 */
 	private processArrayParameters(
 		filledSQL: string,
@@ -301,9 +305,8 @@ export class SQLParser {
 				);
 
 			} catch (error) {
-				console.warn(
-					`Failed to expand array parameter at index ${i}:`,
-					error
+				logger.warn(
+					`Failed to expand array parameter at index ${i}: ${error instanceof Error ? error.message : String(error)}`
 				);
 				// Skip array expansion and keep original if there's an error
 				continue;
@@ -314,43 +317,34 @@ export class SQLParser {
 
 	/**
 	 * Infer element type from array type
+	 * @param arrayType The array type string
+	 * @returns The inferred element type
 	 */
 	private getArrayItemType(arrayType: string): string {
-		const startTime = Date.now();
 		try {
 			// Try to extract element type from array type name
 			// Example: String[] -> string, List<Integer> -> integer
-			const arrayItemTypeCacheKey = `array_item_type_${arrayType}`;
-			let itemType: string = this.performanceUtils.getCache(arrayItemTypeCacheKey) || "";
-
-			if (itemType) {
-				return itemType;
-			}
-
 			const arrayTypeRegex = /^(?:Array<|List<|)(\w+)/i;
-			const match = this.regexUtils.safeMatch(arrayType, arrayTypeRegex);
+			const match = safeRegexMatch(arrayType, arrayTypeRegex);
 
 			if (match && match[1]) {
-				itemType = match[1].toLowerCase();
+				return match[1].toLowerCase();
 			} else {
 				// Default to string type
-				itemType = "string";
+				return "string";
 			}
-
-			// Cache the result
-			this.performanceUtils.setCache(arrayItemTypeCacheKey, itemType);
-
-			return itemType;
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.getArrayItemType', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error inferring array item type: ${error instanceof Error ? error.message : String(error)}`);
+			return "string"; // Default to string on error
 		}
 	}
 
 	/**
 	 * Format boolean type parameter
+	 * @param value The boolean value to format
+	 * @returns The formatted boolean value according to database type
 	 */
 	private formatBooleanParam(value: string): string {
-		const startTime = Date.now();
 		try {
 			const boolValue = value.toLowerCase() === "true" || value === "1";
 
@@ -366,16 +360,18 @@ export class SQLParser {
 			};
 
 			return boolFormats[this.databaseType] || (boolValue ? "1" : "0");
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatBooleanParam', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error formatting boolean parameter: ${error instanceof Error ? error.message : String(error)}`);
+			return "NULL";
 		}
 	}
 
 	/**
 	 * Format date type parameter
+	 * @param value The date value to format
+	 * @returns The formatted date value according to database type
 	 */
 	private formatDateParam(value: string): string {
-		const startTime = Date.now();
 		try {
 			// Process date strings in different formats
 			let formattedDate = value.trim();
@@ -388,18 +384,17 @@ export class SQLParser {
 			// Add quotes for date
 			return `'${formattedDate}'`;
 		} catch (error) {
-			console.warn(`Invalid date value: ${value}`);
+			logger.warn(`Invalid date value: ${value}`);
 			return "NULL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatDateParam', Date.now() - startTime);
 		}
 	}
 
 	/**
 	 * Format timestamp type parameter
+	 * @param value The timestamp value to format
+	 * @returns The formatted timestamp value according to database type
 	 */
 	private formatTimestampParam(value: string): string {
-		const startTime = Date.now();
 		try {
 			// Process timestamp strings in different formats
 			let formattedTimestamp = value.trim();
@@ -417,18 +412,17 @@ export class SQLParser {
 
 			return timestampFormats[this.databaseType] || `'${formattedTimestamp}'`;
 		} catch (error) {
-			console.warn(`Invalid timestamp value: ${value}`);
+			logger.warn(`Invalid timestamp value: ${value}`);
 			return "NULL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatTimestampParam', Date.now() - startTime);
 		}
 	}
 
 	/**
 	 * Format time type parameter
+	 * @param value The time value to format
+	 * @returns The formatted time value according to database type
 	 */
 	private formatTimeParam(value: string): string {
-		const startTime = Date.now();
 		try {
 			// Process time strings in different formats
 			let formattedTime = value.trim();
@@ -446,27 +440,18 @@ export class SQLParser {
 
 			return timeFormats[this.databaseType] || `'${formattedTime}'`;
 		} catch (error) {
-			console.warn(`Invalid time value: ${value}`);
+			logger.warn(`Invalid time value: ${value}`);
 			return "NULL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatTimeParam', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Format JSON type parameter with caching
+	 * Format JSON type parameter
+	 * @param value The JSON value to format
+	 * @returns The formatted JSON value according to database type
 	 */
 	private formatJsonParam(value: string): string {
-		const startTime = Date.now();
 		try {
-			// Create cache key
-			const cacheKey = `json_param_${value}_${this.databaseType}`;
-			let formattedJson: string = this.performanceUtils.getCache(cacheKey) || "";
-
-			if (formattedJson) {
-				return formattedJson;
-			}
-
 			// Try to parse JSON and re-serialize to ensure validity
 			const trimmedValue = value.trim();
 			const parsedJson = JSON.parse(trimmedValue);
@@ -483,25 +468,19 @@ export class SQLParser {
 				[DatabaseType.OTHER]: `'${escapedJson}'`
 			};
 
-			formattedJson = jsonFormats[this.databaseType] || `'${escapedJson}'`;
-
-			// Cache the result
-			this.performanceUtils.setCache(cacheKey, formattedJson);
-
-			return formattedJson;
+			return jsonFormats[this.databaseType] || `'${escapedJson}'`;
 		} catch (error) {
-			console.warn(`Invalid JSON value: ${value}`);
+			logger.warn(`Invalid JSON value: ${value}`);
 			return "NULL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatJsonParam', Date.now() - startTime);
 		}
 	}
 
 	/**
 	 * Format array type parameter
+	 * @param value The array value to format
+	 * @returns The formatted array value according to database type
 	 */
 	private formatArrayParam(value: string): string {
-		const startTime = Date.now();
 		try {
 			// Process array format
 			let formattedArray = value.trim();
@@ -522,27 +501,19 @@ export class SQLParser {
 
 			return arrayFormats[this.databaseType] || formattedArray;
 		} catch (error) {
-			console.warn(`Invalid array value: ${value}`);
+			logger.warn(`Invalid array value: ${value}`);
 			return "NULL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatArrayParam', Date.now() - startTime);
 		}
 	}
 
 	/**
 	 * Format parameter value according to database type and parameter type to prevent SQL injection
+	 * @param value The parameter value to format
+	 * @param type The parameter type
+	 * @returns The formatted parameter value
 	 */
 	private formatParameter(value: string, type: string): string {
-		const startTime = Date.now();
 		try {
-			// Create cache key
-			const cacheKey = `param_${value}_${type}_${this.databaseType}`;
-			let formattedParam: string = this.performanceUtils.getCache(cacheKey) || "";
-
-			if (formattedParam) {
-				return formattedParam;
-			}
-
 			// Check if there is special parameter type handling
 			const typeLower = type.toLowerCase();
 			for (const [
@@ -550,21 +521,18 @@ export class SQLParser {
 				formatFunction,
 			] of this.specialParamTypes.entries()) {
 				if (typeLower.includes(paramType)) {
-					formattedParam = formatFunction(value);
-					// Cache the result
-					this.performanceUtils.setCache(cacheKey, formattedParam);
-					return formattedParam;
+					return formatFunction(value);
 				}
 			}
 
 			// Process general types
 			// Handle empty values
 			if (!value || value === "undefined") {
-				formattedParam = "NULL";
+				return "NULL";
 			} 
 			// Handle NULL values
 			else if (value.toLowerCase() === "null") {
-				formattedParam = "NULL";
+				return "NULL";
 			} 
 			else {
 				// Remove leading and trailing spaces
@@ -574,7 +542,7 @@ export class SQLParser {
 					// String type, add single quotes
 					// Escape single quotes to prevent SQL injection
 					const escapedValue = trimmedValue.replace(/'/g, "''");
-					formattedParam = `'${escapedValue}'`;
+					return `'${escapedValue}'`;
 				} else if (typeLower.includes("date") || typeLower.includes("time")) {
 					// Date and time types, add appropriate format according to database type
 					// Handle common date formats
@@ -583,7 +551,7 @@ export class SQLParser {
 						// ISO format date 2023-01-01T12:00:00
 						formattedDate = trimmedValue.split("T")[0];
 					}
-					formattedParam = `'${formattedDate}'`;
+					return `'${formattedDate}'`;
 				} else if (typeLower.includes("boolean")) {
 					// Boolean type, convert according to database type
 					const boolValue = trimmedValue.toLowerCase() === "true";
@@ -591,14 +559,14 @@ export class SQLParser {
 					const boolFormats: Record<DatabaseType, string> = {
 						[DatabaseType.MYSQL]: boolValue ? "1" : "0",
 						[DatabaseType.POSTGRESQL]: boolValue ? "1" : "0",
-						[DatabaseType.ORACLE]: boolValue ? "TRUE" : "FALSE",
-						[DatabaseType.SQLSERVER]: boolValue ? "TRUE" : "FALSE",
+						[DatabaseType.ORACLE]: boolValue ? "1" : "0",
+						[DatabaseType.SQLSERVER]: boolValue ? "1" : "0",
 						[DatabaseType.DM]: boolValue ? "1" : "0",
 						[DatabaseType.KINGBASEES]: boolValue ? "1" : "0",
 						[DatabaseType.OTHER]: boolValue ? "1" : "0"
 					};
 
-					formattedParam = boolFormats[this.databaseType] || (boolValue ? "1" : "0");
+					return boolFormats[this.databaseType] || (boolValue ? "1" : "0");
 				} else if (
 					typeLower.includes("number") ||
 					typeLower.includes("int") ||
@@ -610,10 +578,10 @@ export class SQLParser {
 					// Numeric type, perform simple validation
 					const numValue = Number(trimmedValue);
 					if (!isNaN(numValue) && isFinite(numValue)) {
-						formattedParam = String(numValue);
+						return String(numValue);
 					} else {
 						// If not a valid number, return NULL
-						formattedParam = "NULL";
+						return "NULL";
 					}
 				} 
 				// Check if it's a JSON type
@@ -625,42 +593,33 @@ export class SQLParser {
 						// Try to parse JSON and re-serialize to ensure validity
 						const parsedJson = JSON.parse(trimmedValue);
 						const escapedJson = JSON.stringify(parsedJson).replace(/'/g, "''");
-						formattedParam = `'${escapedJson}'`;
+						return `'${escapedJson}'`;
 					} catch (e) {
-						console.warn(`Invalid JSON value: ${trimmedValue} for type: ${type}`);
-						formattedParam = "NULL";
+						logger.warn(`Invalid JSON value: ${trimmedValue} for type: ${type}`);
+						return "NULL";
 					}
 				} 
 				else {
 					// Try to handle other types as strings and log a warning
-					console.warn(`Unknown parameter type: ${type} for value: ${value}`);
+					logger.warn(`Unknown parameter type: ${type} for value: ${value}`);
 					const escapedValue = trimmedValue.replace(/'/g, "''");
-					formattedParam = `'${escapedValue}'`;
+					return `'${escapedValue}'`;
 				}
 			}
-
-			// Cache the result if not NULL
-			if (formattedParam !== "NULL") {
-				this.performanceUtils.setCache(cacheKey, formattedParam);
-			}
-
-			return formattedParam;
 		} catch (error) {
-			console.error(
-				`Error formatting parameter: ${value} (type: ${type})`,
-				error
+			logger.error(
+				`Error formatting parameter: ${value} (type: ${type}): ${error instanceof Error ? error.message : String(error)}`
 			);
 			return "NULL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.formatParameter', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Process complete SQL query object with caching and performance tracking
+	 * Process complete SQL query object with caching
+	 * @param query The SQL query object to process
+	 * @returns The processed SQL query object with fullSQL, formattedSQL, and highlightedSQL
 	 */
 	processSQLQuery(query: SQLQuery): SQLQuery {
-		const startTime = Date.now();
 		try {
 			// Create cache key based on query content
 			const cacheKey = `query_${query.id}_${this.databaseType}`;
@@ -682,59 +641,51 @@ export class SQLParser {
 						processedQuery.parameters
 					);
 				} catch (error) {
-					console.error("Error filling SQL parameters:", error);
 					// Add error message but continue processing
 					processedQuery.error = `Parameter filling failed: ${
 						error instanceof Error ? error.message : String(error)
 					}`;
 					processedQuery.fullSQL = processedQuery.preparing;
+					logger.error("Error filling SQL parameters:", error instanceof Error ? error : new Error(String(error)));
 				}
 			}
 
-			// Format SQL statement with caching
+			// Format SQL statement
 			if (processedQuery.fullSQL) {
 				try {
-					// Use PerformanceUtils withCache for SQL formatting
-					processedQuery.formattedSQL = this.performanceUtils.withCache(
-						`formatted_sql_${processedQuery.fullSQL}_${this.databaseType}`,
-						() => formatSQL(
-							processedQuery.fullSQL!,
-							this.databaseType
-						)
+					processedQuery.formattedSQL = formatSQL(
+						processedQuery.fullSQL!,
+						this.databaseType
 					);
 				} catch (error) {
-					console.error("Error formatting SQL:", error);
+					logger.error("Error formatting SQL:", error instanceof Error ? error : new Error(String(error)));
 					// Add error message but continue processing
 					processedQuery.error = processedQuery.error
 						? `${processedQuery.error}\nFormatting failed: ${
-								error instanceof Error ? error.message : String(error)
-						  }`
+							error instanceof Error ? error.message : String(error)
+						}`
 						: `Formatting failed: ${
-								error instanceof Error ? error.message : String(error)
-						  }`;
+							error instanceof Error ? error.message : String(error)
+						}`;
 					processedQuery.formattedSQL = processedQuery.fullSQL;
 				}
 			}
 
-			// Generate SQL highlighted HTML with caching
+			// Generate SQL highlighted HTML
 			if (processedQuery.formattedSQL) {
 				try {
-					// Use PerformanceUtils withCache for SQL highlighting
-					processedQuery.highlightedSQL = this.performanceUtils.withCache(
-						`highlighted_sql_${processedQuery.formattedSQL}_${this.databaseType}`,
-						() => highlightSQL(
-							processedQuery.formattedSQL!,
-							this.databaseType
-						)
+					processedQuery.highlightedSQL = highlightSQL(
+						processedQuery.formattedSQL!,
+						this.databaseType
 					);
 				} catch (error) {
-					console.error("Error highlighting SQL:", error);
+					logger.error("Error highlighting SQL:", error instanceof Error ? error : new Error(String(error)));
 					// Even if highlighting fails, it doesn't affect usage, continue to return original SQL
 					processedQuery.highlightedSQL = processedQuery.formattedSQL;
 				}
 			}
 
-			// Extract SQL operation type (SELECT, INSERT, UPDATE, DELETE, etc.) with caching
+			// Extract SQL operation type (SELECT, INSERT, UPDATE, DELETE, etc.)
 			if (processedQuery.preparing) {
 				processedQuery.operationType = this.extractSQLOperationType(
 					processedQuery.preparing
@@ -753,7 +704,7 @@ export class SQLParser {
 
 			return processedQuery;
 		} catch (error) {
-			console.error("Error processing SQL query:", error);
+			logger.error(`Error processing SQL query: ${error instanceof Error ? error.message : String(error)}`);
 			// Return original query object but add error message
 			return {
 				...query,
@@ -761,25 +712,16 @@ export class SQLParser {
 					error instanceof Error ? error.message : String(error)
 				}`,
 			};
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.processSQLQuery', Date.now() - startTime);
 		}
 	}
 
 	/**
-	 * Extract operation type from SQL statement (SELECT, INSERT, UPDATE, DELETE, etc.) with caching
+	 * Extract operation type from SQL statement (SELECT, INSERT, UPDATE, DELETE, etc.)
+	 * @param sql The SQL statement to extract operation type from
+	 * @returns The extracted operation type
 	 */
 	private extractSQLOperationType(sql: string): string {
-		const startTime = Date.now();
 		try {
-			// Create cache key
-			const cacheKey = `operation_type_${sql.trim().toLowerCase()}`;
-			let operationType: string = this.performanceUtils.getCache(cacheKey) || "";
-
-			if (operationType) {
-				return operationType;
-			}
-
 			// Remove all content before non-whitespace characters
 			const trimmedSQL = sql.trim().toUpperCase();
 
@@ -802,38 +744,24 @@ export class SQLParser {
 				// Get or create regex from cache
 				let operationRegex = this.operationTypeRegexCache.get(operation);
 				if (!operationRegex) {
-					operationRegex = this.regexUtils.getRegex(`^${operation}\s`, "i");
-					if (operationRegex) {
-						this.operationTypeRegexCache.set(operation, operationRegex);
-					} else {
-						continue;
-					}
+					operationRegex = new RegExp(`^${operation}\s`, "i");
+					this.operationTypeRegexCache.set(operation, operationRegex);
 				}
 
 				if (operationRegex && operationRegex.test(trimmedSQL)) {
 					// Reset regex lastIndex
 					operationRegex.lastIndex = 0;
-					operationType = operation;
-					break;
+					return operation;
 				}
 				// Reset regex lastIndex
-				if (operationRegex) {
-					operationRegex.lastIndex = 0;
-				}
+				operationRegex.lastIndex = 0;
 			}
 
 			// If no clear operation type is found, return generic type
-			operationType = operationType || "SQL";
-
-			// Cache the result
-			this.performanceUtils.setCache(cacheKey, operationType);
-
-			return operationType;
-		} catch (error) {
-			console.warn("Error extracting SQL operation type:", error);
 			return "SQL";
-		} finally {
-			this.performanceUtils.recordExecutionTime('SQLParser.extractSQLOperationType', Date.now() - startTime);
+		} catch (error) {
+			logger.warn(`Error extracting SQL operation type: ${error instanceof Error ? error.message : String(error)}`);
+			return "SQL";
 		}
 	}
 
@@ -850,6 +778,5 @@ export class SQLParser {
 	public dispose(): void {
 		this.clearCache();
 		this.operationTypeRegexCache.clear();
-		this.performanceUtils.clearCache();
 	}
 }

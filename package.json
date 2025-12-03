@@ -2,7 +2,7 @@
   "name": "mybatis-helper-vscode",
   "displayName": "Mybatis Helper",
   "description": "%description%",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "publisher": "Greenplumwine",
   "icon": "static/icon/mybatis-helper-icon.png",
   "repository": {
@@ -69,55 +69,60 @@
       {
         "command": "mybatis-helper.jumpToXml",
         "key": "alt+x",
+        "mac": "cmd+shift+x",
         "when": "editorFocus && resourceExtname == '.java'"
       },
       {
         "command": "mybatis-helper.jumpToMapper",
         "key": "alt+m",
+        "mac": "cmd+shift+m",
         "when": "editorFocus && resourceExtname == '.xml'"
       }
     ],
-    "menus": {
-      "editor/context": [
-        {
-          "when": "editorFocus",
-          "command": "mybatis-helper.jumpToXml",
-          "group": "navigation@1"
-        },
-        {
-          "when": "editorFocus",
-          "command": "mybatis-helper.jumpToMapper",
-          "group": "navigation@2"
-        }
-      ]
-    },
+
     "configuration": {
       "type": "object",
-      "title": "MyBatis Helper",
+      "title": "%configuration.title%",
       "properties": {
         "mybatis-helper.databaseType": {
           "type": "string",
           "default": "mysql",
-          "description": "Database type for SQL formatting (mysql, oracle, sqlserver, postgresql)"
+          "description": "%configuration.databaseType.description%"
         },
         "mybatis-helper.enableLogInterceptor": {
           "type": "boolean",
           "default": true,
-          "description": "Enable SQL log interceptor"
+          "description": "%configuration.enableLogInterceptor.description%"
+        },
+        "mybatis-helper.customLogPattern": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.customLogPattern.description%"
+        },
+        "mybatis-helper.maxHistorySize": {
+          "type": "number",
+          "default": 100,
+          "description": "%configuration.maxHistorySize.description%"
+        },
+        "mybatis-helper.showExecutionTime": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.showExecutionTime.description%"
         },
         "mybatis-helper.enableCodeLens": {
           "type": "boolean",
           "default": true,
-          "description": "Enable CodeLens for jumping between Mapper and XML files"
+          "description": "%configuration.enableCodeLens.description%"
         },
         "mybatis-helper.fileOpenMode": {
           "type": "string",
           "enum": [
             "useExisting",
-            "noSplit"
+            "noSplit",
+            "alwaysSplit"
           ],
           "default": "useExisting",
-          "description": "File open mode"
+          "description": "%configuration.fileOpenMode.description%"
         },
         "mybatis-helper.customXmlDirectories": {
           "type": "array",
@@ -125,7 +130,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Custom XML directories to search for mapper files, relative to workspace root"
+          "description": "%configuration.customXmlDirectories.description%"
         },
         "mybatis-helper.logOutputLevel": {
           "type": "string",
@@ -134,17 +139,102 @@
             "debug"
           ],
           "default": "info",
-          "description": "Log output level"
+          "description": "%configuration.logOutputLevel.description%"
         },
-        "mybatis-helper.enablePerformanceTracking": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable performance tracking"
+        "mybatis-helper.batchProcessDelay": {
+          "type": "number",
+          "default": 200,
+          "description": "%configuration.batchProcessDelay.description%"
         },
-        "mybatis-helper.sqlFormatOptions": {
+        "mybatis-helper.nameMatchingRules": {
+          "type": "array",
+          "default": [
+            {
+              "name": "%configuration.nameMatchingRules.defaultMapper.name%",
+              "enabled": true,
+              "javaPattern": "*Mapper",
+              "xmlPattern": "${javaName}",
+              "description": "%configuration.nameMatchingRules.defaultMapper.description%"
+            },
+            {
+              "name": "%configuration.nameMatchingRules.defaultDao.name%",
+              "enabled": true,
+              "javaPattern": "*Dao",
+              "xmlPattern": "${javaName}",
+              "description": "%configuration.nameMatchingRules.defaultDao.description%"
+            },
+            {
+              "name": "%configuration.nameMatchingRules.standardMapper.name%",
+              "enabled": true,
+              "javaPattern": "*",
+              "xmlPattern": "${javaName}",
+              "description": "%configuration.nameMatchingRules.standardMapper.description%"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "%configuration.nameMatchingRules.item.name.description%"
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "%configuration.nameMatchingRules.item.enabled.description%"
+              },
+              "javaPattern": {
+                "type": "string",
+                "description": "%configuration.nameMatchingRules.item.javaPattern.description%"
+              },
+              "xmlPattern": {
+                "type": "string",
+                "description": "%configuration.nameMatchingRules.item.xmlPattern.description%"
+              },
+              "description": {
+                "type": "string",
+                "description": "%configuration.nameMatchingRules.item.description.description%"
+              }
+            },
+            "required": ["name", "enabled", "javaPattern", "xmlPattern"]
+          },
+          "description": "%configuration.nameMatchingRules.description%"
+        },
+        "mybatis-helper.ignoreSuffixes": {
+          "type": "array",
+          "default": ["Mapper", "Dao"],
+          "items": {
+            "type": "string"
+          },
+          "description": "%configuration.ignoreSuffixes.description%"
+        },
+        "mybatis-helper.pathPriority": {
           "type": "object",
-          "default": {},
-          "description": "SQL format options"
+          "default": {
+            "enabled": true,
+            "priorityDirectories": ["/src/", "/main/", "/resources/"],
+            "excludeDirectories": ["/build/", "/target/", "/out/", "/.git/"]
+          },
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "%configuration.pathPriority.enabled.description%"
+            },
+            "priorityDirectories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "%configuration.pathPriority.priorityDirectories.description%"
+            },
+            "excludeDirectories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "%configuration.pathPriority.excludeDirectories.description%"
+            }
+          },
+          "description": "%configuration.pathPriority.description%"
         }
       }
     }

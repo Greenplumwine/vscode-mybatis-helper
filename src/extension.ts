@@ -1,49 +1,49 @@
+/**
+ * MyBatis Helper 插件入口文件
+ * 负责插件的激活、初始化和功能注册
+ */
+
 // VS Code 1.73+ 版本内置了国际化支持，直接使用vscode.l10n.t()方法
 import * as vscode from "vscode";
-import * as fs from "fs";
-import { ConsoleLogInterceptor } from "./features/consoleloginterceptor";
-import { SQLResultDisplayer } from "./features/sqlresultdisplayer";
-import { FileMapper } from "./features/filemapper";
-import { MyBatisCodeLensProvider } from "./features/codeLensProvider";
-import { SQLQuery } from "./types";
-import { PerformanceUtils, JavaExtensionAPI, AdvancedCacheManager, IncrementalScanner, MappingIndexManager } from "./utils";
+import { ConsoleLogInterceptor } from "./features/sql-logging/consoleloginterceptor";
+import { SQLResultDisplayer } from "./features/sql-logging/sqlresultdisplayer";
+import { FileMapper } from "./features/mapping/filemapper";
+import { MyBatisCodeLensProvider } from "./features/code-lens/codeLensProvider";
+import { SQLCompletionProvider } from "./features/sql-completion/sqlCompletionProvider";
+import { JavaExtensionAPI } from "./utils/javaExtensionAPI";
+import { Logger } from "./utils/logger";
 
+/** 是否为Java项目 */
 let isJavaProject: boolean = false;
+/** 控制台日志拦截器实例 */
 let consoleLogInterceptor: ConsoleLogInterceptor | undefined;
+/** SQL结果展示器实例 */
 let sqlResultDisplayer: SQLResultDisplayer | undefined;
+/** 文件映射器实例 */
 let fileMapper: FileMapper | undefined;
+/** 状态栏项实例 */
 let statusBarItem: vscode.StatusBarItem | undefined;
+/** CodeLens提供器实例 */
 let codeLensProvider: MyBatisCodeLensProvider | undefined;
+/** SQL补全提供器实例 */
+let sqlCompletionProvider: SQLCompletionProvider | undefined;
+/** Java扩展API实例 */
+let javaExtApi: JavaExtensionAPI;
+/** 日志实例 */
+let logger: Logger;
 
-// 性能监控工具实例
-const perfUtils = PerformanceUtils.getInstance();
-const javaExtApi = JavaExtensionAPI.getInstance();
-const cacheManager = AdvancedCacheManager.getInstance();
-const incrementalScanner = IncrementalScanner.getInstance();
-const mappingIndexManager = MappingIndexManager.getInstance();
-
-// 初始化性能优化组件
-async function initializePerformanceComponents(context: vscode.ExtensionContext) {
-  try {
-    // 初始化 Java 扩展 API
-    await javaExtApi.initialize(context);
-    
-    // 初始化映射索引管理器
-    await mappingIndexManager.initialize();
-    
-    console.log("Performance components initialized successfully");
-  } catch (error) {
-    console.error("Failed to initialize performance components:", error);
-  }
-}
-
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+/**
+ * 插件激活函数
+ * 当插件第一次被调用时执行，负责初始化插件的核心功能
+ * @param context VS Code扩展上下文，包含插件的资源和生命周期管理
+ */
 export function activate(context: vscode.ExtensionContext) {
-	console.log("MyBatis Helper extension activating...");
-
-	// 初始化性能优化组件
-	initializePerformanceComponents(context);
+	// 初始化日志系统
+	logger = Logger.getInstance();
+	logger.info("MyBatis Helper extension activating...");
+	
+	// 注册日志配置变化监听器
+	context.subscriptions.push(logger.registerConfigListener());
 
 	// 创建状态栏项
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -53,7 +53,53 @@ export function activate(context: vscode.ExtensionContext) {
 	statusBarItem.show();
 	context.subscriptions.push(statusBarItem);
 
-	// 立即注册所有命令，不要等到检查完项目类型
+	// 立即激活插件功能，包括SQL补全提供器
+	activatePluginFeatures(context);
+
+	// 监听 Java 插件的激活事件，用于初始化需要Java支持的功能
+	const javaExt = vscode.extensions.getExtension('redhat.java');
+	if (javaExt) {
+		if (javaExt.isActive) {
+			// Java 插件已激活，立即初始化需要Java支持的功能
+			logger.info("Java extension already active, initializing Java-dependent features...");
+			initializePlugin(context);
+		} else {
+			// 等待 Java 插件激活
+			logger.info("Waiting for Java extension to activate...");
+			const checkJavaExtensionActivation = () => {
+				const javaExt = vscode.extensions.getExtension('redhat.java');
+				if (javaExt?.isActive) {
+					logger.info("Java extension activated, initializing Java-dependent features...");
+					initializePlugin(context);
+					clearInterval(interval);
+				}
+			};
+			
+			// 每秒检查一次Java扩展是否激活
+			const interval = setInterval(checkJavaExtensionActivation, 1000);
+			context.subscriptions.push({ dispose: () => clearInterval(interval) });
+		}
+	} else {
+		logger.warn("Java extension not found, some MyBatis Helper features may be limited");
+		updateStatusBar(vscode.l10n.t("status.javaExtensionNotFound"), false);
+	}
+}
+
+/**
+ * 初始化插件功能
+ */
+async function initializePlugin(context: vscode.ExtensionContext) {
+	// 初始化 Java 扩展 API
+	javaExtApi = JavaExtensionAPI.getInstance();
+	await javaExtApi.initialize(context);
+	
+	if (!javaExtApi.isReady) {
+		logger.error("Failed to initialize Java extension API");
+		updateStatusBar(vscode.l10n.t("status.javaApiNotReady"), false);
+		return;
+	}
+	
+	// 注册所有命令和功能
 	activatePluginFeatures(context);
 
 	// 使用进度通知替代信息通知显示插件启动提示
@@ -66,35 +112,30 @@ export function activate(context: vscode.ExtensionContext) {
 		try {
 			await runFastProjectTypeCheck();
 		} catch (error) {
-			console.error("Error during project initialization:", error);
+			logger.error("Error during project initialization:", error as Error);
 			updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 		}
 	});
 
 	// 设置文件系统监听器来检测Java文件的添加/删除
-const watcher = vscode.workspace.createFileSystemWatcher("**/*.{java,xml}");
+	const watcher = vscode.workspace.createFileSystemWatcher("**/*.{java,xml}");
 
-// 使用防抖处理文件变更检测，避免频繁检查
-const debouncedCheckProject = perfUtils.debounce(() => {
-	checkIfJavaProject();
-}, 2000);
+	// 处理文件创建
+	watcher.onDidCreate(() => {
+		// 异步检查，不阻塞主线程
+		checkIfJavaProject();
+	});
 
-// 处理文件创建
-watcher.onDidCreate(() => {
-	// 异步检查，不阻塞主线程
-	debouncedCheckProject();
-});
-
-// 处理文件删除
-watcher.onDidDelete(() => {
-	// 异步检查，不阻塞主线程
-	debouncedCheckProject();
-});
+	// 处理文件删除
+	watcher.onDidDelete(() => {
+		// 异步检查，不阻塞主线程
+		checkIfJavaProject();
+	});
 
 	// 注册监听器以便清理
 	context.subscriptions.push(watcher);
 
-	console.log("MyBatis Helper extension activated and commands registered.");
+	logger.info("MyBatis Helper extension activated and commands registered.");
 
 	// 注册命令列表命令
 	const showCommandsCommand = vscode.commands.registerCommand(
@@ -146,7 +187,6 @@ function updateStatusBar(message: string, isWorking: boolean = true) {
  * 快速检查项目类型，使用轻量级方法
  */
 async function runFastProjectTypeCheck(): Promise<void> {
-	const startTime = Date.now();
 	try {
 		// 快速检查工作区根目录下的常见Java项目文件
 		const quickCheckFiles = await vscode.workspace.findFiles(
@@ -166,7 +206,7 @@ async function runFastProjectTypeCheck(): Promise<void> {
 		// 如果找到Java构建文件或同时找到Java和XML文件，则认为是Java项目
 		if (hasBuildFiles || (hasJavaFiles && hasXmlFiles)) {
 			isJavaProject = true;
-			console.log("Fast project type check: Java project detected");
+			logger.info("Fast project type check: Java project detected");
 			updateStatusBar(vscode.l10n.t("status.buildingMappings"));
 
 			// 如果fileMapper已初始化，刷新映射
@@ -174,7 +214,7 @@ async function runFastProjectTypeCheck(): Promise<void> {
 				try {
 					await fileMapper.refreshAllMappings();
 				} catch (error) {
-					console.error("Error during initial mapping refresh:", error);
+					logger.error("Error during initial mapping refresh:", error as Error);
 				} finally {
 					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 				}
@@ -194,13 +234,8 @@ async function runFastProjectTypeCheck(): Promise<void> {
 		// 如果没有找到项目文件，再进行标准检查
 		await checkIfJavaProject();
 	} catch (error) {
-		console.error("Error in fast project type check:", error);
+		logger.error("Error in fast project type check:", error as Error);
 		updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
-	} finally {
-		perfUtils.logExecutionTime("runFastProjectTypeCheck", () => {
-			// Execution time logging
-			return true;
-		});
 	}
 }
 
@@ -208,7 +243,6 @@ async function runFastProjectTypeCheck(): Promise<void> {
  * 检查工作区是否包含Java文件
  */
 async function checkIfJavaProject() {
-	const startTime = Date.now();
 	try {
 		// 限制搜索深度和数量以提高性能
 		const [javaFiles, xmlFiles] = await Promise.all([
@@ -220,7 +254,7 @@ async function checkIfJavaProject() {
 		if (newIsJavaProject && !isJavaProject) {
 			// 项目状态从非Java变为Java
 			isJavaProject = true;
-			console.log("MyBatis Helper activated for Java project");
+			logger.info("MyBatis Helper activated for Java project");
 			// 显示建立映射的进度
 			updateStatusBar(vscode.l10n.t("status.buildingMappings"));
 			
@@ -231,7 +265,7 @@ async function checkIfJavaProject() {
 					// 映射完成后更新状态栏
 					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 				} catch (error) {
-					console.error("Error refreshing mappings:", error);
+					logger.error("Error refreshing mappings:", error as Error);
 					updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 				}
 			} else {
@@ -245,7 +279,7 @@ async function checkIfJavaProject() {
 		} else if (!newIsJavaProject && isJavaProject) {
 			// 项目状态从Java变为非Java
 			isJavaProject = false;
-			console.log("Not a Java project, MyBatis Helper features disabled");
+			logger.info("Not a Java project, MyBatis Helper features disabled");
 			updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 			vscode.window.showInformationMessage(
 				vscode.l10n.t("info.javaProjectDeactivated")
@@ -258,35 +292,39 @@ async function checkIfJavaProject() {
 			updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 		}
 	} catch (error) {
-		console.error("Error checking project type:", error);
+		logger.error("Error checking project type:", error as Error);
 		isJavaProject = false;
 		updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
-	} finally {
-		perfUtils.logExecutionTime("checkIfJavaProject", () => {
-			// Execution time logging
-			return true;
-		});
 	}
 }
 
+// Track if commands have been registered to prevent duplicate registration
+let commandsRegistered = false;
+
 function activatePluginFeatures(context: vscode.ExtensionContext) {
+	logger.debug(`[extension] activatePluginFeatures called, context: ${context}`);
 	// Initialize console log interceptor
 	if (!consoleLogInterceptor) {
+		logger.debug(`[extension] Initializing console log interceptor`);
 		consoleLogInterceptor = new ConsoleLogInterceptor();
 	}
 
 	// Initialize file mapper
 	if (!fileMapper) {
+		logger.debug(`[extension] Initializing file mapper`);
 		fileMapper = new FileMapper();
+		logger.debug(`[extension] File mapper initialized: ${fileMapper}`);
 	}
 
 	// Initialize SQL result displayer
 	if (!sqlResultDisplayer) {
+		logger.debug(`[extension] Initializing SQL result displayer`);
 		sqlResultDisplayer = new SQLResultDisplayer(context.extensionUri);
 	}
 
 	// Initialize CodeLens provider
 	if (!codeLensProvider && fileMapper) {
+		logger.debug(`[extension] Initializing CodeLens provider`);
 		codeLensProvider = new MyBatisCodeLensProvider(fileMapper);
 		const codeLensRegistration = vscode.languages.registerCodeLensProvider(
 			["java", "xml"],
@@ -295,106 +333,141 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 		context.subscriptions.push(codeLensRegistration);
 	}
 
-	// Register commands
-	const refreshDataCommand = vscode.commands.registerCommand(
-		"mybatis-helper.refreshData",
-		async () => {
-			if (isJavaProject && fileMapper) {
-			await fileMapper.refreshAllMappings();
-			vscode.window.showInformationMessage(
-				vscode.l10n.t("info.mybatisMappingsRefreshed")
-			);
-		} else {
-				vscode.window.showWarningMessage(
-					vscode.l10n.t("warning.notJavaProjectOrFileMapperNotInitialized")
-				);
-			}
-		}
-	);
+	// Initialize SQL Completion provider
+	if (!sqlCompletionProvider && fileMapper) {
+		logger.debug(`[extension] Initializing SQL Completion provider`);
+		sqlCompletionProvider = new SQLCompletionProvider(fileMapper);
+		logger.debug(`[extension] SQLCompletionProvider created: ${sqlCompletionProvider}`);
+		const completionRegistration = vscode.languages.registerCompletionItemProvider(
+			["xml"],
+			sqlCompletionProvider,
+			"#",
+			"$"
+		);
+		logger.debug(`[extension] CompletionItemProvider registered for XML files with trigger characters: #, $`);
+		context.subscriptions.push(completionRegistration);
+		logger.debug(`[extension] CompletionItemProvider added to context subscriptions`);
+	}
+	logger.debug(`[extension] SQL Completion provider initialization completed`);
 
-	// Toggle log interceptor command
-	const toggleLogInterceptorCommand = vscode.commands.registerCommand(
-		"mybatis-helper.toggleLogInterceptor",
-		() => {
-			if (consoleLogInterceptor) {
-				const isActive = consoleLogInterceptor.toggleIntercepting();
+	// Register commands only once
+	if (!commandsRegistered) {
+		// Register refreshDataCommand
+		const refreshDataCommand = vscode.commands.registerCommand(
+			"mybatis-helper.refreshData",
+			async () => {
+				if (isJavaProject && fileMapper) {
+				await fileMapper.refreshAllMappings();
 				vscode.window.showInformationMessage(
-					isActive 
-						? vscode.l10n.t("info.logInterceptorActivated") 
-						: vscode.l10n.t("info.logInterceptorDeactivated")
+					vscode.l10n.t("info.mybatisMappingsRefreshed")
 				);
-			}
-		}
-	);
-
-	// Clear SQL history command
-	const clearSqlHistoryCommand = vscode.commands.registerCommand(
-		"mybatis-helper.clearSqlHistory",
-		async () => {
-			if (consoleLogInterceptor) {
-					consoleLogInterceptor.clearSQLHistory();
-					vscode.window.showInformationMessage(
-						vscode.l10n.t("info.sqlHistoryCleared")
-					);
-					// 同时清除结果展示器的缓存
-					if (sqlResultDisplayer) {
-						sqlResultDisplayer.clearAllCaches();
-					}
 			} else {
-				vscode.window.showErrorMessage(
-					vscode.l10n.t("error.logInterceptorNotInitialized")
-				);
+					vscode.window.showWarningMessage(
+						vscode.l10n.t("warning.notJavaProjectOrFileMapperNotInitialized")
+					);
+				}
 			}
-		}
-	);
+		);
 
-	// Jump to XML command
-	const jumpToXmlCommand = vscode.commands.registerCommand(
+		// Register toggleLogInterceptorCommand
+		const toggleLogInterceptorCommand = vscode.commands.registerCommand(
+			"mybatis-helper.toggleLogInterceptor",
+			() => {
+				if (consoleLogInterceptor) {
+					const isActive = consoleLogInterceptor.toggleIntercepting();
+					vscode.window.showInformationMessage(
+						isActive 
+							? vscode.l10n.t("info.logInterceptorActivated") 
+							: vscode.l10n.t("info.logInterceptorDeactivated")
+					);
+				}
+			}
+		);
+
+		// Register clearSqlHistoryCommand
+		const clearSqlHistoryCommand = vscode.commands.registerCommand(
+			"mybatis-helper.clearSqlHistory",
+			async () => {
+				if (consoleLogInterceptor) {
+						consoleLogInterceptor.clearSQLHistory();
+						vscode.window.showInformationMessage(
+							vscode.l10n.t("info.sqlHistoryCleared")
+						);
+						// 同时清除结果展示器的缓存
+						if (sqlResultDisplayer) {
+							sqlResultDisplayer.clearAllCaches();
+						}
+				} else {
+					vscode.window.showErrorMessage(
+						vscode.l10n.t("error.logInterceptorNotInitialized")
+					);
+				}
+			}
+		);
+
+		// Register jumpToXmlCommand
+		const jumpToXmlCommand = vscode.commands.registerCommand(
 		"mybatis-helper.jumpToXml",
-		async (filePath?: string, methodName?: string) => {
-			const startTime = Date.now();
+		async (filePath?: any, methodName?: string) => {
 			try {
 				if (!fileMapper) {
-					vscode.window.showErrorMessage(
-						vscode.l10n.t("error.fileMapperNotInitialized")
-					);
+					const errorMsg = vscode.l10n.t("error.fileMapperNotInitialized");
+					logger.error(errorMsg);
+					vscode.window.showErrorMessage(errorMsg);
 					return;
 				}
 
+				logger.debug(`Jump to XML command triggered, filePath: ${filePath}, methodName: ${methodName}`);
+
+				let javaFilePath: string;
+				let targetMethodName: string | undefined;
+
 				// If filePath is provided (from CodeLens), use it
-				if (filePath && filePath.endsWith(".java")) {
-					// 使用Java到XML导航器
-					await fileMapper['javaToXmlNavigator'].navigateToXml(filePath, methodName);
-				}
-				// Check if current file is a Java file (快捷键触发的情况)
-				else {
+				if (filePath) {
+					// Ensure filePath is a string
+					javaFilePath = typeof filePath === 'string' ? filePath : String(filePath);
+					targetMethodName = methodName;
+					logger.debug(`Using provided filePath: ${javaFilePath}, methodName: ${targetMethodName}`);
+				} else {
 					const editor = vscode.window.activeTextEditor;
-					if (!editor || editor.document.languageId !== "java") {
-						vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notJavaFile"));
+					if (!editor) {
+						const errorMsg = "No active editor found";
+						logger.error(errorMsg);
+						vscode.window.showErrorMessage(errorMsg);
+						return;
+					}
+					
+					logger.debug(`Current editor language: ${editor.document.languageId}, file path: ${editor.document.uri.fsPath}`);
+					
+					if (editor.document.languageId !== "java") {
+						const errorMsg = vscode.l10n.t("fileMapper.notJavaFile");
+						logger.error(errorMsg);
+						vscode.window.showInformationMessage(errorMsg);
 						return;
 					}
 					
 					// 从当前编辑器获取Java文件路径和方法名
-					const javaFilePath = editor.document.uri.fsPath;
-					const currentMethodName = fileMapper.extractMethodNamePublic(editor);
-					await fileMapper['javaToXmlNavigator'].navigateToXml(javaFilePath, currentMethodName);
+					javaFilePath = editor.document.uri.fsPath;
+					targetMethodName = fileMapper.extractMethodNamePublic(editor);
+					logger.debug(`Extracted method name: ${targetMethodName} from file: ${javaFilePath}`);
 				}
+
+				// 使用Java到XML导航器
+				logger.debug(`Navigating to XML from Java file: ${javaFilePath}, method: ${targetMethodName}`);
+				await fileMapper['javaToXmlNavigator'].navigateToXml(javaFilePath, targetMethodName);
 			} catch (error) {
-				console.error("Error jumping to XML file:", error);
+				logger.error("Error jumping to XML file:", error as Error);
 				vscode.window.showErrorMessage(
 					vscode.l10n.t("error.cannotOpenFile", { error: error instanceof Error ? error.message : "Unknown error" })
 				);
-			} finally {
-				perfUtils.recordExecutionTime("jumpToXml", Date.now() - startTime);
 			}
 		}
-	);
+		);
 
-	// Jump to Mapper command
-	const jumpToMapperCommand = vscode.commands.registerCommand(
+		// Register jumpToMapperCommand
+		const jumpToMapperCommand = vscode.commands.registerCommand(
 		"mybatis-helper.jumpToMapper",
-		async (filePath?: string, methodName?: string) => {
-			const startTime = Date.now();
+		async (filePath?: any, methodName?: string) => {
 			try {
 				if (!fileMapper) {
 					vscode.window.showErrorMessage(
@@ -404,12 +477,13 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 				}
 
 				// If filePath is provided (from CodeLens), use it
-				if (filePath && filePath.endsWith(".xml")) {
+				if (filePath) {
+					// Ensure filePath is a string
+					const xmlFilePath = typeof filePath === 'string' ? filePath : String(filePath);
 					// 使用XML到Java导航器
-					await fileMapper['xmlToJavaNavigator'].navigateToJava(filePath, methodName);
-				}
-				// Check if current file is a XML file (快捷键触发的情况)
-				else {
+					logger.debug(`Jumping from XML file to Java: ${xmlFilePath}, method: ${methodName}`);
+					await fileMapper['xmlToJavaNavigator'].navigateToJava(xmlFilePath, methodName);
+				} else {
 					const editor = vscode.window.activeTextEditor;
 					if (!editor || editor.document.languageId !== "xml") {
 						vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notXmlFile"));
@@ -419,25 +493,22 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 					// 从当前编辑器获取XML文件路径和方法名
 					const xmlFilePath = editor.document.uri.fsPath;
 					const currentMethodName = fileMapper.extractMethodNamePublic(editor);
+					logger.debug(`Jumping from XML file to Java: ${xmlFilePath}, method: ${currentMethodName}`);
 					await fileMapper['xmlToJavaNavigator'].navigateToJava(xmlFilePath, currentMethodName);
 				}
 			} catch (error) {
-				console.error("Error jumping to mapper file:", error);
+				logger.error("Error jumping to mapper file:", error as Error);
 				vscode.window.showErrorMessage(
 					vscode.l10n.t("error.cannotOpenFile", { error: error instanceof Error ? error.message : "Unknown error" })
 				);
-			} finally {
-				perfUtils.recordExecutionTime("jumpToMapper", Date.now() - startTime);
 			}
 		}
-	);
+		);
 
-	// Register refresh mappings command
-	const refreshMappingsCommand = vscode.commands.registerCommand(
-		"mybatis-helper.refreshMappings",
-		async () => {
-			const startTime = Date.now();
-			try {
+		// Register refreshMappingsCommand
+		const refreshMappingsCommand = vscode.commands.registerCommand(
+			"mybatis-helper.refreshMappings",
+			async () => {
 				if (!isJavaProject) {
 					vscode.window.showInformationMessage(vscode.l10n.t("status.nonJavaProject"));
 					return;
@@ -445,15 +516,17 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 				if (fileMapper) {
 					// 显示建立映射的进度
 					updateStatusBar(vscode.l10n.t("status.buildingMappings"));
+					logger.info("Refreshing MyBatis mappings...");
 					try {
-						if (fileMapper) { await fileMapper.refreshAllMappings(); }
+						await fileMapper.refreshAllMappings();
 						// 映射完成后更新状态栏
 						updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
+						logger.info("MyBatis mappings refreshed successfully");
 						vscode.window.showInformationMessage(
 							vscode.l10n.t("info.mybatisMappingsRefreshed")
 						);
 					} catch (error) {
-						console.error("Error refreshing mappings:", error);
+						logger.error("Error refreshing mappings:", error as Error);
 						updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 						vscode.window.showErrorMessage(
 							vscode.l10n.t("error.mappingRefreshFailed", { error: error instanceof Error ? error.message : "Unknown error" })
@@ -464,87 +537,88 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 					// 即使没有初始化fileMapper，也要更新状态栏
 					updateStatusBar(vscode.l10n.t("status.mappingsComplete"), false);
 				}
-			} finally {
-				perfUtils.recordExecutionTime("refreshMappings", Date.now() - startTime);
 			}
-		}
-	);
+		);
 
-	// Show SQL output command
-	const showSqlOutputCommand = vscode.commands.registerCommand(
-		"mybatis-helper.showSqlOutput",
-		() => {
-			if (consoleLogInterceptor) {
-				consoleLogInterceptor.showSQLOutput();
-			} else {
-				vscode.window.showErrorMessage(vscode.l10n.t("error.logInterceptorNotInitialized"));
-			}
-		}
-	);
-
-	// Subscribe to commands for cleanup
-	context.subscriptions.push(
-		refreshDataCommand,
-		toggleLogInterceptorCommand,
-		clearSqlHistoryCommand,
-		jumpToXmlCommand,
-		jumpToMapperCommand,
-		refreshMappingsCommand,
-		showSqlOutputCommand
-	);
-
-	// Register configuration change listener with debounce
-	const debouncedConfigChangeHandler = perfUtils.debounce((e: vscode.ConfigurationChangeEvent) => {
-		if (e.affectsConfiguration("mybatis-helper")) {
-			// Handle configuration changes
-			if (consoleLogInterceptor) {
-				const enableLogInterceptor = vscode.workspace
-					.getConfiguration("mybatis-helper")
-					.get<boolean>("enableLogInterceptor", true);
-				if (
-					enableLogInterceptor !== consoleLogInterceptor.getInterceptingState()
-				) {
-					consoleLogInterceptor.toggleIntercepting();
-					vscode.window.showInformationMessage(
-						enableLogInterceptor 
-							? vscode.l10n.t("info.logInterceptorActivatedByConfig") 
-							: vscode.l10n.t("info.logInterceptorDeactivatedByConfig")
-					);
+		// Register showSqlOutputCommand
+		const showSqlOutputCommand = vscode.commands.registerCommand(
+			"mybatis-helper.showSqlOutput",
+			() => {
+				if (consoleLogInterceptor) {
+					consoleLogInterceptor.showSQLOutput();
+				} else {
+					vscode.window.showErrorMessage(vscode.l10n.t("error.logInterceptorNotInitialized"));
 				}
 			}
+		);
 
-			// If file mapper exists, refresh mappings when configuration changes
-			if (fileMapper && isJavaProject) {
-				const autoRefreshMappings = vscode.workspace
-					.getConfiguration("mybatis-helper")
-					.get<boolean>("autoRefreshMappings", true);
-				if (autoRefreshMappings) {
-					// Don't show progress for automatic refresh
-					fileMapper.refreshAllMappings().catch((error: any) => {
-						console.error("Error auto-refreshing mappings:", error);
-					});
+		// Subscribe to commands for cleanup
+		context.subscriptions.push(
+			refreshDataCommand,
+			toggleLogInterceptorCommand,
+			clearSqlHistoryCommand,
+			jumpToXmlCommand,
+			jumpToMapperCommand,
+			refreshMappingsCommand,
+			showSqlOutputCommand
+		);
+
+		// Register configuration change listener
+		const configChangeHandler = (e: vscode.ConfigurationChangeEvent) => {
+			if (e.affectsConfiguration("mybatis-helper")) {
+				logger.debug("MyBatis Helper configuration changed");
+				// Handle configuration changes
+				if (consoleLogInterceptor) {
+					const enableLogInterceptor = vscode.workspace
+						.getConfiguration("mybatis-helper")
+						.get<boolean>("enableLogInterceptor", true);
+					if (
+						enableLogInterceptor !== consoleLogInterceptor.getInterceptingState()
+					) {
+						consoleLogInterceptor.toggleIntercepting();
+						vscode.window.showInformationMessage(
+							enableLogInterceptor 
+								? vscode.l10n.t("info.logInterceptorActivatedByConfig") 
+								: vscode.l10n.t("info.logInterceptorDeactivatedByConfig")
+						);
+					}
+				}
+
+				// If file mapper exists, refresh mappings when configuration changes
+				if (fileMapper && isJavaProject) {
+					const autoRefreshMappings = vscode.workspace
+						.getConfiguration("mybatis-helper")
+						.get<boolean>("autoRefreshMappings", true);
+					if (autoRefreshMappings) {
+						// Don't show progress for automatic refresh
+						fileMapper.refreshAllMappings().catch((error: any) => {
+							logger.error("Error auto-refreshing mappings:", error as Error);
+						});
+					}
 				}
 			}
-		}
-	}, 500);
+		};
 
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(debouncedConfigChangeHandler)
-	);
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration(configChangeHandler)
+		);
+
+		// Mark commands as registered
+		commandsRegistered = true;
+	}
 }
 
 function deactivatePluginFeatures() {
 	// Clean up resources with error handling
 	try {
-		// 清除性能监控缓存
-		perfUtils.clearCache();
+		logger.info("Cleaning up MyBatis Helper resources...");
 
 		// 清理控制台日志拦截器
 		if (consoleLogInterceptor) {
 			try {
 				consoleLogInterceptor.dispose();
 			} catch (error) {
-				console.error("Error disposing console log interceptor:", error);
+				logger.error("Error disposing console log interceptor:", error as Error);
 			}
 			consoleLogInterceptor = undefined;
 		}
@@ -554,9 +628,9 @@ function deactivatePluginFeatures() {
 			try {
 				sqlResultDisplayer.dispose();
 			} catch (error) {
-				console.error("Error disposing SQL result displayer:", error);
+				logger.error("Error disposing SQL result displayer:", error as Error);
 			}
-			sqlResultDisplayer = undefined;
+		sqlResultDisplayer = undefined;
 		}
 
 		// 清理文件映射器
@@ -564,7 +638,7 @@ function deactivatePluginFeatures() {
 			try {
 				fileMapper.dispose();
 			} catch (error) {
-				console.error("Error disposing file mapper:", error);
+				logger.error("Error disposing file mapper:", error as Error);
 			}
 			fileMapper = undefined;
 		}
@@ -572,15 +646,18 @@ function deactivatePluginFeatures() {
 		// Clean up CodeLens provider
 		codeLensProvider = undefined;
 
+		// Clean up SQL Completion provider
+		sqlCompletionProvider = undefined;
+
 		// 更新状态栏显示
 		updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
 	} catch (error) {
-		console.error("Error during plugin feature deactivation:", error);
+		logger.error("Error during plugin feature deactivation:", error as Error);
 	}
 }
 
 // This method is called when your extension is deactivated
 export function deactivate() {
 	deactivatePluginFeatures();
-	console.log("MyBatis Helper extension deactivated");
+	logger.info("MyBatis Helper extension deactivated");
 }

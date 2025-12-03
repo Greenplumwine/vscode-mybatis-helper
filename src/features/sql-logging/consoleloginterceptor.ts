@@ -1,14 +1,13 @@
 import * as vscode from "vscode";
-import { LogEntry, SQLQuery, SQLHistory, DatabaseType } from "../types";
-import { SQLParser } from "../language/sqlparser";
+import { LogEntry, SQLQuery, SQLHistory, DatabaseType } from "../../types";
+import { SQLParser } from "../../language/sqlparser";
 import {
 	getPluginConfig,
 	formatSQL,
 	highlightSQL,
-	// delay,
-	// safeRegexMatch,
-} from "../utils";
-import { PerformanceUtils, RegexUtils } from "../utils/performanceUtils";
+	safeRegexMatch
+} from "../../utils";
+import { logger } from "../../utils/logger";
 
 /**
  * MyBatis log interceptor, responsible for intercepting console logs and parsing SQL statements
@@ -30,9 +29,8 @@ export class ConsoleLogInterceptor {
 	private customExecutionTimeRegex: RegExp | null = null;
 	private performanceStats = { logLinesProcessed: 0, sqlQueriesProcessed: 0, averageProcessingTime: 0, lastProcessingTime: 0 };
 
-	// 工具类实例
-	private perfUtils: PerformanceUtils;
-	private regexUtils: RegexUtils;
+	// Simple cache for SQL formatting results
+	private formatCache: Map<string, string> = new Map();
 
 	constructor(config?: vscode.WorkspaceConfiguration) {
 		this.outputChannel = vscode.window.createOutputChannel("MyBatis SQL");
@@ -40,10 +38,6 @@ export class ConsoleLogInterceptor {
 		this.isIntercepting = false;
 		this.sqlHistory = { queries: [], lastUpdated: new Date() };
 		this.currentQuery = null;
-
-		// 获取工具类实例
-		this.perfUtils = PerformanceUtils.getInstance();
-		this.regexUtils = RegexUtils.getInstance();
 
 		// Initialize configuration
 		if (config) {
@@ -56,6 +50,25 @@ export class ConsoleLogInterceptor {
 			this.sqlParser.setDatabaseType(defaultConfig.databaseType);
 			this.updateCustomLogPattern(defaultConfig.customLogPattern || "");
 		}
+	}
+
+	/**
+	 * Simple debounce function
+	 * @param func Function to debounce
+	 * @param delay Debounce delay in milliseconds
+	 * @returns Debounced function
+	 */
+	private debounce<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
+		let timeoutId: NodeJS.Timeout | null = null;
+		return (...args: Parameters<T>) => {
+			if (timeoutId) {
+				clearTimeout(timeoutId);
+			}
+			timeoutId = setTimeout(() => {
+				func(...args);
+				timeoutId = null;
+			}, delay);
+		};
 	}
 
 	/**
@@ -112,12 +125,12 @@ export class ConsoleLogInterceptor {
 	private listenToDebugConsole(): void {
 		// Listen to debug session start and end
 		vscode.debug.onDidStartDebugSession((session) => {
-			console.log(`Started listening to debug session: ${session.name}`);
+			logger.debug(`Started listening to debug session: ${session.name}`);
 			this.currentQuery = null;
 		});
 
 		vscode.debug.onDidTerminateDebugSession((session) => {
-			console.log(`Stopped listening to debug session: ${session.name}`);
+			logger.debug(`Stopped listening to debug session: ${session.name}`);
 			this.currentQuery = null;
 		});
 
@@ -153,7 +166,7 @@ export class ConsoleLogInterceptor {
 		}
 
 		// Set new timer, delay processing logs
-		const debouncedProcess = this.perfUtils.debounce(() => {
+		const debouncedProcess = this.debounce(() => {
 			this.processLogBatch();
 		}, this.logProcessDelay);
 		this.logProcessTimeout = setTimeout(debouncedProcess, this.logProcessDelay);
@@ -191,7 +204,7 @@ export class ConsoleLogInterceptor {
 						break;
 				}
 			} catch (error) {
-				console.error(`Error processing log line: ${error}`, line);
+				logger.error(`Error processing log line: ${error instanceof Error ? error.message : String(error)}`, error as Error);
 			}
 		});
 
@@ -205,8 +218,7 @@ export class ConsoleLogInterceptor {
 			this.performanceStats.lastProcessingTime 
 		) / this.performanceStats.logLinesProcessed;
 
-		// 记录执行时间
-		this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.processLogBatch', endTime - startTime);
+		logger.debug(`Processed ${batch.length} log lines in ${endTime - startTime}ms`);
 	}
 
 	/**
@@ -218,9 +230,7 @@ export class ConsoleLogInterceptor {
 			return null;
 		}
 
-		const startTime = Date.now();
 		try {
-			// Use cached regex patterns for better performance
 			// If there's a custom log format, use custom format to parse
 			if (
 				this.customLogPattern &&
@@ -228,19 +238,19 @@ export class ConsoleLogInterceptor {
 				this.customParametersRegex &&
 				this.customExecutionTimeRegex
 			) {
-				if (this.regexUtils.safeMatch(line, this.customPreparingRegex)) {
+				if (safeRegexMatch(line, this.customPreparingRegex)) {
 					return {
 						timestamp: new Date(),
 						type: "preparing",
 						content: line,
 					};
-				} else if (this.regexUtils.safeMatch(line, this.customParametersRegex)) {
+				} else if (safeRegexMatch(line, this.customParametersRegex)) {
 					return {
 						timestamp: new Date(),
 						type: "parameters",
 						content: line,
 					};
-				} else if (this.regexUtils.safeMatch(line, this.customExecutionTimeRegex)) {
+				} else if (safeRegexMatch(line, this.customExecutionTimeRegex)) {
 					return {
 						timestamp: new Date(),
 						type: "executed",
@@ -286,9 +296,9 @@ export class ConsoleLogInterceptor {
 				};
 			}
 			return null;
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.parseLogLine', Date.now() - startTime);
+		} catch (error) {
+			logger.error(`Error parsing log line: ${error instanceof Error ? error.message : String(error)}`, error as Error);
+			return null;
 		}
 	}
 
@@ -296,7 +306,6 @@ export class ConsoleLogInterceptor {
 	 * Handle preparing SQL statement log
 	 */
 	private handlePreparingLog(content: string): void {
-		const startTime = Date.now();
 		try {
 			const sql = this.sqlParser.parsePreparingLog(content);
 			if (sql) {
@@ -313,12 +322,9 @@ export class ConsoleLogInterceptor {
 				};
 			}
 		} catch (error) {
-			console.error("Error parsing preparing SQL log:", error);
+			logger.error("Error parsing preparing SQL log:", error as Error);
 			// Reset current query when error occurs to avoid affecting subsequent log processing
 			this.currentQuery = null;
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.handlePreparingLog', Date.now() - startTime);
 		}
 	}
 
@@ -326,7 +332,6 @@ export class ConsoleLogInterceptor {
 	 * Handle SQL parameters log
 	 */
 	private handleParametersLog(content: string): void {
-		const startTime = Date.now();
 		try {
 			if (!this.currentQuery) {
 				return;
@@ -338,10 +343,7 @@ export class ConsoleLogInterceptor {
 				this.processCompleteQuery();
 			}
 		} catch (error) {
-			console.error("Error parsing parameters log:", error);
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.handleParametersLog', Date.now() - startTime);
+			logger.error("Error parsing parameters log:", error as Error);
 		}
 	}
 
@@ -349,7 +351,6 @@ export class ConsoleLogInterceptor {
 	 * Handle SQL execution completed log
 	 */
 	private handleExecutedLog(content: string): void {
-		const startTime = Date.now();
 		try {
 			if (!this.currentQuery) {
 				return;
@@ -367,12 +368,9 @@ export class ConsoleLogInterceptor {
 				this.currentQuery = null;
 			}
 		} catch (error) {
-			console.error("Error parsing execution completed log:", error);
+			logger.error("Error parsing execution completed log:", error as Error);
 			// Even if an error occurs, reset the current query
 			this.currentQuery = null;
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.handleExecutedLog', Date.now() - startTime);
 		}
 	}
 
@@ -380,7 +378,6 @@ export class ConsoleLogInterceptor {
 	 * Process complete SQL query
 	 */
 	private processCompleteQuery(): void {
-		const startTime = Date.now();
 		if (
 			this.currentQuery &&
 			this.currentQuery.preparing &&
@@ -394,10 +391,8 @@ export class ConsoleLogInterceptor {
 				// Save to history
 				this.addToSQLHistory(this.currentQuery);
 			} catch (error) {
-				console.error("Error processing complete SQL query:", error);
+				logger.error("Error processing complete SQL query:", error as Error);
 			} finally {
-				// 记录执行时间
-				this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.processCompleteQuery', Date.now() - startTime);
 				this.performanceStats.sqlQueriesProcessed++;
 			}
 		}
@@ -407,7 +402,6 @@ export class ConsoleLogInterceptor {
 	 * Display SQL query in output channel
 	 */
 	private displaySQLQuery(query: SQLQuery): void {
-		const startTime = Date.now();
 		try {
 			if (!query.fullSQL) {
 				return;
@@ -419,12 +413,20 @@ export class ConsoleLogInterceptor {
 					"logInterceptor.time"
 				)}: ${new Date().toLocaleString()}`
 			);
-			// Format SQL with cache
+			// Format SQL with custom cache
 			const cacheKey = `formatSQL_${query.id}`;
-			let formattedSQL = this.perfUtils.getCache<string>(cacheKey);
+			let formattedSQL = this.formatCache.get(cacheKey);
 			if (!formattedSQL) {
 				formattedSQL = formatSQL(query.fullSQL!);
-				this.perfUtils.setCache(cacheKey, formattedSQL, 30000); // 缓存30秒
+				this.formatCache.set(cacheKey, formattedSQL);
+				// Limit cache size to 50 entries to prevent memory issues
+				if (this.formatCache.size > 50) {
+					// Remove the oldest entry
+					const oldestKey = this.formatCache.keys().next().value;
+					if (oldestKey) {
+						this.formatCache.delete(oldestKey);
+					}
+				}
 			}
 			outputLines.push(formattedSQL);
 
@@ -453,10 +455,7 @@ export class ConsoleLogInterceptor {
 			// Append all lines at once to reduce I/O operations
 			this.outputChannel.appendLine(outputLines.join("\n"));
 		} catch (error) {
-			console.error("Error displaying SQL query:", error);
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.displaySQLQuery', Date.now() - startTime);
+			logger.error("Error displaying SQL query:", error as Error);
 		}
 	}
 
@@ -464,30 +463,22 @@ export class ConsoleLogInterceptor {
 	 * Add SQL query to history
 	 */
 	private addToSQLHistory(query: SQLQuery): void {
-		// Use batch processing for history updates
-		this.perfUtils.scheduleBatchTask("sqlHistory", () => {
-			this.sqlHistory.queries.push({ ...query });
-			this.sqlHistory.lastUpdated = new Date();
-			// Limit history size
-			if (this.sqlHistory.queries.length > this.maxHistorySize) {
-				this.sqlHistory.queries = this.sqlHistory.queries.slice(
-					-this.maxHistorySize
-				);
-			}
-		}, this.logProcessDelay);
+		// Add query to history immediately
+		this.sqlHistory.queries.push({ ...query });
+		this.sqlHistory.lastUpdated = new Date();
+		// Limit history size
+		if (this.sqlHistory.queries.length > this.maxHistorySize) {
+			this.sqlHistory.queries = this.sqlHistory.queries.slice(
+				-this.maxHistorySize
+			);
+		}
 	}
 
 	/**
 	 * Find query in history by ID
 	 */
 	public findQueryById(id: string): SQLQuery | undefined {
-		const startTime = Date.now();
-		try {
-			return this.sqlHistory.queries.find((query) => query.id === id);
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.findQueryById', Date.now() - startTime);
-		}
+		return this.sqlHistory.queries.find((query) => query.id === id);
 	}
 
 	/**
@@ -501,7 +492,6 @@ export class ConsoleLogInterceptor {
 	 * Clear SQL history
 	 */
 	public clearSQLHistory(): void {
-		const startTime = Date.now();
 		try {
 			this.sqlHistory = { queries: [], lastUpdated: new Date() };
 			this.outputChannel.clear();
@@ -509,13 +499,10 @@ export class ConsoleLogInterceptor {
 				vscode.l10n.t("logInterceptor.historyCleared")
 			);
 		} catch (error) {
-			console.error("Error clearing SQL history:", error);
+			logger.error("Error clearing SQL history:", error as Error);
 			vscode.window.showErrorMessage(
 				vscode.l10n.t("logInterceptor.clearHistoryFailed")
 			);
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.clearSQLHistory', Date.now() - startTime);
 		}
 	}
 
@@ -530,31 +517,24 @@ export class ConsoleLogInterceptor {
 	 * Get SQL history
 	 */
 	public getSQLHistory(): SQLHistory {
-		const startTime = Date.now();
-		try {
-			// Return deep copy to avoid external modifications
-			return {
-				queries: [...this.sqlHistory.queries].map((query) => ({
-					...query,
-					parameters: [...(query.parameters || [])],
-					timestamp: new Date(),
-				})),
-				lastUpdated: new Date(this.sqlHistory.lastUpdated),
-			};
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.getSQLHistory', Date.now() - startTime);
-		}
+		// Return deep copy to avoid external modifications
+		return {
+			queries: [...this.sqlHistory.queries].map((query) => ({
+				...query,
+				parameters: [...(query.parameters || [])],
+				timestamp: new Date(),
+			})),
+			lastUpdated: new Date(this.sqlHistory.lastUpdated),
+		};
 	}
 
 	/**
 	 * Update plugin configuration
 	 */
 	public updateConfig(config: vscode.WorkspaceConfiguration): void {
-		const startTime = Date.now();
 		try {
-			// 使用防抖来避免频繁更新配置
-			const debouncedUpdate = this.perfUtils.debounce(() => {
+			// Use debounce to avoid frequent configuration updates
+			const debouncedUpdate = this.debounce(() => {
 				this.maxHistorySize = config.get("maxHistorySize", 100);
 				this.showExecutionTime = config.get("showExecutionTime", true);
 				this.sqlParser.setDatabaseType(
@@ -587,10 +567,7 @@ export class ConsoleLogInterceptor {
 			}, 100);
 			debouncedUpdate();
 		} catch (error) {
-			console.error("Error updating configuration:", error);
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.updateConfig', Date.now() - startTime);
+			logger.error("Error updating configuration:", error as Error);
 		}
 	}
 
@@ -598,7 +575,6 @@ export class ConsoleLogInterceptor {
 	 * Update custom log format pattern
 	 */
 	private updateCustomLogPattern(pattern: string): void {
-		const startTime = Date.now();
 		this.customLogPattern = pattern;
 		if (!pattern) {
 			// Clear custom regular expressions
@@ -613,8 +589,7 @@ export class ConsoleLogInterceptor {
 			// - %PREPARING%: Match SQL preparation statement
 			// - %PARAMETERS%: Match SQL parameters
 			// - %EXECUTION_TIME%: Match execution time
-			// Use cached regex for pattern extraction
-			const extractRegex = this.regexUtils.getRegex("%([A-Z_]+)%", "g");
+			const extractRegex = /%([A-Z_]+)%/g;
 
 			// Preparation statement regular expression
 			if (pattern.includes("%PREPARING%")) {
@@ -624,11 +599,11 @@ export class ConsoleLogInterceptor {
 					"%PREPARING%"
 				);
 				if (preparingRegex) {
-					this.customPreparingRegex = this.regexUtils.getRegex(preparingRegex, "i");
+					this.customPreparingRegex = new RegExp(preparingRegex, "i");
 				}
 			} else {
 				// Default Preparing regular expression
-				this.customPreparingRegex = this.regexUtils.getRegex("Preparing:", "i");
+				this.customPreparingRegex = new RegExp("Preparing:", "i");
 			}
 
 			// Parameter statement regular expression
@@ -638,11 +613,11 @@ export class ConsoleLogInterceptor {
 					"%PARAMETERS%"
 				);
 				if (parametersRegex) {
-					this.customParametersRegex = this.regexUtils.getRegex(parametersRegex, "i");
+					this.customParametersRegex = new RegExp(parametersRegex, "i");
 				}
 			} else {
 				// Default Parameters regular expression
-				this.customParametersRegex = this.regexUtils.getRegex("Parameters:", "i");
+				this.customParametersRegex = new RegExp("Parameters:", "i");
 			}
 
 			// Execution time regular expression
@@ -652,16 +627,16 @@ export class ConsoleLogInterceptor {
 					"%EXECUTION_TIME%"
 				);
 				if (executionTimeRegex) {
-					this.customExecutionTimeRegex = this.regexUtils.getRegex(executionTimeRegex, "i");
+					this.customExecutionTimeRegex = new RegExp(executionTimeRegex, "i");
 				}
 			} else {
 				// Default Executed in regular expression
-				this.customExecutionTimeRegex = this.regexUtils.getRegex("Executed\\s+in", "i");
+				this.customExecutionTimeRegex = new RegExp("Executed\\s+in", "i");
 			}
 
-			console.log("Custom log format updated");
+			logger.debug("Custom log format updated");
 		} catch (error) {
-			console.error("Error parsing custom log format:", error);
+			logger.error("Error parsing custom log format:", error as Error);
 			// Fall back to default settings when error occurs
 			this.customPreparingRegex = null;
 			this.customParametersRegex = null;
@@ -669,9 +644,6 @@ export class ConsoleLogInterceptor {
 			vscode.window.showErrorMessage(
 				vscode.l10n.t("logInterceptor.parsePatternFailed", { error: error instanceof Error ? error.message : String(error) })
 			);
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.updateCustomLogPattern', Date.now() - startTime);
 		}
 	}
 
@@ -679,7 +651,6 @@ export class ConsoleLogInterceptor {
 	 * Extract regular expression pattern from custom log format
 	 */
 	private extractRegexFromPattern(pattern: string, placeholder: string): string {
-		const startTime = Date.now();
 		try {
 			// Escape special regex characters in the pattern
 			const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -689,15 +660,12 @@ export class ConsoleLogInterceptor {
 				'(.+)'
 			);
 		} catch (error) {
-			console.error(`Error extracting regex from pattern: ${error}`);
+			logger.error(`Error extracting regex from pattern: ${error instanceof Error ? error.message : String(error)}`, error as Error);
 			// Return default pattern for the placeholder if extraction fails
 			if (placeholder === "%PREPARING%") return "Preparing:\\s*(.+)";
 			if (placeholder === "%PARAMETERS%") return "Parameters:\\s*(.+)";
 			if (placeholder === "%EXECUTION_TIME%") return "Executed\\s+in\\s+(\\d+)ms";
 			return ".*";
-		} finally {
-			// 记录执行时间
-			this.perfUtils.recordExecutionTime('ConsoleLogInterceptor.extractRegexFromPattern', Date.now() - startTime);
 		}
 	}
 
@@ -707,6 +675,6 @@ export class ConsoleLogInterceptor {
 	dispose(): void {
 		this.stopIntercepting();
 		this.outputChannel.dispose();
-		this.perfUtils.clearCache();
+		this.formatCache.clear();
 	}
 }

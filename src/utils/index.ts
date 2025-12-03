@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { DatabaseType, PluginConfig, FileOpenMode } from "../types";
+import { DatabaseType, PluginConfig, FileOpenMode, NameMatchingRule, PathPriorityConfig } from "../types";
 import { RegexUtils, PerformanceUtils } from "./performanceUtils";
 import { JavaExtensionAPI } from "./javaExtensionAPI";
 import { AdvancedCacheManager } from "./advancedCacheManager";
@@ -17,42 +17,50 @@ export {
 };
 
 /**
- * Get plugin configuration
- * @returns PluginConfig object
+ * 获取插件配置
+ * 从VS Code配置中读取并合并插件的所有配置选项
+ * @returns 合并后的插件配置对象
  */
 export function getPluginConfig(): PluginConfig {
-  const config = vscode.workspace.getConfiguration("mybatis-helper");
-  return {
-    databaseType: config.get<DatabaseType>("databaseType", DatabaseType.MYSQL),
-    enableLogInterceptor: config.get<boolean>("enableLogInterceptor", true),
-    customLogPattern: config.get<string>("customLogPattern", ""),
-    maxHistorySize: config.get<number>("maxHistorySize", 100),
-    showExecutionTime: config.get<boolean>("showExecutionTime", true),
-    fileOpenMode: config.get<FileOpenMode>(
-      "fileOpenMode",
-      FileOpenMode.USE_EXISTING
-    ),
-    customXmlDirectories: config.get<string[]>("customXmlDirectories", []),
-    logOutputLevel: config.get<"info" | "debug"> ("logOutputLevel", "info"),
-    enablePerformanceTracking: config.get<boolean>("enablePerformanceTracking", false),
-    sqlFormatOptions: config.get<Record<string, any>>("sqlFormatOptions", {})
-  };
+	const config = vscode.workspace.getConfiguration('mybatis-helper');
+	const nameMatchingRules = config.get<NameMatchingRule[]>('nameMatchingRules') || [];
+	const ignoreSuffixes = config.get<string[]>('ignoreSuffixes') || [];
+	const pathPriority = config.get<PathPriorityConfig>('pathPriority') || {
+		enabled: true,
+		priorityDirectories: ['/src/', '/main/', '/resources/'],
+		excludeDirectories: ['/build/', '/target/', '/out/', '/.git/']
+	};
+	
+	return {
+		databaseType: (config.get<string>('databaseType') || 'mysql') as DatabaseType,
+		customXmlDirectories: config.get<string[]>('customXmlDirectories') || [],
+		fileOpenMode: (config.get<string>('fileOpenMode') || 'useExisting') as FileOpenMode,
+		logOutputLevel: config.get<'debug' | 'info' | 'warn' | 'error'>('logOutputLevel') || 'info',
+		enableLogInterceptor: config.get<boolean>('enableLogInterceptor') || false,
+		customLogPattern: config.get<string>('customLogPattern') || '',
+		maxHistorySize: config.get<number>('maxHistorySize') || 100,
+		showExecutionTime: config.get<boolean>('showExecutionTime') || false,
+		nameMatchingRules,
+		ignoreSuffixes,
+		pathPriority
+	};
 }
 
 /**
- * Delay execution function
- * @param ms Milliseconds to delay
- * @returns Promise that resolves after the delay
+ * 延迟执行函数
+ * @param ms 延迟毫秒数
+ * @returns Promise对象，延迟指定时间后resolve
  */
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Safe regular expression matching
- * @param text Text to match against
- * @param regex Regular expression to use
- * @returns Match result or null if match fails
+ * 安全的正则表达式匹配
+ * 包装了正则表达式匹配，捕获并处理可能的异常
+ * @param text 要匹配的文本
+ * @param regex 正则表达式对象
+ * @returns 匹配结果数组或null
  */
 export function safeRegexMatch(
   text: string,
@@ -67,10 +75,11 @@ export function safeRegexMatch(
 }
 
 /**
- * Format SQL statement, add appropriate spaces and indentation
- * @param sql SQL statement to format
- * @param databaseType Optional database type
- * @returns Formatted SQL string
+ * 格式化SQL语句
+ * 对SQL语句进行基本的格式化，添加适当的空格和缩进
+ * @param sql 要格式化的SQL语句
+ * @param databaseType 数据库类型，用于生成特定数据库的格式
+ * @returns 格式化后的SQL字符串
  */
 export function formatSQL(sql: string, databaseType?: DatabaseType): string {
   const perfUtils = PerformanceUtils.getInstance();
@@ -156,10 +165,11 @@ export function formatSQL(sql: string, databaseType?: DatabaseType): string {
 }
 
 /**
- * Highlight SQL syntax with performance optimization
- * @param sql SQL statement to highlight
- * @param databaseType Database type
- * @returns HTML-formatted SQL with syntax highlighting
+ * SQL语法高亮
+ * 对SQL语句进行语法高亮处理，生成HTML格式的高亮代码
+ * @param sql 要高亮的SQL语句
+ * @param databaseType 数据库类型，用于生成特定数据库的高亮规则
+ * @returns HTML格式的高亮SQL字符串
  */
 export function highlightSQL(sql: string, databaseType: DatabaseType): string {
   const perfUtils = PerformanceUtils.getInstance();

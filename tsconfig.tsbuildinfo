@@ -1,1 +1,13 @@
-{"root":["./src/extension.ts","./src/features/codelensprovider.ts","./src/features/consoleloginterceptor.ts","./src/features/filemapper.ts","./src/features/sqlresultdisplayer.ts","./src/language/sqlparser.ts","./src/types/index.ts","./src/utils/index.ts"],"version":"5.9.2"}
+{
+    "root": [
+        "./src/extension.ts",
+        "./src/features/codelensprovider.ts",
+        "./src/features/consoleloginterceptor.ts",
+        "./src/features/filemapper.ts",
+        "./src/features/sqlresultdisplayer.ts",
+        "./src/language/sqlparser.ts",
+        "./src/types/index.ts",
+        "./src/utils/index.ts"
+    ],
+    "version": "5.9.2"
+}

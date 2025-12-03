@@ -37,7 +37,7 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - 跳转节流控制：防止频繁跳转操作导致性能问题
 - XML 命名空间验证：确保 XML 文件与 Mapper 接口正确关联
 - 方法名提取与位置定位：精确定位到对应的方法位置
-- **精确方法跳转**：支持在跳转时精确定位到对应的具体方法，而不仅仅是打开文件
+- **精确方法跳转**：支持在跳转时精确定位到对应的具体方法，而仅仅是打开文件
 - **重构跳转逻辑**：采用独立的导航器模式（JavaToXmlNavigator和XmlToJavaNavigator），提高代码可维护性
 - **优先使用Java插件API**：优先使用Red Hat Java插件提供的API进行精确导航，提升跳转准确性
 
@@ -53,7 +53,15 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 
 - 支持多语言界面，能够根据 VSCode 的语言设置自动切换显示语言（支持英文和中文）
 
-### 5. 用户友好的界面
+### 5. SQL 输入智能补全
+
+- 在 Mapper XML 文件中输入 `#{` 或 `${` 时，自动提供基于 Java Mapper 接口方法参数的补全建议
+- 支持基本类型、自定义对象属性和集合类型的补全提示
+- 提供上下文感知的补全建议，根据当前方法自动过滤参数
+- 支持嵌套对象属性补全，如 `#{user.name}`
+- 补全项包含参数名称和类型信息
+
+### 6. 用户友好的界面
 
 - 简洁明了的命令菜单，所有功能一目了然
 - 精心设计的快捷键体系，操作高效便捷
@@ -63,6 +71,14 @@ MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在
 - SQL 结果可视化显示：提供 Webview 面板展示格式化和高亮的 SQL 结果
 - Webview 交互功能：包含复制按钮、刷新按钮、搜索功能等
 - 随机 nonce 生成：为 Webview 提供安全保障
+
+### 7. 插件日志系统
+
+- 提供 DEBUG/INFO/WARN/ERROR 四个日志级别
+- 日志输出到专用的 "MyBatis Helper" 输出通道
+- 支持动态调整日志级别
+- 详细记录插件运行状态和错误信息
+- 便于开发者调试和排查问题
 
 ## 安装方法
 
@@ -198,99 +214,148 @@ MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需�
   - `noSplit`: 始终不拆分窗口
   - `alwaysSplit`: 始终拆分窗口
 
-### 日志格式要求
+## 高级配置示例
 
-插件会自动识别标准的 MyBatis 日志格式：
+### 自定义名称匹配规则示例
 
+如果你的项目使用特定的命名约定，可以通过自定义名称匹配规则来提高匹配准确性：
+
+```json
+{
+  "mybatis-helper.nameMatchingRules": [
+    {
+      "name": "Repository Pattern",
+      "enabled": true,
+      "javaPattern": "*Repository",
+      "xmlPattern": "${javaName}",
+      "description": "Match UserRepository.java with User.xml"
+    },
+    {
+      "name": "Service Pattern",
+      "enabled": true,
+      "javaPattern": "*Service",
+      "xmlPattern": "${javaName}Mapper",
+      "description": "Match UserService.java with UserServiceMapper.xml"
+    },
+    {
+      "name": "Controller Pattern",
+      "enabled": false,
+      "javaPattern": "*Controller",
+      "xmlPattern": "${javaName}Dao",
+      "description": "Match UserController.java with UserControllerDao.xml"
+    }
+  ],
+  "mybatis-helper.ignoreSuffixes": ["Mapper", "Dao", "Repository", "Service", "Controller"]
+}
 ```
-Preparing: SELECT * FROM user WHERE id = ?
-Parameters: 1(Integer)
+
+### 路径优先级配置示例
+
+如果你的项目有特定的目录结构，可以通过路径优先级配置来优化文件查找：
+
+```json
+{
+  "mybatis-helper.pathPriority": {
+    "enabled": true,
+    "priorityDirectories": [
+      "/src/main/java/",
+      "/src/main/resources/",
+      "/src/main/resources/mapper/",
+      "/src/main/resources/dao/",
+      "/src/main/resources/mybatis/"
+    ],
+    "excludeDirectories": [
+      "/build/",
+      "/target/",
+      "/out/",
+      "/.git/",
+      "/node_modules/",
+      "/test/",
+      "/tests/"
+    ]
+  }
+}
 ```
 
-如果您使用的是自定义日志格式，可以在插件设置中配置 `customLogPattern` 参数以适应您的日志输出格式。
+### 完整配置示例
 
-### 项目结构支持
+以下是一个完整的配置示例，展示了如何组合使用各种配置选项：
 
-插件支持以下常见的项目结构和布局：
+```json
+{
+  "mybatis-helper.databaseType": "mysql",
+  "mybatis-helper.enableLogInterceptor": true,
+  "mybatis-helper.customLogPattern": "",
+  "mybatis-helper.enableCodeLens": true,
+  "mybatis-helper.sqlHistorySize": 100,
+  "mybatis-helper.maxCacheSize": 1000,
+  "mybatis-helper.batchProcessDelay": 200,
+  "mybatis-helper.fileOpenMode": "useExisting",
+  "mybatis-helper.nameMatchingRules": [
+    {
+      "name": "Default Mapper",
+      "enabled": true,
+      "javaPattern": "*Mapper",
+      "xmlPattern": "${javaName}",
+      "description": "Match UserMapper.java with User.xml"
+    },
+    {
+      "name": "Default Dao",
+      "enabled": true,
+      "javaPattern": "*Dao",
+      "xmlPattern": "${javaName}",
+      "description": "Match UserDao.java with User.xml"
+    },
+    {
+      "name": "Custom Repository",
+      "enabled": true,
+      "javaPattern": "*Repository",
+      "xmlPattern": "${javaName}Mapper",
+      "description": "Match UserRepository.java with UserRepositoryMapper.xml"
+    }
+  ],
+  "mybatis-helper.ignoreSuffixes": ["Mapper", "Dao", "Repository"],
+  "mybatis-helper.pathPriority": {
+    "enabled": true,
+    "priorityDirectories": [
+      "/src/main/java/",
+      "/src/main/resources/mapper/"
+    ],
+    "excludeDirectories": [
+      "/build/",
+      "/target/",
+      "/.git/"
+    ]
+  }
+}
+```
 
-#### 标准 Maven/Gradle 项目
+## 常见问题
 
-- `src/main/java` 目录下的 Mapper 接口
-- `src/main/resources` 目录下的 XML 文件
-- 保持相同包路径结构的 Mapper 和 XML 文件
+### Q: 如何配置自定义名称匹配规则？
 
-#### 自定义项目结构
+A: 在VSCode设置中搜索`mybatis-helper.nameMatchingRules`，点击"在settings.json中编辑"，然后按照示例格式添加你的自定义规则。每个规则包含`name`、`enabled`、`javaPattern`、`xmlPattern`和`description`字段。
 
-- 支持不同目录下的 Mapper 接口和 XML 文件
-- 支持通过 namespace 属性映射的非标准布局
-- 支持多模块 Maven/Gradle 项目
+### Q: 如何使用通配符和变量？
 
-对于复杂项目结构，建议在项目导入后执行一次 "刷新映射关系" 命令，以确保插件能正确建立所有映射。
+A: 在`javaPattern`和`xmlPattern`中可以使用`*`匹配任意数量的字符，使用`?`匹配单个字符。在`xmlPattern`中可以使用`${javaName}`变量，它会被替换为Java文件名的基础部分（去掉后缀）。
 
-## 已知问题与限制
+### Q: 路径优先级配置如何提高匹配准确性？
 
-在使用插件过程中，可能会遇到以下限制和问题：
+A: 路径优先级配置通过以下方式提高匹配准确性：
+1. 优先搜索包含`priorityDirectories`路径的文件
+2. 排除包含`excludeDirectories`路径的文件
+3. 根据路径深度和优先级对匹配结果进行排序
 
-- **日志格式限制**: 某些非标准的自定义 MyBatis 日志格式可能无法被正确解析
-- **大型项目性能**: 在非常大的项目中，首次扫描和建立映射关系可能需要一定时间
-- **复杂项目结构**: 对于非常规项目结构，可能需要手动刷新映射关系或调整项目布局
-- **特殊字符处理**: 在处理包含特殊字符的 SQL 参数时，可能会偶尔出现格式化问题
-- **Java 项目检测**: 在某些特殊情况下，可能会出现误判，导致在非 Java 项目中错误激活插件或在 Java 项目中未能正确激活
-- **Java插件依赖**: 插件依赖于Red Hat Java扩展以提供最佳性能，如果该扩展不可用，插件将降级使用文件扫描和正则表达式匹配
+### Q: 如何调试文件匹配问题？
 
-我们正在持续改进插件，以解决这些问题并提升用户体验。
+A: 可以通过以下方式调试文件匹配问题：
+1. 检查VSCode开发者控制台的输出信息
+2. 确认自定义名称匹配规则的配置是否正确
+3. 验证路径优先级配置是否合理
+4. 确认忽略后缀配置是否符合项目实际情况
 
-## 常见问题解答
-
-#### 日志拦截相关问题
-
-**Q: 为什么我的日志没有被拦截和解析？**  
-
-**A:** 请检查以下几点：
-
-- 确保 MyBatis 日志级别设置正确（通常需要设置为 DEBUG 或 TRACE 级别）
-- 确认日志格式符合标准的 MyBatis 输出格式，或已在设置中配置了正确的自定义日志格式
-- 检查日志拦截功能是否已开启（可通过 `Alt+L` 切换状态）
-- 对于自定义日志框架，请确保输出格式与标准格式兼容
----
-**Q: 解析出的 SQL 格式有问题怎么办？**  
-
-**A:** 这可能是因为您使用的数据库方言与默认设置不匹配。请尝试在插件设置中调整数据库类型配置。  
-
----
-#### 文件跳转相关问题
-
-**Q: 为什么找不到对应的 XML 文件或 Mapper 接口？**  
-
-**A:** 请尝试以下解决方案：
-
-- 执行 "MyBatis: 刷新映射关系" 命令，重新扫描项目结构
-- 检查 XML 文件中的 namespace 属性是否正确指向了 Mapper 接口
-- 确认 Mapper 接口和 XML 文件命名是否符合匹配规则
-- 对于复杂项目，可能需要手动调整文件结构以符合标准规范
-
----
-**Q: 为什么没有显示 CodeLens 提示？**  
-
-**A:** 请确认：
-
-- CodeLens 功能已在插件设置中启用（mybatisHelper.enableCodeLens 设为 true）
-- VSCode 中已启用 CodeLens 功能（editor.codeLens 设置为 true）
-- 文件中确实存在有效的映射关系
-
----
-
-**Q: 快捷键不生效怎么办？**  
-
-**A:** 可能是快捷键冲突导致的。请尝试：
-
-- 在 VSCode 键盘快捷方式设置中检查是否有冲突
-- 重新配置插件快捷键
-- 使用命令面板执行相应功能
-
-#### 其他常见问题
-
-**Q: 插件支持哪些版本的 VSCode？**  
+### Q: 插件支持哪些版本的 VSCode？
 
 **A:** 插件需要 VSCode 1.100.3 或更高版本才能正常运行。
 
