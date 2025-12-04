@@ -238,7 +238,7 @@ export class FileMapper {
 	private async isMapperInterface(javaFilePath: string): Promise<boolean> {
 		try {
 			const content = await fs.readFile(javaFilePath, 'utf-8');
-			if (!content) return false;
+			if (!content) {return false;}
 
 			const isInterface = /interface\s+\w+/.test(content);
 			const hasMyBatisAnnotation = /@Mapper|@Select|@Insert|@Update|@Delete/.test(content);
@@ -571,8 +571,8 @@ export class FileMapper {
 				}
 				
 				// 排除目录优先级较低
-				if (aInExclude && !bInExclude) return 1;
-				if (!aInExclude && bInExclude) return -1;
+				if (aInExclude && !bInExclude) {return 1;}
+				if (!aInExclude && bInExclude) {return -1;}
 				
 				// 如果优先级相同，按路径深度排序，优先选择更符合项目结构的路径
 				const aDepth = aPath.split('/').length + aPath.split('\\').length;

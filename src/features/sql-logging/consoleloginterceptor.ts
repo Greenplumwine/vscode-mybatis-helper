@@ -662,9 +662,15 @@ export class ConsoleLogInterceptor {
 		} catch (error) {
 			logger.error(`Error extracting regex from pattern: ${error instanceof Error ? error.message : String(error)}`, error as Error);
 			// Return default pattern for the placeholder if extraction fails
-			if (placeholder === "%PREPARING%") return "Preparing:\\s*(.+)";
-			if (placeholder === "%PARAMETERS%") return "Parameters:\\s*(.+)";
-			if (placeholder === "%EXECUTION_TIME%") return "Executed\\s+in\\s+(\\d+)ms";
+			if (placeholder === "%PREPARING%") {
+				return "Preparing:\\s*(.+)";
+			};
+			if (placeholder === "%PARAMETERS%") {
+				return "Parameters:\\s*(.+)";
+			};
+			if (placeholder === "%EXECUTION_TIME%") {
+				return "Executed\\s+in\\s+(\\d+)ms";
+			};
 			return ".*";
 		}
 	}
