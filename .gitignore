@@ -5,3 +5,5 @@ out/
 pnpm-lock.yaml
 .git/
 .trae/
+package-lock.json
+pnpm-lock.yaml
