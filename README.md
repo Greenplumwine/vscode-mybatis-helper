@@ -400,8 +400,8 @@ A: 可以通过以下方式调试文件匹配问题：
 - [Visual Studio Code Extension API](https://code.visualstudio.com/api)
 - [TypeScript](https://www.typescriptlang.org/)
 - [MyBatis](https://mybatis.org/mybatis-3/)
-- [Lingma](https://lingma.aliyun.com/)
-
+- ~~Lingma~~（不在使用了，因为现在越来越拉跨，越来越智障）
+- [trae](https://www.trae.cn/)
 ---
 
 希望这个插件能帮助您更高效地开发 MyBatis 应用！如有任何问题或建议，请随时在 [GitHub](https://github.com/Greenplumwine/vscode-mybatis-helper) 或 [Gitee](https://gitee.com/Greenplumwine/vscode-mybatis-helper) 上提交 Issue 或与我们联系。
