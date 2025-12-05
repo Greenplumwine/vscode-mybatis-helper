@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs/promises';
 import { FileMapper } from '../filemapper';
 import { JavaExtensionAPI } from '../../../utils/javaExtensionAPI';
 import { logger } from '../../../utils/logger';
@@ -79,10 +80,51 @@ export class XmlToJavaNavigator {
                     await this.fileMapper.jumpToFilePublic(javaFilePath, position);
                     return;
                 }
+                
+                // If method not found, jump to the last method position (before closing brace)
+                logger.debug("[XmlToJavaNavigator.navigateToJava] Method not found, jumping to last method position");
+                const lastPosition = await this.fileMapper.getLastMethodPosition(javaFilePath);
+                logger.debug("[XmlToJavaNavigator.navigateToJava] Last method position found:", lastPosition);
+                
+                if (lastPosition) {
+                    // Read the file to check the content of the last line
+                    const content = await fs.readFile(javaFilePath, 'utf-8');
+                    const lines = content.split('\n');
+                    const lastLineContent = lines[lastPosition.line].trim();
+                    
+                    // Open the file
+                    const document = await vscode.workspace.openTextDocument(javaFilePath);
+                    const editor = await vscode.window.showTextDocument(document, {
+                        preserveFocus: false,
+                        preview: false
+                    });
+                    
+                    // If last line has content, insert a new line
+                    if (lastLineContent.length > 0) {
+                        logger.debug("[XmlToJavaNavigator.navigateToJava] Last line has content, inserting new line");
+                        await editor.edit(editBuilder => {
+                            // Insert new line after the last method line
+                            const insertPosition = new vscode.Position(lastPosition.line + 1, 0);
+                            editBuilder.insert(insertPosition, '\n');
+                        });
+                        
+                        // Move cursor to the new line
+                        const newPosition = new vscode.Position(lastPosition.line + 1, 0);
+                        editor.selection = new vscode.Selection(newPosition, newPosition);
+                        editor.revealRange(new vscode.Range(newPosition, newPosition), vscode.TextEditorRevealType.AtTop);
+                    } else {
+                        // If last line is empty, just jump to it
+                        logger.debug("[XmlToJavaNavigator.navigateToJava] Last line is empty, jumping to it");
+                        editor.selection = new vscode.Selection(lastPosition, lastPosition);
+                        editor.revealRange(new vscode.Range(lastPosition, lastPosition), vscode.TextEditorRevealType.AtTop);
+                    }
+                    
+                    return;
+                }
             }
             
-            // Jump to the beginning of the Java file
-            logger.debug("[XmlToJavaNavigator.navigateToJava] Jumping to file beginning");
+            // Jump to the beginning of the Java file if no method name provided
+            logger.debug("[XmlToJavaNavigator.navigateToJava] No method name provided, jumping to file beginning");
             await this.fileMapper.jumpToFilePublic(javaFilePath);
         } catch (error) {
             logger.error('[XmlToJavaNavigator.navigateToJava] Error navigating to Java:', error as Error);

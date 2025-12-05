@@ -298,7 +298,7 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
      * @param token Cancellation token to cancel the operation
      * @returns Resolved CodeLens or undefined if not resolvable
      */
-    public resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken): vscode.CodeLens | undefined {
+    public async resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken): Promise<vscode.CodeLens | undefined> {
         try {
             // Check if cancellation is requested
             if (token.isCancellationRequested) {
@@ -310,11 +310,21 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
                 // For Java to XML navigation
                 if (codeLens.command.command === "mybatis-helper.jumpToXml" && codeLens.command.arguments.length >= 2) {
                     const javaFilePath = codeLens.command.arguments[0];
+                    const methodName = codeLens.command.arguments[1];
                     
                     // Check if we have a mapping for this Java file
                     const xmlPath = this.fileMapper.getMappings().get(javaFilePath);
                     if (!xmlPath) {
                         // No mapping found, don't show the CodeLens
+                        logger.debug(`[resolveCodeLens] No XML mapping found for ${javaFilePath}, hiding CodeLens`);
+                        return undefined;
+                    }
+                    
+                    // Check if the specific method exists in the XML file
+                    const methodPosition = await this.fileMapper.findMethodPositionPublic(xmlPath, methodName);
+                    if (!methodPosition) {
+                        // Method not found in XML, don't show the CodeLens
+                        logger.debug(`[resolveCodeLens] Method ${methodName} not found in ${xmlPath}, hiding CodeLens`);
                         return undefined;
                     }
                 }
@@ -326,6 +336,7 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider {
                     const javaPath = this.fileMapper.getReverseMappings().get(xmlFilePath);
                     if (!javaPath) {
                         // No mapping found, don't show the CodeLens
+                        logger.debug(`[resolveCodeLens] No Java mapping found for ${xmlFilePath}, hiding CodeLens`);
                         return undefined;
                     }
                 }

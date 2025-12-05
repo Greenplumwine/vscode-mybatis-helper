@@ -1052,6 +1052,120 @@ export class FileMapper {
 	}
 
 	/**
+	 * Find the position of a method in an XML file - public version
+	 */
+	public async findMethodPositionPublic(xmlPath: string, methodName: string): Promise<vscode.Position | null> {
+		return this.findMethodPosition(xmlPath, methodName);
+	}
+
+	/**
+	 * Get the position of the last method in a Java file (line before the closing brace)
+	 * @param javaPath Path to the Java file
+	 * @returns Position of the last method or the line before the closing brace, or null if not found
+	 */
+	public async getLastMethodPosition(javaPath: string): Promise<vscode.Position | null> {
+		try {
+			// Check if file path is valid
+			if (javaPath.includes('/.git/') || 
+				javaPath.includes('\\.git\\') ||
+				javaPath.endsWith('.git')) {
+				return null;
+			}
+
+			// Check if file exists
+			try {
+				await fs.access(javaPath);
+			} catch {
+				return null;
+			}
+
+			// Read file content
+			const content = await fs.readFile(javaPath, 'utf-8');
+			if (!content) {
+				return null;
+			}
+
+			// Split content into lines
+			const lines = content.split('\n');
+			let closingBraceLine = -1;
+
+			// Find the last closing brace '}' that is not inside a comment or string
+			let inComment = false;
+			let inString = false;
+			let braceCount = 0;
+
+			for (let i = lines.length - 1; i >= 0; i--) {
+				const line = lines[i];
+				let j = line.length - 1;
+
+				while (j >= 0) {
+					const char = line[j];
+
+					// Handle strings
+					if (char === '"' && !inComment) {
+						inString = !inString;
+					}
+
+					// Handle comments
+					if (!inString) {
+						// Check for end of multi-line comment
+						if (char === '/' && j > 0 && line[j - 1] === '*') {
+							inComment = false;
+							j--;
+						}
+						// Check for start of multi-line comment
+						else if (char === '*' && j > 0 && line[j - 1] === '/') {
+							inComment = true;
+							j--;
+						}
+						// Skip single-line comments
+						else if (char === '/' && j > 0 && line[j - 1] === '/') {
+							break;
+						}
+						// Handle braces
+						else if (!inComment) {
+							if (char === '}') {
+								braceCount++;
+								if (braceCount === 1) {
+									closingBraceLine = i;
+									break;
+								}
+							}
+							else if (char === '{') {
+								braceCount--;
+							}
+						}
+					}
+
+					j--;
+				}
+
+				if (closingBraceLine !== -1) {
+					break;
+				}
+			}
+
+			// If closing brace found, return the line before it
+			if (closingBraceLine > 0) {
+				return new vscode.Position(closingBraceLine - 1, 0);
+			}
+
+			// If no closing brace found, return the last non-empty line
+			for (let i = lines.length - 1; i >= 0; i--) {
+				if (lines[i].trim() !== '') {
+					return new vscode.Position(i, 0);
+				}
+			}
+
+			// If all lines are empty, return the first line
+			return new vscode.Position(0, 0);
+		} catch (error) {
+			this.logger.error('Error getting last method position:', error as Error);
+			return null;
+		}
+	}
+
+	/**
 	 * Find the position of a method in a Java file
 	 */	
 	private async findJavaMethodPosition(javaPath: string, methodName: string): Promise<vscode.Position | null> {
