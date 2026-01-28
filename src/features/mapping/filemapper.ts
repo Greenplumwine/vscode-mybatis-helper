@@ -845,7 +845,166 @@ export class FileMapper {
 			return null;
 		}
 	}
+  /**
+   * Extract method name or SQL ID from current cursor position
+   */
+  private extractMethodNameFromDocument(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+  ): string | null {
+    try {
+      const line = document.lineAt(position.line).text;
+      const filePath = document.uri.fsPath;
 
+      this.logger.debug(
+        `Extracting method name from line: ${line}, file: ${filePath}, position: ${position.line}:${position.character}`,
+      );
+
+      if (filePath.endsWith(".java")) {
+        // 方法1：使用更准确的正则表达式匹配Java方法定义
+        const methodRegex =
+          /^(?!\s*\*\s+)(?=.*\b(?:public|private|protected)\s+)(?:\s*(?:public|private|protected)\s+)?(?:static\s+)?[\w<>,\s]+\s+(\w+)\s*\([^)]*\)/;
+        const methodMatch = methodRegex.exec(line);
+
+        if (methodMatch) {
+          this.logger.debug(
+            `Found Java method: ${methodMatch[1]} in line: ${line}`,
+          );
+          return methodMatch[1];
+        }
+
+        // 方法2：尝试匹配更简单的方法定义（无修饰符）
+        const simpleMethodRegex =
+          /^(?!\s*\*\s+)(?:\s*|@\w+(?:\([^)]*\))?\s*)[\w<>,\s]+\s+(\w+)\s*\([^)]*\)\s*[;{]/;
+        const simpleMatch = simpleMethodRegex.exec(line);
+        if (simpleMatch) {
+          this.logger.debug(
+            `Found simple Java method: ${simpleMatch[1]} in line: ${line}`,
+          );
+          return simpleMatch[1];
+        }
+
+        // 方法3：尝试匹配接口方法定义（如：List<User> findAll();）
+        const interfaceMethodRegex =
+          /^(?!\s*\*\s+)\s*[\w<>,\s]+\s+(\w+)\s*\([^)]*\)\s*[;{]/;
+        const interfaceMatch = interfaceMethodRegex.exec(line);
+        if (interfaceMatch) {
+          this.logger.debug(
+            `Found interface method: ${interfaceMatch[1]} in line: ${line}`,
+          );
+          return interfaceMatch[1];
+        }
+
+        // 方法4：如果当前行没有找到方法，尝试查找当前光标所在的方法块
+        // 从当前行向上查找，直到找到方法定义
+        let currentLineNum = position.line;
+        // 添加负向前瞻断言，跳过注释行
+        const methodBlockRegex =
+          /^(?!\s*\*\s+)(?!\s*\/\/)\s*(?:(?:public|private|protected)\s+)?(?:static\s+)?[\w<>,\s]+\s+(\w+)\s*\([^)]*\)\s*[;{]/;
+
+        // 添加循环限制，最多向上查找50行，防止无限循环
+        const maxLinesToCheck = 50;
+        let linesChecked = 0;
+
+        while (currentLineNum >= 0 && linesChecked < maxLinesToCheck) {
+          const currentLine = document.lineAt(currentLineNum).text;
+          // 跳过注释行和空行
+          if (
+            currentLine.trim() === "" ||
+            currentLine.trim().startsWith("//") ||
+            currentLine.trim().startsWith("/*")
+          ) {
+            currentLineNum--;
+            linesChecked++;
+            continue;
+          }
+
+          const blockMatch = methodBlockRegex.exec(currentLine);
+          if (blockMatch) {
+            this.logger.debug(
+              `Found method in block: ${blockMatch[1]} at line ${currentLineNum}`,
+            );
+            return blockMatch[1];
+          }
+          currentLineNum--;
+          linesChecked++;
+        }
+
+        if (linesChecked >= maxLinesToCheck) {
+          this.logger.debug(
+            `Reached maximum lines to check (${maxLinesToCheck}), stopping search`,
+          );
+        }
+
+        this.logger.debug(
+          `No Java method found in line: ${line} or surrounding blocks`,
+        );
+        return null;
+      } else if (filePath.endsWith(".xml")) {
+        // 方法1：使用更准确的正则表达式处理XML标签中的id属性
+        const idMatch = /<\w+\s+[^>]*id\s*=\s*["']([^"']+)["'][^>]*>/.exec(
+          line,
+        );
+
+        if (idMatch) {
+          this.logger.debug(
+            `Found XML id attribute: ${idMatch[1]} in line: ${line}`,
+          );
+          return idMatch[1];
+        }
+
+        // 方法2：处理单引号和双引号的id属性，支持换行
+        const altMatch = /id\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/i.exec(line);
+        if (altMatch) {
+          const matchedId = altMatch[1] || altMatch[2];
+          this.logger.debug(
+            `Found XML id attribute via alternative approach: ${matchedId} in line: ${line}`,
+          );
+          return matchedId;
+        }
+
+        // 方法3：如果当前行没有找到id属性，尝试查找当前光标所在的标签
+        let currentLineNum = position.line;
+        const xmlTagRegex =
+          /<(?:select|update|insert|delete|selectKey)\s+[^>]*id\s*=\s*["']([^"']+)["'][^>]*>/;
+
+        // 添加循环限制，最多向上查找50行，防止无限循环
+        const maxLinesToCheck = 50;
+        let linesChecked = 0;
+
+        while (currentLineNum >= 0 && linesChecked < maxLinesToCheck) {
+          const currentLine = document.lineAt(currentLineNum).text;
+          const tagMatch = xmlTagRegex.exec(currentLine);
+          if (tagMatch) {
+            this.logger.debug(
+              `Found XML tag with id: ${tagMatch[1]} at line ${currentLineNum}`,
+            );
+            return tagMatch[1];
+          }
+          currentLineNum--;
+          linesChecked++;
+        }
+
+        if (linesChecked >= maxLinesToCheck) {
+          this.logger.debug(
+            `Reached maximum lines to check (${maxLinesToCheck}), stopping search`,
+          );
+        }
+
+        this.logger.debug(
+          `No XML id attribute found in line: ${line} or surrounding tags`,
+        );
+        return null;
+      }
+      this.logger.debug(
+        `File is neither Java nor XML, cannot extract method name: ${filePath}`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.error("Error extracting method name:", error as Error);
+      return null;
+    }
+  }
 	/**
 	 * Extract method name or SQL ID from current cursor position
 	 */	
@@ -1050,6 +1209,68 @@ export class FileMapper {
 			return null;
 		}
 	}
+
+  /**
+   * Resolve XML path for a Java mapper file
+   */
+  public async resolveXmlPathForJavaPublic(
+    javaFilePath: string,
+  ): Promise<string | undefined> {
+    try {
+      // 检查文件路径是否有效，避免尝试访问Git相关文件
+      if (
+        javaFilePath.includes("/.git/") ||
+        javaFilePath.includes("\\.git\\") ||
+        javaFilePath.endsWith(".git")
+      ) {
+        return undefined;
+      }
+
+      let xmlPath = this.mappings.get(javaFilePath);
+      if (xmlPath) {
+        return xmlPath;
+      }
+
+      // Step 1: Use quick path
+      const quickPath = await this.findXmlByQuickPath(javaFilePath);
+      if (quickPath) {
+        xmlPath = quickPath;
+        this.mappings.set(javaFilePath, xmlPath);
+        this.reverseMappings.set(xmlPath, javaFilePath);
+        return xmlPath;
+      }
+
+      // Step 2: Search XML files with limit
+      const maxXmlFiles = 500;
+      const xmlFiles = await vscode.workspace.findFiles(
+        "**/*.xml",
+        "**/{node_modules,.git,target,build,out}/**",
+        maxXmlFiles,
+      );
+      const filteredXmlFiles = xmlFiles.filter(
+        (xmlFile) =>
+          !xmlFile.fsPath.includes("/.git/") &&
+          !xmlFile.fsPath.includes("\\.git\\") &&
+          !xmlFile.fsPath.endsWith(".git"),
+      );
+
+      const batchSize = 100;
+      for (let i = 0; i < filteredXmlFiles.length; i += batchSize) {
+        const batch = filteredXmlFiles.slice(i, i + batchSize);
+        xmlPath = await this.findXmlForMapper(javaFilePath, batch);
+        if (xmlPath) {
+          this.mappings.set(javaFilePath, xmlPath);
+          this.reverseMappings.set(xmlPath, javaFilePath);
+          return xmlPath;
+        }
+      }
+
+      return undefined;
+    } catch (error) {
+      this.logger.error("Error resolving XML path for Java:", error as Error);
+      return undefined;
+    }
+  }
 
 	/**
 	 * Find the position of a method in an XML file - public version
@@ -1541,7 +1762,16 @@ export class FileMapper {
 		const methodName = this.extractMethodName(editor);
 		return methodName || undefined;
 	}
-
+  /**
+   * Public method to extract method name from document position
+   */
+  public extractMethodNameFromDocumentPublic(
+    document: vscode.TextDocument,
+    position: vscode.Position,
+  ): string | undefined {
+    const methodName = this.extractMethodNameFromDocument(document, position);
+    return methodName || undefined;
+  }
 	/**
 	 * Public method to parse XML namespace
 	 */
