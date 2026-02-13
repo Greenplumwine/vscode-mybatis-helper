@@ -90,10 +90,6 @@ export class SQLDetailPanel {
       case 'copyFormatted':
         await this.copyToClipboard(this.query.formattedSQL || this.query.fullSQL || '');
         break;
-      case 'explain':
-        // TODO: 实现 SQL 解释功能
-        vscode.window.showInformationMessage(vscode.l10n.t('sqlDetail.explainComingSoon'));
-        break;
     }
   }
 

@@ -8,3 +8,6 @@ pnpm-lock.yaml
 package-lock.json
 pnpm-lock.yaml
 .kimi/
+.opencode/
+docs/
+未命名.md
