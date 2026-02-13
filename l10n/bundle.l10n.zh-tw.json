@@ -98,5 +98,12 @@
 
   "error.fileMapperNotInitialized": "文件映射器未初始化",
   "error.jumpToXmlFailed": "跳轉到XML文件失敗: {error}",
-  "error.jumpToMapperFailed": "跳轉到Mapper文件失敗: {error}"
+  "error.jumpToMapperFailed": "跳轉到Mapper文件失敗: {error}",
+
+  "codelens.java.jumpToXml": "跳轉到 XML: {className}.xml",
+  "codelens.java.jumpToSql": "跳轉到 XML SQL",
+  "codelens.xml.jumpToJava": "跳轉到 Java: {className}.java",
+  "codelens.xml.findJava": "查找 Java: {className}.java",
+  "codelens.xml.jumpToMethod": "跳轉到方法: {methodName}",
+  "codelens.xml.findMethod": "查找方法: {methodName}"
 }

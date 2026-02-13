@@ -98,5 +98,12 @@
 
   "error.fileMapperNotInitialized": "Маппер файлов не инициализирован",
   "error.jumpToXmlFailed": "Не удалось перейти к файлу XML: {error}",
-  "error.jumpToMapperFailed": "Не удалось перейти к файлу Mapper: {error}"
+  "error.jumpToMapperFailed": "Не удалось перейти к файлу Mapper: {error}",
+
+  "codelens.java.jumpToXml": "Перейти к XML: {className}.xml",
+  "codelens.java.jumpToSql": "Перейти к XML SQL",
+  "codelens.xml.jumpToJava": "Перейти к Java: {className}.java",
+  "codelens.xml.findJava": "Найти Java: {className}.java",
+  "codelens.xml.jumpToMethod": "Перейти к методу: {methodName}",
+  "codelens.xml.findMethod": "Найти метод: {methodName}"
 }

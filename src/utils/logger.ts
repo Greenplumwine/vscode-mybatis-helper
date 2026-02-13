@@ -31,8 +31,9 @@ interface LoggerConfig {
  */
 export class Logger {
     private static instance: Logger;
-    private outputChannel: vscode.OutputChannel;
+    private outputChannel: vscode.OutputChannel | null = null;
     private config: LoggerConfig;
+    private isDisposed: boolean = false;
 
     /**
      * 私有构造函数，实现单例模式
@@ -42,8 +43,18 @@ export class Logger {
             level: LogLevel.DEBUG,
             channelName: 'MyBatis Helper'
         };
-        this.outputChannel = vscode.window.createOutputChannel(this.config.channelName);
+        this.createOutputChannel();
         this.updateConfig();
+    }
+
+    /**
+     * 创建输出通道
+     */
+    private createOutputChannel(): void {
+        if (!this.outputChannel || this.isDisposed) {
+            this.outputChannel = vscode.window.createOutputChannel(this.config.channelName);
+            this.isDisposed = false;
+        }
     }
 
     /**
@@ -53,6 +64,9 @@ export class Logger {
     public static getInstance(): Logger {
         if (!Logger.instance) {
             Logger.instance = new Logger();
+        } else if (Logger.instance.isDisposed) {
+            // 如果实例被 dispose 了，重新创建 output channel
+            Logger.instance.createOutputChannel();
         }
         return Logger.instance;
     }
@@ -172,14 +186,27 @@ export class Logger {
     }
 
     /**
+     * 确保输出通道可用
+     */
+    private ensureOutputChannel(): vscode.OutputChannel | null {
+        if (!this.outputChannel || this.isDisposed) {
+            this.createOutputChannel();
+        }
+        return this.outputChannel;
+    }
+
+    /**
      * 输出 DEBUG 级别的日志
      * @param message 日志消息
      * @param metadata 附加元数据
      */
     public debug(message: string, metadata?: any): void {
         if (this.shouldLog(LogLevel.DEBUG)) {
-            const logMessage = this.formatMessage(LogLevel.DEBUG, message, metadata);
-            this.outputChannel.appendLine(logMessage);
+            const channel = this.ensureOutputChannel();
+            if (channel) {
+                const logMessage = this.formatMessage(LogLevel.DEBUG, message, metadata);
+                channel.appendLine(logMessage);
+            }
         }
     }
 
@@ -190,8 +217,11 @@ export class Logger {
      */
     public info(message: string, metadata?: any): void {
         if (this.shouldLog(LogLevel.INFO)) {
-            const logMessage = this.formatMessage(LogLevel.INFO, message, metadata);
-            this.outputChannel.appendLine(logMessage);
+            const channel = this.ensureOutputChannel();
+            if (channel) {
+                const logMessage = this.formatMessage(LogLevel.INFO, message, metadata);
+                channel.appendLine(logMessage);
+            }
         }
     }
 
@@ -202,8 +232,11 @@ export class Logger {
      */
     public warn(message: string, metadata?: any): void {
         if (this.shouldLog(LogLevel.WARN)) {
-            const logMessage = this.formatMessage(LogLevel.WARN, message, metadata);
-            this.outputChannel.appendLine(logMessage);
+            const channel = this.ensureOutputChannel();
+            if (channel) {
+                const logMessage = this.formatMessage(LogLevel.WARN, message, metadata);
+                channel.appendLine(logMessage);
+            }
         }
     }
 
@@ -214,12 +247,15 @@ export class Logger {
      */
     public error(message: string, error?: Error): void {
         if (this.shouldLog(LogLevel.ERROR)) {
-            const metadata = error ? { 
-                error: error.message, 
-                stack: error.stack 
-            } : undefined;
-            const logMessage = this.formatMessage(LogLevel.ERROR, message, metadata);
-            this.outputChannel.appendLine(logMessage);
+            const channel = this.ensureOutputChannel();
+            if (channel) {
+                const metadata = error ? {
+                    error: error.message,
+                    stack: error.stack
+                } : undefined;
+                const logMessage = this.formatMessage(LogLevel.ERROR, message, metadata);
+                channel.appendLine(logMessage);
+            }
         }
     }
 
@@ -227,14 +263,21 @@ export class Logger {
      * 显示日志输出面板
      */
     public showOutputChannel(): void {
-        this.outputChannel.show();
+        const channel = this.ensureOutputChannel();
+        if (channel) {
+            channel.show();
+        }
     }
 
     /**
      * 清理资源
      */
     public dispose(): void {
-        this.outputChannel.dispose();
+        if (this.outputChannel && !this.isDisposed) {
+            this.outputChannel.dispose();
+            this.isDisposed = true;
+            this.outputChannel = null;
+        }
     }
 }
 

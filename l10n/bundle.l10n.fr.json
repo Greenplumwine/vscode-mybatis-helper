@@ -98,5 +98,12 @@
 
   "error.fileMapperNotInitialized": "Mappeur de fichiers non initialisé",
   "error.jumpToXmlFailed": "Échec du saut vers le fichier XML: {error}",
-  "error.jumpToMapperFailed": "Échec du saut vers le fichier Mapper: {error}"
+  "error.jumpToMapperFailed": "Échec du saut vers le fichier Mapper: {error}",
+
+  "codelens.java.jumpToXml": "Aller vers XML: {className}.xml",
+  "codelens.java.jumpToSql": "Aller vers XML SQL",
+  "codelens.xml.jumpToJava": "Aller vers Java: {className}.java",
+  "codelens.xml.findJava": "Rechercher Java: {className}.java",
+  "codelens.xml.jumpToMethod": "Aller vers méthode: {methodName}",
+  "codelens.xml.findMethod": "Rechercher méthode: {methodName}"
 }

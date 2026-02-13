@@ -13,7 +13,7 @@ import { logger } from "../../utils/logger";
  * MyBatis log interceptor, responsible for intercepting console logs and parsing SQL statements
  */
 export class ConsoleLogInterceptor {
-	private outputChannel: vscode.OutputChannel;
+	private outputChannel: vscode.OutputChannel | null = null;
 	private sqlParser: SQLParser;
 	private isIntercepting: boolean;
 	private sqlHistory: SQLHistory;
@@ -28,12 +28,13 @@ export class ConsoleLogInterceptor {
 	private customParametersRegex: RegExp | null = null;
 	private customExecutionTimeRegex: RegExp | null = null;
 	private performanceStats = { logLinesProcessed: 0, sqlQueriesProcessed: 0, averageProcessingTime: 0, lastProcessingTime: 0 };
+	private isDisposed: boolean = false;
 
 	// Simple cache for SQL formatting results
 	private formatCache: Map<string, string> = new Map();
 
 	constructor(config?: vscode.WorkspaceConfiguration) {
-		this.outputChannel = vscode.window.createOutputChannel("MyBatis SQL");
+		this.createOutputChannel();
 		this.sqlParser = new SQLParser();
 		this.isIntercepting = false;
 		this.sqlHistory = { queries: [], lastUpdated: new Date() };
@@ -50,6 +51,26 @@ export class ConsoleLogInterceptor {
 			this.sqlParser.setDatabaseType(defaultConfig.databaseType);
 			this.updateCustomLogPattern(defaultConfig.customLogPattern || "");
 		}
+	}
+
+	/**
+	 * Create output channel
+	 */
+	private createOutputChannel(): void {
+		if (!this.outputChannel || this.isDisposed) {
+			this.outputChannel = vscode.window.createOutputChannel("MyBatis SQL");
+			this.isDisposed = false;
+		}
+	}
+
+	/**
+	 * Ensure output channel is available
+	 */
+	private ensureOutputChannel(): vscode.OutputChannel | null {
+		if (!this.outputChannel || this.isDisposed) {
+			this.createOutputChannel();
+		}
+		return this.outputChannel;
 	}
 
 	/**
@@ -101,7 +122,10 @@ export class ConsoleLogInterceptor {
 		// Clear history
 		this.clearSQLHistory();
 		// Show output channel
-		this.outputChannel.show();
+		const channel = this.ensureOutputChannel();
+		if (channel) {
+			channel.show();
+		}
 	}
 
 	/**
@@ -453,7 +477,10 @@ export class ConsoleLogInterceptor {
 
 			outputLines.push("================\n");
 			// Append all lines at once to reduce I/O operations
-			this.outputChannel.appendLine(outputLines.join("\n"));
+			const channel = this.ensureOutputChannel();
+			if (channel) {
+				channel.appendLine(outputLines.join("\n"));
+			}
 		} catch (error) {
 			logger.error("Error displaying SQL query:", error as Error);
 		}
@@ -485,7 +512,10 @@ export class ConsoleLogInterceptor {
 	 * Show SQL output channel
 	 */
 	public showSQLOutput(): void {
-		this.outputChannel.show();
+		const channel = this.ensureOutputChannel();
+		if (channel) {
+			channel.show();
+		}
 	}
 
 	/**
@@ -494,7 +524,10 @@ export class ConsoleLogInterceptor {
 	public clearSQLHistory(): void {
 		try {
 			this.sqlHistory = { queries: [], lastUpdated: new Date() };
-			this.outputChannel.clear();
+			const channel = this.ensureOutputChannel();
+			if (channel) {
+				channel.clear();
+			}
 			vscode.window.showInformationMessage(
 				vscode.l10n.t("logInterceptor.historyCleared")
 			);
@@ -680,7 +713,11 @@ export class ConsoleLogInterceptor {
 	 */
 	dispose(): void {
 		this.stopIntercepting();
-		this.outputChannel.dispose();
+		if (this.outputChannel && !this.isDisposed) {
+			this.outputChannel.dispose();
+			this.isDisposed = true;
+			this.outputChannel = null;
+		}
 		this.formatCache.clear();
 	}
 }

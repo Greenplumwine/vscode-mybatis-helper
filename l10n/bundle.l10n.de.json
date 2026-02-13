@@ -98,5 +98,12 @@
 
   "error.fileMapperNotInitialized": "Dateimapper nicht initialisiert",
   "error.jumpToXmlFailed": "Fehler beim Springen zur XML-Datei: {error}",
-  "error.jumpToMapperFailed": "Fehler beim Springen zur Mapper-Datei: {error}"
+  "error.jumpToMapperFailed": "Fehler beim Springen zur Mapper-Datei: {error}",
+
+  "codelens.java.jumpToXml": "Zu XML springen: {className}.xml",
+  "codelens.java.jumpToSql": "Zu XML SQL springen",
+  "codelens.xml.jumpToJava": "Zu Java springen: {className}.java",
+  "codelens.xml.findJava": "Java suchen: {className}.java",
+  "codelens.xml.jumpToMethod": "Zu Methode springen: {methodName}",
+  "codelens.xml.findMethod": "Methode suchen: {methodName}"
 }

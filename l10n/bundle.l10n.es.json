@@ -37,5 +37,12 @@
   "configuration.pathPriority.description": "Configuración de prioridad de ruta para coincidencia de archivos. Controla qué directorios se buscan primero y cuáles se excluyen",
   "configuration.pathPriority.enabled.description": "Habilitar ordenamiento por prioridad de ruta para priorizar ciertos directorios al buscar archivos",
   "configuration.pathPriority.priorityDirectories.description": "Directorios con mayor prioridad. Los archivos en estos directorios se coinciden primero. Ejemplo: [\"/src/\", \"/main/\"]",
-  "configuration.pathPriority.excludeDirectories.description": "Directorios a excluir de la búsqueda. Ejemplo: [\"/build/\", \"/target/\"]"
+  "configuration.pathPriority.excludeDirectories.description": "Directorios a excluir de la búsqueda. Ejemplo: [\"/build/\", \"/target/\"]",
+
+  "codelens.java.jumpToXml": "Saltar a XML: {className}.xml",
+  "codelens.java.jumpToSql": "Saltar a XML SQL",
+  "codelens.xml.jumpToJava": "Saltar a Java: {className}.java",
+  "codelens.xml.findJava": "Buscar Java: {className}.java",
+  "codelens.xml.jumpToMethod": "Saltar a método: {methodName}",
+  "codelens.xml.findMethod": "Buscar método: {methodName}"
 }

@@ -98,5 +98,12 @@
 
   "error.fileMapperNotInitialized": "ファイルマッパーが初期化されていません",
   "error.jumpToXmlFailed": "XMLファイルにジャンプできませんでした: {error}",
-  "error.jumpToMapperFailed": "Mapperファイルにジャンプできませんでした: {error}"
+  "error.jumpToMapperFailed": "Mapperファイルにジャンプできませんでした: {error}",
+
+  "codelens.java.jumpToXml": "XMLにジャンプ: {className}.xml",
+  "codelens.java.jumpToSql": "XML SQLにジャンプ",
+  "codelens.xml.jumpToJava": "Javaにジャンプ: {className}.java",
+  "codelens.xml.findJava": "Javaを検索: {className}.java",
+  "codelens.xml.jumpToMethod": "メソッドにジャンプ: {methodName}",
+  "codelens.xml.findMethod": "メソッドを検索: {methodName}"
 }
