@@ -4,6 +4,8 @@
   "command.toggleLogInterceptor.title": "切換日誌攔截",
   "command.showSqlOutput.title": "顯示 SQL 輸出",
   "command.clearSqlHistory.title": "清空 SQL 歷史",
+  "command.pauseSQLInterceptor.title": "暫停 SQL 攔截",
+  "command.resumeSQLInterceptor.title": "恢復 SQL 攔截",
   "command.jumpToXml.title": "跳轉到 XML",
   "command.jumpToMapper.title": "跳轉到 Mapper",
   "command.refreshMappings.title": "刷新映射關係",

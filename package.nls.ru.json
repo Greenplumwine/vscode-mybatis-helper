@@ -4,6 +4,8 @@
   "command.toggleLogInterceptor.title": "Переключить перехватчик журналов",
   "command.showSqlOutput.title": "Показать вывод SQL",
   "command.clearSqlHistory.title": "Очистить историю SQL",
+  "command.pauseSQLInterceptor.title": "Приостановить SQL-перехватчик",
+  "command.resumeSQLInterceptor.title": "Возобновить SQL-перехватчик",
   "command.jumpToXml.title": "Перейти к XML",
   "command.jumpToMapper.title": "Перейти к Mapper",
   "command.refreshMappings.title": "Обновить сопоставления",

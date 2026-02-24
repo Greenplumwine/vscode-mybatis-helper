@@ -11,7 +11,7 @@
   },
   "license": "MIT",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.93.0"
   },
   "categories": [
     "Programming Languages",
@@ -30,21 +30,10 @@
   "contributes": {
     "commands": [
       {
-        "command": "mybatis-helper.toggleLogInterceptor",
-        "title": "%command.toggleLogInterceptor.title%",
+        "command": "mybatis-helper.showSqlHistory",
+        "title": "%command.showSqlHistory.title%",
         "category": "MyBatis Helper",
-        "icon": "$(debug-pause)"
-      },
-      {
-        "command": "mybatis-helper.showSqlOutput",
-        "title": "%command.showSqlOutput.title%",
-        "category": "MyBatis Helper"
-      },
-      {
-        "command": "mybatis-helper.clearSqlHistory",
-        "title": "%command.clearSqlHistory.title%",
-        "category": "MyBatis Helper",
-        "icon": "$(clear-all)"
+        "icon": "$(database)"
       },
       {
         "command": "mybatis-helper.jumpToXml",
@@ -62,20 +51,10 @@
         "category": "MyBatis Helper"
       },
       {
-        "command": "mybatis-helper.refreshData",
-        "title": "%command.refreshData.title%",
-        "category": "MyBatis Helper"
-      },
-      {
         "command": "mybatis-helper.refreshSQLHistory",
         "title": "%command.refreshSQLHistory.title%",
         "category": "MyBatis Helper",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "mybatis-helper.showSqlDetail",
-        "title": "%command.showSqlDetail.title%",
-        "category": "MyBatis Helper"
       },
       {
         "command": "mybatis-helper.copySqlFromTree",
@@ -83,10 +62,44 @@
         "category": "MyBatis Helper"
       },
       {
+        "command": "mybatis-helper.toggleLogInterceptor",
+        "title": "%command.toggleLogInterceptor.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "mybatis-helper.clearSqlHistory",
+        "title": "%command.clearSqlHistory.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "mybatis-helper.showSqlDetail",
+        "title": "%command.showSqlDetail.title%",
+        "category": "MyBatis Helper"
+      },
+      {
         "command": "mybatis-helper.openSQLSettings",
         "title": "%command.openSQLSettings.title%",
         "category": "MyBatis Helper",
         "icon": "$(gear)"
+      },
+      {
+        "command": "mybatis-helper.testLogParse",
+        "title": "%command.testLogParse.title%",
+        "category": "MyBatis Helper"
+      },
+      {
+        "command": "mybatis-helper.pauseSQLInterceptor",
+        "title": "%command.pauseSQLInterceptor.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "mybatis-helper.resumeSQLInterceptor",
+        "title": "%command.resumeSQLInterceptor.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(play)"
       }
     ],
     "keybindings": [
@@ -107,31 +120,6 @@
       "type": "object",
       "title": "%configuration.title%",
       "properties": {
-        "mybatis-helper.databaseType": {
-          "type": "string",
-          "default": "mysql",
-          "description": "%configuration.databaseType.description%"
-        },
-        "mybatis-helper.enableLogInterceptor": {
-          "type": "boolean",
-          "default": true,
-          "description": "%configuration.enableLogInterceptor.description%"
-        },
-        "mybatis-helper.customLogPattern": {
-          "type": "string",
-          "default": "",
-          "description": "%configuration.customLogPattern.description%"
-        },
-        "mybatis-helper.maxHistorySize": {
-          "type": "number",
-          "default": 100,
-          "description": "%configuration.maxHistorySize.description%"
-        },
-        "mybatis-helper.showExecutionTime": {
-          "type": "boolean",
-          "default": true,
-          "description": "%configuration.showExecutionTime.description%"
-        },
         "mybatis-helper.enableCodeLens": {
           "type": "boolean",
           "default": true,
@@ -163,11 +151,6 @@
           ],
           "default": "info",
           "description": "%configuration.logOutputLevel.description%"
-        },
-        "mybatis-helper.batchProcessDelay": {
-          "type": "number",
-          "default": 200,
-          "description": "%configuration.batchProcessDelay.description%"
         },
         "mybatis-helper.nameMatchingRules": {
           "type": "array",
@@ -276,20 +259,40 @@
           },
           "description": "%configuration.pathPriority.description%"
         },
-        "mybatis-helper.sqlInterceptor.listenDebugConsole": {
-          "type": "boolean",
-          "default": true,
-          "description": "%configuration.sqlInterceptor.listenDebugConsole.description%"
-        },
-        "mybatis-helper.sqlInterceptor.listenTerminal": {
-          "type": "boolean",
-          "default": true,
-          "description": "%configuration.sqlInterceptor.listenTerminal.description%"
-        },
-        "mybatis-helper.sqlInterceptor.terminalFilter": {
+        "mybatis-helper.sqlInterceptor.listenMode": {
           "type": "string",
-          "default": "",
-          "description": "%configuration.sqlInterceptor.terminalFilter.description%"
+          "enum": [
+            "auto",
+            "debugConsole",
+            "terminal"
+          ],
+          "enumDescriptions": [
+            "%configuration.sqlInterceptor.listenMode.auto%",
+            "%configuration.sqlInterceptor.listenMode.debugConsole%",
+            "%configuration.sqlInterceptor.listenMode.terminal%"
+          ],
+          "default": "auto",
+          "description": "%configuration.sqlInterceptor.listenMode.description%"
+        },
+        "mybatis-helper.sqlInterceptor.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.sqlInterceptor.autoStart.description%"
+        },
+        "mybatis-helper.sqlInterceptor.autoScrollBehavior": {
+          "type": "string",
+          "enum": [
+            "always",
+            "onlyWhenNotInteracting",
+            "never"
+          ],
+          "enumDescriptions": [
+            "%configuration.sqlInterceptor.autoScrollBehavior.always%",
+            "%configuration.sqlInterceptor.autoScrollBehavior.onlyWhenNotInteracting%",
+            "%configuration.sqlInterceptor.autoScrollBehavior.never%"
+          ],
+          "default": "onlyWhenNotInteracting",
+          "description": "%configuration.sqlInterceptor.autoScrollBehavior.description%"
         },
         "mybatis-helper.sqlInterceptor.builtinRules": {
           "type": "object",
@@ -298,6 +301,11 @@
             "mybatis-debug": true
           },
           "description": "%configuration.sqlInterceptor.builtinRules.description%"
+        },
+        "mybatis-helper.customLogPattern": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.customLogPattern.description%"
         },
         "mybatis-helper.sqlInterceptor.customRules": {
           "type": "array",
@@ -338,19 +346,24 @@
                 "description": "%configuration.sqlInterceptor.customRules.item.paramParseRegex.description%"
               }
             },
-            "required": ["name", "enabled", "lineMatchRegex", "sqlExtractRegex"]
+            "required": [
+              "name",
+              "enabled",
+              "lineMatchRegex",
+              "sqlExtractRegex"
+            ]
           },
           "description": "%configuration.sqlInterceptor.customRules.description%"
         }
       }
     },
     "views": {
-      "explorer": [
+      "mybatisHelperView": [
         {
           "id": "mybatisSQLHistory",
           "name": "%view.sqlHistory.name%",
           "when": "mybatis-helper.activated",
-          "icon": "$(database)",
+          "icon": "icons/mybatis.svg",
           "contextualTitle": "%view.sqlHistory.contextualTitle%"
         }
       ]
@@ -358,33 +371,33 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "mybatis-helper",
+          "id": "mybatisHelperView",
           "title": "%activitybar.mybatisHelper.title%",
-          "icon": "$(database)"
+          "icon": "icons/mybatis.svg"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
-          "command": "mybatis-helper.toggleLogInterceptor",
+          "command": "mybatis-helper.refreshSQLHistory",
           "when": "view == mybatisSQLHistory",
           "group": "navigation@1"
         },
         {
-          "command": "mybatis-helper.refreshSQLHistory",
-          "when": "view == mybatisSQLHistory",
+          "command": "mybatis-helper.pauseSQLInterceptor",
+          "when": "view == mybatisSQLHistory && mybatis-helper.sqlInterceptorRunning",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mybatis-helper.resumeSQLInterceptor",
+          "when": "view == mybatisSQLHistory && !mybatis-helper.sqlInterceptorRunning",
           "group": "navigation@2"
         },
         {
           "command": "mybatis-helper.clearSqlHistory",
           "when": "view == mybatisSQLHistory",
           "group": "navigation@3"
-        },
-        {
-          "command": "mybatis-helper.openSQLSettings",
-          "when": "view == mybatisSQLHistory",
-          "group": "secondary@1"
         }
       ],
       "view/item/context": [
@@ -407,7 +420,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.80.0",
+    "@types/vscode": "^1.93.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "@vscode/test-cli": "^0.0.11",

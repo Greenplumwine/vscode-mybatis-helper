@@ -4,6 +4,8 @@
   "command.toggleLogInterceptor.title": "ログインターセプターの切り替え",
   "command.showSqlOutput.title": "SQL出力を表示",
   "command.clearSqlHistory.title": "SQL履歴をクリア",
+  "command.pauseSQLInterceptor.title": "SQLインターセプターを一時停止",
+  "command.resumeSQLInterceptor.title": "SQLインターセプターを再開",
   "command.jumpToXml.title": "XMLにジャンプ",
   "command.jumpToMapper.title": "Mapperにジャンプ",
   "command.refreshMappings.title": "マッピングを更新",

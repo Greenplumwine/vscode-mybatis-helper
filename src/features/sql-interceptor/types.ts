@@ -53,10 +53,25 @@ export interface SQLInterceptorRule {
    * 单个参数解析正则
    * 用于从参数项中提取值和类型
    * 必须包含两个捕获组：值和类型
-   * 例如: "([^\\(]+)\\(([^\\)]+)\\)"
+   * 例如: "([^\\(]+)\\(([^\\)]+)\\)" 匹配 "value(type)"
+   * 
+   * 如果日志中没有类型信息，可以使用 "paramValueOnlyRegex" 选项
    */
   paramParseRegex?: string;
-  
+
+  /**
+   * 只提取参数值的正则（当日志中没有类型信息时使用）
+   * 例如: "(\\d+)" 只提取数字
+   * 此时 type 会被设置为 "unknown"
+   */
+  paramValueOnlyRegex?: string;
+
+  /**
+   * 参数类型映射（用于处理特殊类型）
+   * 例如: { "integer": "int", "string": "varchar" }
+   */
+  paramTypeMapping?: Record<string, string>;
+
   // ========== 高级选项 ==========
   /**
    * SQL 和参数是否在同一行
@@ -118,12 +133,28 @@ export interface SQLInterceptorConfig {
    * key: 规则名称, value: 是否启用
    */
   builtinRules: Record<string, boolean>;
-  /** 是否监听调试控制台 */
-  listenDebugConsole: boolean;
-  /** 是否监听终端 */
-  listenTerminal: boolean;
+  /** 
+   * 监听模式选择
+   * - 'auto': 自动根据 java.debug.settings.console 配置选择
+   * - 'debugConsole': 强制监听 Debug Console
+   * - 'terminal': 强制监听 Terminal
+   */
+  listenMode: 'auto' | 'debugConsole' | 'terminal';
   /** 终端匹配模式（用于过滤哪些终端需要监听） */
   terminalFilter?: string;
+  /** 
+   * 是否自动启动监听
+   * - true: 插件激活时自动启动
+   * - false: 用户需要手动点击启动按钮
+   */
+  autoStart: boolean;
+  /** 
+   * 自动滚动行为
+   * - 'always': 总是自动滚动到最新 SQL
+   * - 'onlyWhenNotInteracting': 仅在用户没有交互时自动滚动
+   * - 'never': 从不自动滚动
+   */
+  autoScrollBehavior: 'always' | 'onlyWhenNotInteracting' | 'never';
 }
 
 /**

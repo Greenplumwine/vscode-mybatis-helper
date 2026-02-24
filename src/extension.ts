@@ -11,8 +11,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs/promises";
-import { ConsoleLogInterceptor } from "./features/sql-logging/consoleloginterceptor";
-import { SQLResultDisplayer } from "./features/sql-logging/sqlresultdisplayer";
 import {
   SQLInterceptorService,
   SQLHistoryTreeProvider,
@@ -35,21 +33,9 @@ import {
   XmlCodeLensProvider
 } from "./features/mapping";
 
-// 兼容性：保留旧架构导入（如需回滚）
-// import {
-//   ParallelMapperDiscovery,
-//   NavigationService,
-//   IncrementalUpdater,
-//   DynamicMappingEngine
-// } from "./features/mapping";
-
 /** 是否为Java项目 */
 let isJavaProject: boolean = false;
-/** 控制台日志拦截器实例（旧版，兼容保留） */
-let consoleLogInterceptor: ConsoleLogInterceptor | undefined;
-/** SQL结果展示器实例（旧版，兼容保留） */
-let sqlResultDisplayer: SQLResultDisplayer | undefined;
-/** 新的SQL拦截器服务 */
+/** SQL拦截器服务 */
 let sqlInterceptorService: SQLInterceptorService | undefined;
 /** SQL历史TreeView提供者 */
 let sqlHistoryTreeProvider: SQLHistoryTreeProvider | undefined;
@@ -97,10 +83,13 @@ export function activate(context: vscode.ExtensionContext) {
   logger = Logger.getInstance();
   logger.info(vscode.l10n.t("extension.activating"));
 
+  // 设置激活状态，让 view container 显示
+  vscode.commands.executeCommand('setContext', 'mybatis-helper.activated', true);
+
   context.subscriptions.push(logger.registerConfigListener());
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  statusBarItem.text = `$(database) MyBatis Helper`;
+  statusBarItem.text = `$(file-code) MyBatis`;
   statusBarItem.tooltip = vscode.l10n.t("extension.description");
   statusBarItem.command = "mybatis-helper.showCommands";
   statusBarItem.show();
@@ -179,12 +168,12 @@ async function initializePlugin(context: vscode.ExtensionContext) {
       }
 
       const commands = [
+        { command: "mybatis-helper.showSqlHistory", label: vscode.l10n.t("command.showSqlHistory.title") },
         { command: "mybatis-helper.jumpToXml", label: vscode.l10n.t("command.jumpToXml.title") },
         { command: "mybatis-helper.jumpToMapper", label: vscode.l10n.t("command.jumpToMapper.title") },
         { command: "mybatis-helper.refreshMappings", label: vscode.l10n.t("command.refreshMappings.title") },
-        { command: "mybatis-helper.toggleLogInterceptor", label: vscode.l10n.t("command.toggleLogInterceptor.title") },
-        { command: "mybatis-helper.showSqlOutput", label: vscode.l10n.t("command.showSqlOutput.title") },
-        { command: "mybatis-helper.clearSqlHistory", label: vscode.l10n.t("command.clearSqlHistory.title") }
+        { command: "mybatis-helper.refreshSQLHistory", label: vscode.l10n.t("command.refreshSQLHistory.title") },
+        { command: "mybatis-helper.copySqlFromTree", label: vscode.l10n.t("command.copySqlFromTree.title") }
       ];
 
       const selected = await vscode.window.showQuickPick(
@@ -201,6 +190,15 @@ async function initializePlugin(context: vscode.ExtensionContext) {
     }
   );
   context.subscriptions.push(showCommandsCommand);
+
+  // 注册打开 SQL History 面板的命令
+  const showSqlHistoryCommand = vscode.commands.registerCommand(
+    "mybatis-helper.showSqlHistory",
+    async () => {
+      await vscode.commands.executeCommand("mybatisSQLHistory.focus");
+    }
+  );
+  context.subscriptions.push(showSqlHistoryCommand);
 }
 
 /**
@@ -468,8 +466,8 @@ function shouldIgnoreFile(filePath: string): boolean {
 function updateStatusBar(message: string, isWorking: boolean = true) {
   if (statusBarItem) {
     statusBarItem.text = isWorking
-      ? `$(database) MyBatis Helper: ${message}`
-      : `$(database) MyBatis Helper: ${message}`;
+      ? `$(file-code) MyBatis: ${message}`
+      : `$(file-code) MyBatis: ${message}`;
     statusBarItem.show();
   }
 }
@@ -590,22 +588,29 @@ async function checkIfJavaProject() {
 function activatePluginFeatures(context: vscode.ExtensionContext) {
   logger.debug(vscode.l10n.t("extension.activatePluginFeatures"));
 
-  if (!consoleLogInterceptor) {
-    consoleLogInterceptor = new ConsoleLogInterceptor();
-  }
-
   if (!fileMapper) {
     fileMapper = new FileMapper();
   }
 
-  if (!sqlResultDisplayer) {
-    sqlResultDisplayer = new SQLResultDisplayer(context.extensionUri);
+  // 初始化 SQL 拦截器
+  if (!sqlInterceptorService) {
+    sqlInterceptorService = SQLInterceptorService.getInstance();
+    sqlInterceptorService.initialize().then(() => {
+      logger.info('[Extension] SQL Interceptor initialized');
+    });
+    context.subscriptions.push(sqlInterceptorService);
+  }
+
+  // 注册 SQL History TreeView
+  if (!sqlHistoryTreeProvider) {
+    sqlHistoryTreeProvider = new SQLHistoryTreeProvider();
+    vscode.window.registerTreeDataProvider('mybatisSQLHistory', sqlHistoryTreeProvider);
+    context.subscriptions.push(sqlHistoryTreeProvider);
   }
 
   // 防止 Provider 重复注册
   if (!providersRegistered) {
-    // 注意：CodeLens Provider 现在在 initializeFastMappingFeatures 中注册
-    // 这里只注册 SQL 补全提供器
+    // 注册 SQL 补全提供器
     if (!sqlCompletionProvider && fileMapper) {
       sqlCompletionProvider = new SQLCompletionProvider(fileMapper);
       const completionRegistration = vscode.languages.registerCompletionItemProvider(
@@ -621,7 +626,7 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
   }
 
   if (!commandsRegistered) {
-    // 注册新的跳转命令（使用 FastNavigationService）
+    // 注册跳转命令（使用 FastNavigationService）
     const jumpToXmlCommand = vscode.commands.registerCommand(
       "mybatis-helper.jumpToXml",
       async (filePath?: string, methodName?: string) => {
@@ -738,55 +743,124 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
-    // 保留原有的命令
-    const refreshDataCommand = vscode.commands.registerCommand(
-      "mybatis-helper.refreshData",
-      async () => {
-        if (isJavaProject && fileMapper) {
-          await fileMapper.refreshAllMappings();
-          vscode.window.showInformationMessage(vscode.l10n.t("info.mybatisMappingsRefreshed"));
-        } else {
-          vscode.window.showWarningMessage(vscode.l10n.t("warning.notJavaProjectOrFileMapperNotInitialized"));
-        }
-      }
-    );
-
+    // 切换 SQL 拦截器命令
     const toggleLogInterceptorCommand = vscode.commands.registerCommand(
       "mybatis-helper.toggleLogInterceptor",
-      () => {
-        if (consoleLogInterceptor) {
-          const isActive = consoleLogInterceptor.toggleIntercepting();
+      async () => {
+        if (sqlInterceptorService) {
+          const isActive = sqlInterceptorService.toggle();
           vscode.window.showInformationMessage(
             isActive
-              ? vscode.l10n.t("info.logInterceptorActivated")
-              : vscode.l10n.t("info.logInterceptorDeactivated")
+              ? vscode.l10n.t("sqlInterceptor.started")
+              : vscode.l10n.t("sqlInterceptor.stopped")
           );
         }
       }
     );
 
-    const clearSqlHistoryCommand = vscode.commands.registerCommand(
-      "mybatis-helper.clearSqlHistory",
+    // 暂停 SQL 拦截器命令
+    const pauseSQLInterceptorCommand = vscode.commands.registerCommand(
+      "mybatis-helper.pauseSQLInterceptor",
       async () => {
-        if (consoleLogInterceptor) {
-          consoleLogInterceptor.clearSQLHistory();
-          vscode.window.showInformationMessage(vscode.l10n.t("info.sqlHistoryCleared"));
-          if (sqlResultDisplayer) {
-            sqlResultDisplayer.clearAllCaches();
-          }
-        } else {
-          vscode.window.showErrorMessage(vscode.l10n.t("error.logInterceptorNotInitialized"));
+        if (sqlInterceptorService && sqlInterceptorService.isRunning) {
+          sqlInterceptorService.stop();
+          vscode.commands.executeCommand('setContext', 'mybatis-helper.sqlInterceptorRunning', false);
         }
       }
     );
 
-    const showSqlOutputCommand = vscode.commands.registerCommand(
-      "mybatis-helper.showSqlOutput",
-      () => {
-        if (consoleLogInterceptor) {
-          consoleLogInterceptor.showSQLOutput();
-        } else {
-          vscode.window.showErrorMessage(vscode.l10n.t("error.logInterceptorNotInitialized"));
+    // 恢复 SQL 拦截器命令
+    const resumeSQLInterceptorCommand = vscode.commands.registerCommand(
+      "mybatis-helper.resumeSQLInterceptor",
+      async () => {
+        if (sqlInterceptorService && !sqlInterceptorService.isRunning) {
+          sqlInterceptorService.start();
+          vscode.commands.executeCommand('setContext', 'mybatis-helper.sqlInterceptorRunning', true);
+        }
+      }
+    );
+
+    // 清除 SQL 历史命令
+    const clearSqlHistoryCommand = vscode.commands.registerCommand(
+      "mybatis-helper.clearSqlHistory",
+      async () => {
+        if (sqlInterceptorService) {
+          sqlInterceptorService.clearHistory();
+        }
+      }
+    );
+
+    // 显示 SQL 详情命令
+    const showSqlDetailCommand = vscode.commands.registerCommand(
+      "mybatis-helper.showSqlDetail",
+      async (query: SQLQueryRecord) => {
+        if (query) {
+          SQLDetailPanel.createOrShow(context.extensionUri, query);
+        }
+      }
+    );
+
+    // 从 TreeView 复制 SQL 命令
+    const copySqlFromTreeCommand = vscode.commands.registerCommand(
+      "mybatis-helper.copySqlFromTree",
+      async (query: SQLQueryRecord) => {
+        if (query && query.fullSQL) {
+          await vscode.env.clipboard.writeText(query.fullSQL);
+          vscode.window.showInformationMessage(vscode.l10n.t("sqlDetail.copied"));
+        }
+      }
+    );
+
+    // 打开 SQL 设置命令
+    const openSQLSettingsCommand = vscode.commands.registerCommand(
+      "mybatis-helper.openSQLSettings",
+      async () => {
+        await vscode.commands.executeCommand(
+          "workbench.action.openSettings",
+          "mybatis-helper.sqlInterceptor"
+        );
+      }
+    );
+
+    // 测试日志解析命令（用于诊断）
+    const testLogParseCommand = vscode.commands.registerCommand(
+      "mybatis-helper.testLogParse",
+      async () => {
+        if (!sqlInterceptorService) {
+          vscode.window.showErrorMessage("SQL Interceptor not initialized");
+          return;
+        }
+
+        const logLine = await vscode.window.showInputBox({
+          prompt: "Enter a log line to test parsing",
+          placeHolder: "e.g., Preparing: SELECT * FROM user WHERE id = ?"
+        });
+
+        if (logLine) {
+          const result = sqlInterceptorService.testLogParse(logLine);
+          
+          if (result.matched) {
+            vscode.window.showInformationMessage(
+              `✓ Matched rule: ${result.ruleName}\nType: ${result.type}\nExtracted: ${result.extracted?.substring(0, 50)}...`,
+              { modal: true }
+            );
+          } else {
+            vscode.window.showWarningMessage(
+              `✗ No rule matched\n${result.error || ''}`,
+              { modal: true }
+            );
+          }
+        }
+      }
+    );
+
+    // 刷新 SQL History 命令
+    const refreshSQLHistoryCommand = vscode.commands.registerCommand(
+      "mybatis-helper.refreshSQLHistory",
+      async () => {
+        if (sqlHistoryTreeProvider) {
+          sqlHistoryTreeProvider.refresh();
+          vscode.window.showInformationMessage(vscode.l10n.t("sqlTree.historyRefreshed"));
         }
       }
     );
@@ -821,32 +895,34 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-      refreshDataCommand,
-      toggleLogInterceptorCommand,
-      clearSqlHistoryCommand,
       jumpToXmlCommand,
       jumpToMapperCommand,
       refreshMappingsCommand,
-      showSqlOutputCommand,
+      toggleLogInterceptorCommand,
+      pauseSQLInterceptorCommand,
+      resumeSQLInterceptorCommand,
+      clearSqlHistoryCommand,
+      showSqlDetailCommand,
+      copySqlFromTreeCommand,
+      openSQLSettingsCommand,
+      testLogParseCommand,
+      refreshSQLHistoryCommand,
       diagnoseCommand
     );
+
+    // 设置 SQL 拦截器运行状态上下文变量（用于控制 TreeView 按钮显示）
+    if (sqlInterceptorService) {
+      vscode.commands.executeCommand('setContext', 'mybatis-helper.sqlInterceptorRunning', sqlInterceptorService.isRunning);
+      
+      // 监听状态变化
+      sqlInterceptorService.onStateChanged((isRunning) => {
+        vscode.commands.executeCommand('setContext', 'mybatis-helper.sqlInterceptorRunning', isRunning);
+      });
+    }
 
     const configChangeHandler = (e: vscode.ConfigurationChangeEvent) => {
       if (e.affectsConfiguration("mybatis-helper")) {
         logger.debug(vscode.l10n.t("extension.configChanged"));
-        if (consoleLogInterceptor) {
-          const enableLogInterceptor = vscode.workspace
-            .getConfiguration("mybatis-helper")
-            .get<boolean>("enableLogInterceptor", true);
-          if (enableLogInterceptor !== consoleLogInterceptor.getInterceptingState()) {
-            consoleLogInterceptor.toggleIntercepting();
-            vscode.window.showInformationMessage(
-              enableLogInterceptor
-                ? vscode.l10n.t("info.logInterceptorActivatedByConfig")
-                : vscode.l10n.t("info.logInterceptorDeactivatedByConfig")
-            );
-          }
-        }
 
         // 配置变更时刷新映射（如果启用了自动刷新）
         if (fastScanner && isJavaProject) {
@@ -873,24 +949,6 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 function deactivatePluginFeatures() {
   try {
     logger.info(vscode.l10n.t("extension.cleaningUp"));
-
-    if (consoleLogInterceptor) {
-      try {
-        consoleLogInterceptor.dispose();
-      } catch (error) {
-        logger.error(vscode.l10n.t("error.disposeFailed", { name: "console log interceptor", error: String(error) }));
-      }
-      consoleLogInterceptor = undefined;
-    }
-
-    if (sqlResultDisplayer) {
-      try {
-        sqlResultDisplayer.dispose();
-      } catch (error) {
-        logger.error(vscode.l10n.t("error.disposeFailed", { name: "SQL result displayer", error: String(error) }));
-      }
-      sqlResultDisplayer = undefined;
-    }
 
     if (fileMapper) {
       try {

@@ -99,7 +99,17 @@ export class SQLDetailPanel {
   private async copyToClipboard(text: string): Promise<void> {
     try {
       await vscode.env.clipboard.writeText(text);
-      vscode.window.showInformationMessage(vscode.l10n.t('sqlDetail.copied'));
+      // 显示临时成功消息（1.5秒后自动关闭）
+      vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: vscode.l10n.t('sqlDetail.copied'),
+          cancellable: false,
+        },
+        async () => {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      );
     } catch (error) {
       vscode.window.showErrorMessage(vscode.l10n.t('sqlDetail.copyFailed'));
     }
@@ -325,9 +335,11 @@ export class SQLDetailPanel {
         <button class="secondary" onclick="copyRaw()">
             <span>📄</span> ${vscode.l10n.t('sqlDetail.copyRaw')}
         </button>
+        ${this.query.parameters && this.query.parameters.length > 0 ? `
         <button class="secondary" onclick="copyWithParams()">
             <span>🔧</span> ${vscode.l10n.t('sqlDetail.copyWithParams')}
         </button>
+        ` : ''}
     </div>
     
     ${executionTimeHtml}
@@ -366,8 +378,9 @@ export class SQLDetailPanel {
         }
         
         function copyWithParams() {
-            const text = \`${this.escapeHtml(this.generateParamInfoText())}\`;
-            vscode.postMessage({ command: 'copy', text });
+            // 复制完整的SQL（带填充的参数值）+ 参数注释
+            const sqlWithComments = \`${this.escapeHtml(this.generateSQLWithParamComments())}\`;
+            vscode.postMessage({ command: 'copy', text: sqlWithComments });
         }
     </script>
 </body>
@@ -422,6 +435,25 @@ export class SQLDetailPanel {
     );
 
     return lines.join('\n');
+  }
+
+  /**
+   * 生成带参数注释的完整SQL
+   */
+  private generateSQLWithParamComments(): string {
+    const sql = this.query.fullSQL || this.query.formattedSQL || this.query.rawSQL || '';
+    
+    if (!this.query.parameters || this.query.parameters.length === 0) {
+      return sql;
+    }
+
+    // 生成参数注释
+    const paramComments = this.query.parameters.map((param, index) => 
+      `-- Parameter ${index + 1}: ${param.value} (${param.type})`
+    );
+
+    // 返回：参数注释 + 空行 + 完整SQL
+    return paramComments.join('\n') + '\n\n' + sql;
   }
 
   /**

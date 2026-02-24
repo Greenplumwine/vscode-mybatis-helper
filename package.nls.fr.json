@@ -4,6 +4,8 @@
   "command.toggleLogInterceptor.title": "Basculer l'intercepteur de logs",
   "command.showSqlOutput.title": "Afficher la sortie SQL",
   "command.clearSqlHistory.title": "Effacer l'historique SQL",
+  "command.pauseSQLInterceptor.title": "Mettre en pause l'intercepteur SQL",
+  "command.resumeSQLInterceptor.title": "Reprendre l'intercepteur SQL",
   "command.jumpToXml.title": "Aller vers XML",
   "command.jumpToMapper.title": "Aller vers Mapper",
   "command.refreshMappings.title": "Actualiser les mappings",

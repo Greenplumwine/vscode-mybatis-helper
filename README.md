@@ -2,151 +2,388 @@
 
 # MyBatis Helper
 
-一个功能强大的 VSCode 插件，为 MyBatis 开发者提供全方位的辅助功能，大幅提升开发效率。
+[中文文档](README_CN.md) | English Documentation
 
-## 项目概述
+A powerful VSCode extension that provides comprehensive assistance for MyBatis developers, significantly improving development efficiency.
 
-MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。
+## Project Overview
 
-## 功能特点
+MyBatis Helper is a VSCode extension designed specifically for MyBatis developers to enhance productivity in MyBatis projects. The extension provides features like console log interception, SQL conversion, and quick file navigation to help developers build and debug MyBatis applications more efficiently.
 
-### 1. 控制台日志拦截与 SQL 转换
+## Features
 
-- 实时拦截 IDE 控制台中的 MyBatis 日志，自动解析参数化查询
-- 将 MyBatis 参数化查询转换为可直接复制执行的完整 SQL 语句
-- 智能识别并支持 MySQL、PostgreSQL、Oracle、SQL Server、达梦、人大金仓等多种数据库的 SQL 语法
-- 精确提取并显示 SQL 执行时间、参数类型和值等关键信息
-- 在独立的 "MyBatis SQL" 输出通道中展示格式化、高亮的 SQL 语句
-- 自动保存 SQL 历史记录，方便回溯查询
-- 支持一键清空 SQL 历史记录
-- 支持用户自定义日志格式配置，以适应不同的日志输出模式
-- 日志批处理机制：提高对大量日志的处理效率
-- 批量处理延迟配置：可配置的批量处理延迟时间
+### 1. SQL Log Interception and Conversion
 
-### 2. 文件快速跳转
+Real-time interception of MyBatis SQL statements from application logs, automatic parameter parsing, and generation of executable complete SQL.
 
-- Mapper 接口与 XML 文件之间的一键双向跳转，无需手动查找文件
-- **智能跳转增强**：增强的映射算法和智能识别功能，大幅提升文件间跳转的准确性和速度
-- 智能扫描项目结构，自动建立 Mapper 接口与 XML 文件的映射关系
-- 支持标准 Maven/Gradle 项目结构及自定义项目布局
-- 针对大型复杂项目优化的映射算法，快速定位目标文件
-- 支持通过全限定类名搜索对应的 Mapper 接口和 XML 文件
-- 自动刷新映射缓存，确保文件位置变更时仍能正确跳转
-- 按需激活：仅在检测到 Java 项目时才开始执行映射关系处理逻辑
-- 精确文件查找：通过针对特定文件的精确查找替代全文件夹扫描，提高跳转效率
-- 跳转节流控制：防止频繁跳转操作导致性能问题
-- XML 命名空间验证：确保 XML 文件与 Mapper 接口正确关联
-- 方法名提取与位置定位：精确定位到对应的方法位置
-- **精确方法跳转**：支持在跳转时精确定位到对应的具体方法，而仅仅是打开文件
-- **重构跳转逻辑**：采用独立的导航器模式（JavaToXmlNavigator和XmlToJavaNavigator），提高代码可维护性
-- **优先使用Java插件API**：优先使用Red Hat Java插件提供的API进行精确导航，提升跳转准确性
+**Core Features:**
+- 🎯 **Smart Listening**: Automatically recognizes MyBatis logs from Debug Console or Terminal output
+- 🔍 **Parameter Parsing**: Replaces `?` placeholders with actual parameter values to generate directly executable SQL
+- ⚡ **Real-time Display**: Displays captured SQL in the sidebar SQL History view in real-time
+- 📊 **Execution Time**: Automatically extracts and displays SQL execution duration
+- 🎨 **Syntax Highlighting**: Supports SQL syntax highlighting and formatting for multiple databases
+- 📋 **One-click Copy**: Supports copying formatted SQL or SQL with parameter comments
+- 🕐 **History Records**: Automatically saves the last 500 SQL statements (configurable)
+- ⏸️ **Pause Anytime**: Can pause/resume SQL interception at any time for convenient history review
+- 🌍 **Multi-language Support**: SQL detail panel supports internationalized display
 
-### 3. CodeLens 支持
+**Supported Databases:**
+- MySQL / MariaDB
+- PostgreSQL
+- Oracle
+- SQL Server
+- SQLite
+- DB2
+- H2
+- Dameng / Kingbase (supported through universal rules)
 
-- **仅对 Mapper 接口提供支持**：优化的 CodeLens 实现，仅在 Java Mapper 接口文件中显示
-- **Java 文件中的 CodeLens**：在 Java Mapper 接口的方法上方显示"跳转到 XML"的 CodeLens 提示
-- **智能显示控制**：CodeLens 仅在检测到有效映射关系并且方法在对应XML中存在时显示，避免显示无效的跳转提示
-- **点击直接跳转**：用户点击 CodeLens 提示可直接执行跳转操作，无需使用快捷键或右键菜单
-- 提供配置选项允许用户启用或禁用 CodeLens 功能，默认启用
+### 2. Quick File Navigation
 
-### 4. 国际化支持
+- One-click bidirectional jump between Mapper interfaces and XML files without manual file searching
+- **Smart Navigation Enhancement**: Enhanced mapping algorithm and intelligent recognition, significantly improving accuracy and speed of file navigation
+- Smart project structure scanning, automatically establishes mapping between Mapper interfaces and XML files
+- Supports standard Maven/Gradle project structures and custom project layouts
+- Optimized mapping algorithm for large complex projects, quickly locates target files
+- Supports searching for corresponding Mapper interfaces and XML files by fully qualified class name
+- Automatic mapping cache refresh, ensures correct navigation even when file locations change
+- On-demand activation: Only processes mapping logic when a Java project is detected
+- Precise file lookup: Replaces full folder scanning with targeted file lookup for specific files, improving navigation efficiency
+- Navigation throttling: Prevents performance issues caused by frequent navigation operations
+- XML namespace validation: Ensures XML files are correctly associated with Mapper interfaces
+- Method name extraction and position locating: Precisely locates corresponding method positions
+- **Precise Method Navigation**: Supports precise positioning to specific methods during navigation, not just opening files
+- **Refactored Navigation Logic**: Adopts independent navigator pattern (JavaToXmlNavigator and XmlToJavaNavigator), improving code maintainability
+- **Priority Use of Java Plugin API**: Prioritizes APIs provided by Red Hat Java plugin for precise navigation, improving navigation accuracy
 
-- 支持多语言界面，能够根据 VSCode 的语言设置自动切换显示语言（支持英文和中文）
+### 3. CodeLens Support
 
-### 5. SQL 输入智能补全
+- **Mapper Interface Only Support**: Optimized CodeLens implementation, only displays in Java Mapper interface files
+- **CodeLens in Java Files**: Displays "Jump to XML" CodeLens hints above methods in Java Mapper interfaces
+- **Smart Display Control**: CodeLens only displays when valid mapping relationships are detected and methods exist in corresponding XML, avoiding invalid jump hints
+- **Click to Jump**: Users can directly execute jump operations by clicking CodeLens hints, without using shortcuts or right-click menus
+- Provides configuration options allowing users to enable or disable CodeLens functionality, enabled by default
 
-- 在 Mapper XML 文件中输入 `#{` 或 `${` 时，自动提供基于 Java Mapper 接口方法参数的补全建议
-- 支持基本类型、自定义对象属性和集合类型的补全提示
-- 提供上下文感知的补全建议，根据当前方法自动过滤参数
-- 支持嵌套对象属性补全，如 `#{user.name}`
-- 补全项包含参数名称和类型信息
+### 4. Internationalization Support
 
-### 6. 用户友好的界面
+- Supports multi-language interface, automatically switches display language based on VSCode language settings (supports English and Chinese)
 
-- 简洁明了的命令菜单，所有功能一目了然
-- 精心设计的快捷键体系，操作高效便捷
-- 编辑器右键菜单深度集成，触手可及
-- 实时状态反馈，操作结果即时可见
-- 符合 VSCode 设计规范的用户体验，无缝融入开发环境
-- SQL 结果可视化显示：提供 Webview 面板展示格式化和高亮的 SQL 结果
-- Webview 交互功能：包含复制按钮、刷新按钮、搜索功能等
-- 随机 nonce 生成：为 Webview 提供安全保障
+### 5. SQL Input IntelliSense
 
-### 7. 插件日志系统
+- Automatically provides completion suggestions based on Java Mapper interface method parameters when typing `#{` or `${}` in Mapper XML files
+- Supports completion hints for basic types, custom object properties, and collection types
+- Provides context-aware completion suggestions, automatically filters parameters based on current method
+- Supports nested object property completion, such as `#{user.name}`
+- Completion items include parameter name and type information
 
-- 提供 DEBUG/INFO/WARN/ERROR 四个日志级别
-- 日志输出到专用的 "MyBatis Helper" 输出通道
-- 支持动态调整日志级别
-- 详细记录插件运行状态和错误信息
-- 便于开发者调试和排查问题
+### 6. User-friendly Interface
 
-## 安装方法
+- Clean and clear command menu, all functions at a glance
+- Carefully designed shortcut system, efficient and convenient operations
+- Deep integration with editor right-click menu, within easy reach
+- Real-time status feedback, operation results visible immediately
+- User experience conforming to VSCode design specifications, seamlessly integrated into the development environment
+- SQL result visualization: Provides Webview panel for displaying formatted and highlighted SQL results
+- Webview interactive features: Includes copy button, refresh button, search functionality, etc.
+- Random nonce generation: Provides security assurance for Webview
 
-### 方法一：从 VSCode 扩展市场安装
+### 7. Plugin Log System
 
-1. 在 VSCode 中打开扩展面板 (快捷键: `Ctrl+Shift+X` 或 `Command+Shift+X`)
-2. 在搜索框中输入 "MyBatis Helper"
-3. 找到插件后点击 "安装" 按钮
-4. 安装完成后，插件会自动激活，无需重启 VSCode
+- Provides four log levels: DEBUG/INFO/WARN/ERROR
+- Logs output to dedicated "MyBatis Helper" output channel
+- Supports dynamic log level adjustment
+- Detailed recording of plugin runtime status and error information
+- Facilitates developer debugging and troubleshooting
 
-### 方法二：手动安装
+## Installation
 
-1. 从 GitHub 仓库下载最新的发布版本
-2. 在 VSCode 中执行 "安装从 VSIX..." 命令
-3. 选择下载的 VSIX 文件
-4. 安装完成后重启 VSCode
+### Method 1: Install from VSCode Extension Marketplace
 
-## 使用指南
+1. Open the Extensions panel in VSCode (Shortcut: `Ctrl+Shift+X` or `Command+Shift+X`)
+2. Enter "MyBatis Helper" in the search box
+3. Find the extension and click the "Install" button
+4. After installation completes, the extension will automatically activate without restarting VSCode
 
-### 1. 日志拦截与 SQL 转换
+### Method 2: Manual Installation
 
-1. 确保在 VSCode 设置中启用了日志拦截器功能（默认已启用）
-2. 运行你的 MyBatis 应用程序，查看控制台输出
-3. 插件会自动识别并解析 MyBatis 的 SQL 日志
-4. 解析后的 SQL 将通过 Webview 面板进行可视化显示
-5. 你可以一键复制格式化后的 SQL 语句到剪贴板
+1. Download the latest release from GitHub repository
+2. Execute the "Install from VSIX..." command in VSCode
+3. Select the downloaded VSIX file
+4. Restart VSCode after installation completes
 
-### 2. 文件快速跳转
+## User Guide
 
-#### 从 Java Mapper 接口跳转到 XML 文件
+### 1. SQL Log Interception Feature Details
 
-1. 将光标放在 Java Mapper 接口的方法名或接口名上
-2. 按下快捷键 `Alt+X`（Windows/Linux）或 `Option+X`（macOS）
-3. 或者，右键点击并选择 "跳转到 XML 文件" 上下文菜单选项
-4. 插件会自动打开对应的 XML 文件，并定位到对应的 SQL 语句方法
+#### Quick Start
 
-#### 从 XML 文件跳转到 Java Mapper 接口
+1. **Start SQL Interception**
+   - The extension automatically starts SQL interception by default (can be disabled via configuration)
+   - Click the MyBatis Helper icon in the left activity bar to open the SQL History view
+   - If not automatically started, click the ▶️ button in the toolbar to manually start
 
-1. 将光标放在 XML 文件的 SQL 语句的 id 属性值上
-2. 按下快捷键 `Alt+M`（Windows/Linux）或 `Option+M`（macOS）
-3. 或者，右键点击并选择 "跳转到 Mapper 接口" 上下文菜单选项
-4. 插件会自动打开对应的 Java Mapper 接口文件，并定位到对应的方法定义
+2. **Run Your Application**
+   - Start your Java/MyBatis application in VSCode (Debug or Run mode)
+   - Ensure MyBatis log level is DEBUG (need to see `Preparing:` and `Parameters:` in logs)
 
-#### 使用命令面板
+3. **View SQL**
+   - SQL will automatically display in the left "SQL History" view
+   - Click any SQL item to view the detail panel (formatted SQL, raw SQL, parameter list, etc.)
 
-1. 按下 `Ctrl+Shift+P`（Windows/Linux）或 `Command+Shift+P`（macOS）打开命令面板
-2. 输入 "MyBatis" 查看所有可用命令
-3. 选择相应的命令执行操作
+#### Interface Description
 
-### 3. 使用 CodeLens
+**SQL History Sidebar:**
+```
+┌─────────────────────────────────┐
+│ 🔄  ⏸️  🗑️                      │  ← Toolbar: Refresh / Pause/Resume / Clear
+├─────────────────────────────────┤
+│ ⚡ Just now (3 params)          │  ← SQL item: execution time, parameter count
+│ SELECT * FROM user...           │     Hover to show full SQL preview
+│                                 │
+│ 📋 2 min ago (0 params)         │
+│ UPDATE user SET name...         │
+└─────────────────────────────────┘
+```
 
-1. 确保在 VSCode 设置中启用了 CodeLens 功能（默认已启用）
-2. 打开 Java Mapper 接口文件
-3. 在方法定义上方会出现 "跳转到 XML" 的 CodeLens
-4. 点击该 CodeLens 直接跳转到对应的 XML 文件中的 SQL 语句
+**SQL Detail Panel:**
+- **Formatted SQL**: Syntax highlighted, formatted executable SQL
+- **Raw SQL**: Raw SQL with `?` placeholders
+- **Parameter List**: Displays each parameter's index, value, and type
+- **Copy Buttons**:
+  - Copy formatted SQL
+  - Copy SQL with parameter comments (useful for troubleshooting)
 
-### 快捷键说明
+#### Toolbar Buttons
 
-| 快捷键                     | 功能                                | 适用场景                       |
-| -------------------------- | ----------------------------------- | ------------------------------ |
-| `Alt+L`                    | 切换日志拦截                        | 任何编辑器窗口（当插件激活时） |
-| `Alt+X`                    | 从 Mapper 跳转到 XML                | 在 Java Mapper 接口文件中      |
-| `Alt+M`                    | 从 XML 跳转到 Mapper                | 在 Mapper XML 文件中           |
-| `Ctrl+Shift+P` + `MyBatis` | 打开命令面板并搜索 MyBatis 相关命令 | 任何编辑器窗口                 |
+| Icon | Function | Description |
+|------|----------|-------------|
+| 🔄 | Refresh | Refresh SQL history list |
+| ⏸️ | Pause | Pause SQL interception (no longer capture new SQL) |
+| ▶️ | Resume | Resume SQL interception |
+| 🗑️ | Clear | Clear all SQL history records |
 
-## 支持的数据库
+#### Listen Mode Configuration
 
-MyBatis Helper 支持多种主流数据库，每种数据库都有特定的 SQL 语法高亮和格式化规则。您可以在插件设置中选择适合您项目的数据库类型：
+Choose the appropriate listen mode based on how your Java application runs:
+
+```json
+{
+  "mybatis-helper.sqlInterceptor.listenMode": "auto"
+}
+```
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `auto` | **Default**, automatically detects Java Debug configuration | Recommended |
+| `debugConsole` | Force listen to Debug Console | When running Java with `internalConsole` |
+| `terminal` | Force listen to Terminal | When running Java with `integratedTerminal` |
+
+**Auto Mode Detection Logic:**
+- Reads `java.debug.settings.console` configuration
+- `internalConsole` → Listen to Debug Console
+- `integratedTerminal` → Listen to Terminal
+- `externalTerminal` → Shows not supported (external terminal cannot be monitored)
+
+#### Supported Log Formats
+
+The extension has two built-in rules that automatically recognize logs in the following formats:
+
+**Standard MyBatis Format:**
+```
+==>  Preparing: SELECT * FROM user WHERE id = ? AND name = ?
+==> Parameters: 123(Integer), admin(String)
+<==      Total: 1
+```
+
+**With Timestamp Format:**
+```
+2024-01-15 10:30:25.123 [main] DEBUG c.m.UserMapper.selectById - ==>  Preparing: SELECT * FROM user WHERE id = ?
+2024-01-15 10:30:25.124 [main] DEBUG c.m.UserMapper.selectById - ==> Parameters: 123(Integer)
+```
+
+**Chinese Bracket Format (Compatible):**
+```
+==> Parameters: admin（String）, 25(Integer)
+```
+
+#### Complete Configuration Options
+
+```json
+{
+  "mybatis-helper.sqlInterceptor.listenMode": "auto",
+  "mybatis-helper.sqlInterceptor.autoStart": true,
+  "mybatis-helper.sqlInterceptor.maxHistorySize": 500,
+  "mybatis-helper.sqlInterceptor.autoScrollBehavior": "onlyWhenNotInteracting",
+  "mybatis-helper.sqlInterceptor.builtinRules": {
+    "mybatis-universal": true,
+    "mybatis-sqlsession": true
+  }
+}
+```
+
+**Configuration Description:**
+
+| Configuration Item | Type | Default Value | Description |
+|-------------------|------|---------------|-------------|
+| `listenMode` | string | `auto` | Listen mode: `auto`/`debugConsole`/`terminal` |
+| `autoStart` | boolean | `true` | Whether to automatically start SQL interception when extension activates |
+| `maxHistorySize` | number | `500` | Maximum number of SQL history records (10-1000) |
+| `autoScrollBehavior` | string | `onlyWhenNotInteracting` | Auto-scroll behavior: `always`/`onlyWhenNotInteracting`/`never` |
+| `builtinRules` | object | - | Built-in rule switches |
+
+#### Custom Log Parsing Rules
+
+If built-in rules cannot match your log format, you can add custom rules:
+
+```json
+{
+  "mybatis-helper.sqlInterceptor.customRules": [
+    {
+      "name": "my-custom-rule",
+      "enabled": true,
+      "description": "Match custom log format",
+      "lineMatchRegex": "(SQL:|PARAMS:)",
+      "sqlExtractRegex": "SQL:\\s*(.+)",
+      "parametersExtractRegex": "PARAMS:\\s*(.+)",
+      "executionTimeExtractRegex": "TIME:\\s*(\\d+)",
+      "paramParseRegex": "([^|]+)\\|([^,]+)"
+    }
+  ]
+}
+```
+
+**Rule Field Description:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | ✅ | Rule unique name |
+| `enabled` | ✅ | Whether enabled |
+| `lineMatchRegex` | ✅ | Regex to match log lines, used to identify relevant logs |
+| `sqlExtractRegex` | ✅ | Regex to extract SQL, must have one capture group |
+| `parametersExtractRegex` | ❌ | Regex to extract parameter string |
+| `executionTimeExtractRegex` | ❌ | Regex to extract execution time (milliseconds) |
+| `paramParseRegex` | ❌ | Regex to parse individual parameters, two capture groups: value and type |
+
+**Parameter Parsing Regex Examples:**
+
+Assuming parameter format is `value(type)`, such as `admin(String), 123(Integer)`:
+```regex
+([^,]+)\(([^)]+)\)
+```
+
+Assuming parameter format is `type:value`, such as `String:admin, Integer:123`:
+```regex
+([^:]+):(.+)
+```
+
+Assuming parameters have no type, only values, such as `admin, 123`:
+```regex
+([^,]+)
+```
+(Type will be displayed as `unknown` in this case)
+
+#### FAQ
+
+**Q: SQL history is empty, no SQL captured?**
+
+**A:** Please troubleshoot in the following steps:
+
+1. **Check Log Level**: Ensure MyBatis log level is DEBUG, need to see `Preparing:` and `Parameters:` in logs
+   ```properties
+   # application.properties
+   logging.level.com.example.mapper=DEBUG
+   ```
+
+2. **Check Listen Mode**: Try switching to different listen modes
+   ```json
+   {
+     "mybatis-helper.sqlInterceptor.listenMode": "debugConsole"
+   }
+   ```
+
+3. **Check Extension Status**: Check the toolbar in the left SQL History view, confirm the extension is started (shows ⏸️ pause button)
+
+4. **Check Log Format**: Confirm if log format is supported by built-in rules, or add custom rules
+
+**Q: Parameter count shows 0, but there are parameters in the log?**
+
+**A:** The parameter parsing regex may not match your log format:
+
+1. Check if parameter format is `value(type)` or another format
+2. Check if Chinese brackets `（）` are used
+3. Add custom rules to match your format:
+   ```json
+   {
+     "mybatis-helper.sqlInterceptor.customRules": [{
+       "name": "my-format",
+       "enabled": true,
+       "lineMatchRegex": "Parameters:",
+       "parametersExtractRegex": "Parameters:\\s*(.+)",
+       "paramParseRegex": "([^,]+)\\(([^)]+)\\)"
+     }]
+   }
+   ```
+
+**Q: How to view SQL for a specific Mapper only?**
+
+**A:** Current version supports viewing all SQL, does not support filtering by Mapper. Can be indirectly achieved through:
+1. View SQL context in SQL detail panel
+2. Determine table/Mapper based on SQL content
+3. Clear history, then only execute specific operations to isolate SQL
+
+### 2. Quick File Navigation
+
+#### Jump from Java Mapper Interface to XML File
+
+1. Place cursor on the method name or interface name in Java Mapper interface
+2. Press shortcut `Alt+X` (Windows/Linux) or `Option+X` (macOS)
+3. Or, right-click and select "Jump to XML File" context menu option
+4. The extension will automatically open the corresponding XML file and locate the corresponding SQL statement method
+
+#### Jump from XML File to Java Mapper Interface
+
+1. Place cursor on the id attribute value of the SQL statement in XML file
+2. Press shortcut `Alt+M` (Windows/Linux) or `Option+M` (macOS)
+3. Or, right-click and select "Jump to Mapper Interface" context menu option
+4. The extension will automatically open the corresponding Java Mapper interface file and locate the corresponding method definition
+
+#### Using Command Palette
+
+1. Press `Ctrl+Shift+P` (Windows/Linux) or `Command+Shift+P` (macOS) to open command palette
+2. Enter "MyBatis" to view all available commands
+3. Select corresponding command to execute operation
+
+### 3. Using CodeLens
+
+1. Ensure CodeLens functionality is enabled in VSCode settings (enabled by default)
+2. Open Java Mapper interface file
+3. "Jump to XML" CodeLens will appear above method definitions
+4. Click this CodeLens to directly jump to the SQL statement in the corresponding XML file
+
+### Shortcut Keys
+
+| Shortcut | Function | Use Case |
+|----------|----------|----------|
+| `Alt+X` | Jump from Mapper to XML | In Java Mapper interface files |
+| `Alt+M` | Jump from XML to Mapper | In Mapper XML files |
+| `Ctrl+Shift+P` + `MyBatis` | Open command palette and search MyBatis related commands | Any editor window |
+
+### Command Palette Commands
+
+Enter "MyBatis" in command palette (`Ctrl+Shift+P` or `Command+Shift+P`) to view all commands:
+
+| Command | Description |
+|---------|-------------|
+| `MyBatis Helper: Pause SQL Interceptor` | Pause SQL interception |
+| `MyBatis Helper: Resume SQL Interceptor` | Resume SQL interception |
+| `MyBatis Helper: Clear SQL History` | Clear SQL history |
+| `MyBatis Helper: Refresh SQL History` | Refresh SQL history |
+| `MyBatis Helper: Jump to XML` | Jump to XML file |
+| `MyBatis Helper: Jump to Mapper` | Jump to Mapper interface |
+| `MyBatis Helper: Refresh Mappings` | Refresh Mapper mapping cache |
+
+## Supported Databases
+
+MyBatis Helper supports multiple mainstream databases, each with specific SQL syntax highlighting and formatting rules. You can select the appropriate database type for your project in the extension settings:
 
 - MySQL
 - PostgreSQL
@@ -157,68 +394,130 @@ MyBatis Helper 支持多种主流数据库，每种数据库都有特定的 SQL 
 - H2
 - MariaDB
 
-## 项目配置
+## Project Configuration
 
-MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需求进行个性化设置：
+MyBatis Helper provides flexible configuration options that users can personalize according to their needs:
 
-### 数据库类型
+### Database Type
 
-- 配置项：`mybatis-helper.databaseType`
-- 说明：设置当前项目使用的数据库类型，不同数据库有特定的 SQL 语法高亮和格式化规则
-- 默认值：`mysql`
-- 可选值：`mysql`, `postgresql`, `oracle`, `sqlserver`, `sqlite`, `db2`, `h2`, `mariadb`
+- Configuration Item: `mybatis-helper.databaseType`
+- Description: Set the database type used by the current project, different databases have specific SQL syntax highlighting and formatting rules
+- Default Value: `mysql`
+- Optional Values: `mysql`, `postgresql`, `oracle`, `sqlserver`, `sqlite`, `db2`, `h2`, `mariadb`
 
-### 启用日志拦截器
+### Enable CodeLens
 
-- 配置项：`mybatis-helper.enableLogInterceptor`
-- 说明：控制是否启用控制台日志拦截功能
-- 默认值：`true`
+- Configuration Item: `mybatis-helper.enableCodeLens`
+- Description: Control whether to enable CodeLens functionality
+- Default Value: `true`
 
-### 自定义日志格式
+### SQL Log Interceptor Configuration
 
-- 配置项：`mybatis-helper.customLogPattern`
-- 说明：当内置的日志格式无法满足需求时，可以自定义日志格式正则表达式
-- 默认值：`''` (空字符串，使用内置的日志格式)
+#### Enable Auto Start
 
-### 启用 CodeLens
+- Configuration Item: `mybatis-helper.sqlInterceptor.autoStart`
+- Description: Control whether to automatically start SQL interception when extension activates
+- Default Value: `true`
+- Optional Values: `true` | `false`
 
-- 配置项：`mybatis-helper.enableCodeLens`
-- 说明：控制是否启用 CodeLens 功能
-- 默认值：`true`
+#### Listen Mode
 
-### SQL 历史记录大小
+- Configuration Item: `mybatis-helper.sqlInterceptor.listenMode`
+- Description: Select the source for SQL log listening
+- Default Value: `auto`
+- Optional Values:
+  - `auto`: Automatically select based on Java Debug configuration (recommended)
+  - `debugConsole`: Force listen to Debug Console
+  - `terminal`: Force listen to Terminal
 
-- 配置项：`mybatis-helper.sqlHistorySize`
-- 说明：控制 SQL 历史记录的最大条目数
-- 默认值：`100`
+#### Max History Records
 
-### 最大缓存大小
+- Configuration Item: `mybatis-helper.sqlInterceptor.maxHistorySize`
+- Description: Control the maximum number of SQL history records
+- Default Value: `500`
+- Optional Values: `10` - `1000`
 
-- 配置项：`mybatis-helper.maxCacheSize`
-- 说明：控制文件映射缓存的最大条目数
-- 默认值：`1000`
+#### Auto Scroll Behavior
 
-### 批量处理延迟时间
+- Configuration Item: `mybatis-helper.sqlInterceptor.autoScrollBehavior`
+- Description: Control auto-scroll behavior when new SQL is added to history
+- Default Value: `onlyWhenNotInteracting`
+- Optional Values:
+  - `always`: Always auto-scroll to latest SQL
+  - `onlyWhenNotInteracting`: Only auto-scroll when user is not interacting with the list
+  - `never`: Never auto-scroll
 
-- 配置项：`mybatis-helper.batchProcessDelay`
-- 说明：日志批量处理的延迟时间（毫秒）
-- 默认值：`200`
+#### Built-in Rules Switch
 
-### 文件打开模式
+- Configuration Item: `mybatis-helper.sqlInterceptor.builtinRules`
+- Description: Enable or disable built-in SQL parsing rules
+- Default Value:
+  ```json
+  {
+    "mybatis-universal": true,
+    "mybatis-sqlsession": true
+  }
+  ```
 
-- 配置项：`mybatis-helper.fileOpenMode`
-- 说明：控制文件跳转时的行为模式
-- 默认值：`useExisting`
-- 可选值：
-  - `useExisting`: 使用已打开的窗口，如果不存在则不拆分窗口
-  - `noSplit`: 始终不拆分窗口
-  - `alwaysSplit`: 始终拆分窗口
+#### Custom Parsing Rules
 
-## 高级配置示例
+- Configuration Item: `mybatis-helper.sqlInterceptor.customRules`
+- Description: Add custom SQL log parsing rules for non-standard log formats
+- Default Value: `[]` (empty array)
+- Example:
+  ```json
+  [
+    {
+      "name": "custom-rule",
+      "enabled": true,
+      "lineMatchRegex": "SQL:",
+      "sqlExtractRegex": "SQL:\\s*(.+)"
+    }
+  ]
+  ```
 
-### 自定义名称匹配规则示例
+### File Open Mode
 
-如果你的项目使用特定的命名约定，可以通过自定义名称匹配规则来提高匹配准确性：
+- Configuration Item: `mybatis-helper.fileOpenMode`
+- Description: Control file jump behavior mode
+- Default Value: `useExisting`
+- Optional Values:
+  - `useExisting`: Use already opened window, if not exists then don't split window
+  - `noSplit`: Never split window
+  - `alwaysSplit`: Always split window
+
+## Advanced Configuration Examples
+
+### SQL Log Interception Complete Configuration Example
+
+```json
+{
+  "mybatis-helper.sqlInterceptor.listenMode": "auto",
+  "mybatis-helper.sqlInterceptor.autoStart": true,
+  "mybatis-helper.sqlInterceptor.maxHistorySize": 500,
+  "mybatis-helper.sqlInterceptor.autoScrollBehavior": "onlyWhenNotInteracting",
+  "mybatis-helper.sqlInterceptor.builtinRules": {
+    "mybatis-universal": true,
+    "mybatis-sqlsession": false
+  },
+  "mybatis-helper.sqlInterceptor.customRules": [
+    {
+      "name": "company-format",
+      "enabled": true,
+      "description": "Company internal log format",
+      "lineMatchRegex": "(EXEC_SQL|BIND_PARAMS)",
+      "sqlExtractRegex": "EXEC_SQL\\s*(.+)",
+      "parametersExtractRegex": "BIND_PARAMS\\s*(.+)",
+      "executionTimeExtractRegex": "COST\\s*(\\d+)\\s*ms",
+      "paramParseRegex": "([^|]+)\\|([^,]+)"
+    }
+  ]
+}
+```
+
+### Custom Name Matching Rules Example
+
+If your project uses specific naming conventions, you can improve matching accuracy through custom name matching rules:
 
 ```json
 {
@@ -249,9 +548,9 @@ MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需�
 }
 ```
 
-### 路径优先级配置示例
+### Path Priority Configuration Example
 
-如果你的项目有特定的目录结构，可以通过路径优先级配置来优化文件查找：
+If your project has a specific directory structure, you can optimize file lookup through path priority configuration:
 
 ```json
 {
@@ -277,20 +576,28 @@ MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需�
 }
 ```
 
-### 完整配置示例
+### Complete Configuration Example
 
-以下是一个完整的配置示例，展示了如何组合使用各种配置选项：
+Below is a complete configuration example showing how to combine various configuration options:
 
 ```json
 {
   "mybatis-helper.databaseType": "mysql",
-  "mybatis-helper.enableLogInterceptor": true,
-  "mybatis-helper.customLogPattern": "",
   "mybatis-helper.enableCodeLens": true,
-  "mybatis-helper.sqlHistorySize": 100,
-  "mybatis-helper.maxCacheSize": 1000,
-  "mybatis-helper.batchProcessDelay": 200,
   "mybatis-helper.fileOpenMode": "useExisting",
+  
+  // SQL Log Interception Configuration
+  "mybatis-helper.sqlInterceptor.listenMode": "auto",
+  "mybatis-helper.sqlInterceptor.autoStart": true,
+  "mybatis-helper.sqlInterceptor.maxHistorySize": 500,
+  "mybatis-helper.sqlInterceptor.autoScrollBehavior": "onlyWhenNotInteracting",
+  "mybatis-helper.sqlInterceptor.builtinRules": {
+    "mybatis-universal": true,
+    "mybatis-sqlsession": true
+  },
+  "mybatis-helper.sqlInterceptor.customRules": [],
+  
+  // File Navigation Configuration
   "mybatis-helper.nameMatchingRules": [
     {
       "name": "Default Mapper",
@@ -305,16 +612,9 @@ MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需�
       "javaPattern": "*Dao",
       "xmlPattern": "${javaName}",
       "description": "Match UserDao.java with User.xml"
-    },
-    {
-      "name": "Custom Repository",
-      "enabled": true,
-      "javaPattern": "*Repository",
-      "xmlPattern": "${javaName}Mapper",
-      "description": "Match UserRepository.java with UserRepositoryMapper.xml"
     }
   ],
-  "mybatis-helper.ignoreSuffixes": ["Mapper", "Dao", "Repository"],
+  "mybatis-helper.ignoreSuffixes": ["Mapper", "Dao"],
   "mybatis-helper.pathPriority": {
     "enabled": true,
     "priorityDirectories": [
@@ -330,78 +630,128 @@ MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需�
 }
 ```
 
-## 常见问题
+## FAQ
 
-### Q: 如何配置自定义名称匹配规则？
+### SQL Log Interception Related Questions
 
-A: 在VSCode设置中搜索`mybatis-helper.nameMatchingRules`，点击"在settings.json中编辑"，然后按照示例格式添加你的自定义规则。每个规则包含`name`、`enabled`、`javaPattern`、`xmlPattern`和`description`字段。
+#### Q: SQL history is empty, no SQL captured?
 
-### Q: 如何使用通配符和变量？
+**A:** Please troubleshoot in the following steps:
 
-A: 在`javaPattern`和`xmlPattern`中可以使用`*`匹配任意数量的字符，使用`?`匹配单个字符。在`xmlPattern`中可以使用`${javaName}`变量，它会被替换为Java文件名的基础部分（去掉后缀）。
+1. **Check Log Level**: Ensure MyBatis log level is DEBUG, need to see `Preparing:` and `Parameters:` in logs
+   ```properties
+   # application.properties
+   logging.level.com.example.mapper=DEBUG
+   ```
 
-### Q: 路径优先级配置如何提高匹配准确性？
+2. **Check Listen Mode**: Try switching to different listen modes
+   ```json
+   {
+     "mybatis-helper.sqlInterceptor.listenMode": "debugConsole"
+   }
+   ```
 
-A: 路径优先级配置通过以下方式提高匹配准确性：
-1. 优先搜索包含`priorityDirectories`路径的文件
-2. 排除包含`excludeDirectories`路径的文件
-3. 根据路径深度和优先级对匹配结果进行排序
+3. **Check Extension Status**: Check the toolbar in the left SQL History view, confirm the extension is started (shows ⏸️ pause button)
 
-### Q: 如何调试文件匹配问题？
+4. **Check Log Format**: Confirm if log format is supported by built-in rules, or add custom rules
 
-A: 可以通过以下方式调试文件匹配问题：
-1. 检查VSCode开发者控制台的输出信息
-2. 确认自定义名称匹配规则的配置是否正确
-3. 验证路径优先级配置是否合理
-4. 确认忽略后缀配置是否符合项目实际情况
+#### Q: Parameter count shows 0, but there are parameters in the log?
 
-### Q: 插件支持哪些版本的 VSCode？
+**A:** The parameter parsing regex may not match your log format:
 
-**A:** 插件需要 VSCode 1.100.3 或更高版本才能正常运行。
+1. Check if parameter format is `value(type)` or another format
+2. Check if Chinese brackets `（）` are used
+3. Add custom rules to match your format:
+   ```json
+   {
+     "mybatis-helper.sqlInterceptor.customRules": [{
+       "name": "my-format",
+       "enabled": true,
+       "lineMatchRegex": "Parameters:",
+       "parametersExtractRegex": "Parameters:\\s*(.+)",
+       "paramParseRegex": "([^,]+)\\(([^)]+)\\)"
+     }]
+   }
+   ```
 
----
+#### Q: How to view SQL for a specific Mapper only?
 
-**Q: 插件会影响 VSCode 的性能吗？**   
+**A:** Current version supports viewing all SQL, does not support filtering by Mapper. Can be indirectly achieved through:
+1. View SQL context in SQL detail panel
+2. Determine table/Mapper based on SQL content
+3. Clear history, then only execute specific operations to isolate SQL
 
-**A:** 我们已经对插件进行了全面优化，正常使用情况下不会对 VSCode 性能产生明显影响。在大型项目中，首次加载时可能会有短暂的扫描过程。
+### File Navigation Related Questions
 
---- 
+#### Q: How to configure custom name matching rules?
 
-**Q: 如何自定义插件界面语言？**
-**A:** 您可以在插件设置中找到 "Language" 选项，选择您偏好的界面语言。
+**A:** Search for `mybatis-helper.nameMatchingRules` in VSCode settings, click "Edit in settings.json", then add your custom rules according to the example format. Each rule contains `name`, `enabled`, `javaPattern`, `xmlPattern`, and `description` fields.
 
-## 贡献代码
+#### Q: How to use wildcards and variables?
 
-我们非常欢迎社区贡献！如果您有兴趣参与 MyBatis Helper 插件的开发，请按照以下步骤操作：
+**A:** In `javaPattern` and `xmlPattern`, you can use `*` to match any number of characters, use `?` to match single characters. In `xmlPattern`, you can use `${javaName}` variable, which will be replaced with the base part of the Java filename (without suffix).
 
-1. Fork GitHub 仓库：[https://github.com/jingzepei/mybatis-helper](https://github.com/jingzepei/mybatis-helper)
-2. 克隆您的 Fork 到本地开发环境
-3. 创建一个新的分支进行开发
-4. 提交您的更改并确保通过所有测试
-5. 推送到您的 Fork 并创建 Pull Request
+#### Q: How does path priority configuration improve matching accuracy?
 
-贡献指南：
+**A:** Path priority configuration improves matching accuracy through:
+1. Prioritizing files in `priorityDirectories` paths
+2. Excluding files in `excludeDirectories` paths
+3. Sorting match results based on path depth and priority
 
-- 遵循现有的代码风格和命名规范
-- 为新功能添加适当的文档和测试
-- 在 Pull Request 中详细描述您的更改内容和目的
-- 对于大型更改，建议先创建 Issue 进行讨论
+#### Q: How to debug file matching issues?
 
-如果您发现了问题或者有新的功能建议，也欢迎在 GitHub 或 Gitee 上提交 Issue。
+**A:** You can debug file matching issues through:
+1. Check output information in VSCode developer console
+2. Confirm if custom name matching rules are configured correctly
+3. Verify if path priority configuration is reasonable
+4. Confirm if ignore suffixes configuration matches actual project situation
 
-## 许可证
+### Other Questions
 
-本插件采用 MIT 许可证开源。详细信息请查看 [LICENSE](LICENSE) 文件。
+#### Q: Which versions of VSCode does the extension support?
 
-## 致谢
+**A:** The extension requires VSCode 1.100.3 or higher to run properly.
 
-感谢所有为本项目做出贡献的开发者和用户，以及以下开源技术的支持：
+#### Q: Will the extension affect VSCode performance?
+
+**A:** We have comprehensively optimized the extension, it will not significantly affect VSCode performance under normal use. In large projects, there may be a brief scanning process during first load.
+
+#### Q: How to customize extension interface language?
+
+**A:** The extension automatically switches display language based on VSCode language settings, supports English and Chinese.
+
+## Contributing
+
+We welcome community contributions! If you are interested in participating in the development of the MyBatis Helper extension, please follow these steps:
+
+1. Fork the GitHub repository: [https://github.com/jingzepei/mybatis-helper](https://github.com/jingzepei/mybatis-helper)
+2. Clone your Fork to local development environment
+3. Create a new branch for development
+4. Submit your changes and ensure all tests pass
+5. Push to your Fork and create Pull Request
+
+Contribution Guidelines:
+
+- Follow existing code style and naming conventions
+- Add appropriate documentation and tests for new features
+- Describe your changes and purposes in detail in Pull Request
+- For large changes, it is recommended to create an Issue first for discussion
+
+If you find issues or have new feature suggestions, you are also welcome to submit Issues on GitHub or Gitee.
+
+## License
+
+This extension is open-sourced under the MIT License. For details, please check the [LICENSE](LICENSE) file.
+
+## Acknowledgments
+
+Thanks to all developers and users who have contributed to this project, and the support of the following open-source technologies:
 
 - [Visual Studio Code Extension API](https://code.visualstudio.com/api)
 - [TypeScript](https://www.typescriptlang.org/)
 - [MyBatis](https://mybatis.org/mybatis-3/)
-- ~~Lingma~~（不在使用了，因为现在越来越拉跨，越来越智障）
 - [trae](https://www.trae.cn/)
+
 ---
 
-希望这个插件能帮助您更高效地开发 MyBatis 应用！如有任何问题或建议，请随时在 [GitHub](https://github.com/Greenplumwine/vscode-mybatis-helper) 或 [Gitee](https://gitee.com/Greenplumwine/vscode-mybatis-helper) 上提交 Issue 或与我们联系。
+Hope this extension can help you develop MyBatis applications more efficiently! If you have any questions or suggestions, please feel free to submit Issues or contact us on [GitHub](https://github.com/Greenplumwine/vscode-mybatis-helper) or [Gitee](https://gitee.com/Greenplumwine/vscode-mybatis-helper).
