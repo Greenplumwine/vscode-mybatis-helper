@@ -1,7 +1,6 @@
 {
   "displayName": "MyBatis Helper",
   "description": "Une extension VSCode puissante qui offre une assistance complète aux développeurs MyBatis, améliorant considérablement l'efficacité du développement.",
-  "command.toggleLogInterceptor.title": "Basculer l'intercepteur de logs",
   "command.showSqlOutput.title": "Afficher la sortie SQL",
   "command.clearSqlHistory.title": "Effacer l'historique SQL",
   "command.pauseSQLInterceptor.title": "Mettre en pause l'intercepteur SQL",

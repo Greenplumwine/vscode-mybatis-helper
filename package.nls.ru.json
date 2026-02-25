@@ -1,7 +1,6 @@
 {
   "displayName": "MyBatis Helper",
   "description": "Мощное расширение VSCode, предоставляющее полную поддержку разработчикам MyBatis, значительно повышая эффективность разработки.",
-  "command.toggleLogInterceptor.title": "Переключить перехватчик журналов",
   "command.showSqlOutput.title": "Показать вывод SQL",
   "command.clearSqlHistory.title": "Очистить историю SQL",
   "command.pauseSQLInterceptor.title": "Приостановить SQL-перехватчик",

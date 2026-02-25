@@ -9,16 +9,15 @@
  */
 
 import * as vscode from 'vscode';
-import { 
-  SQLInterceptorConfig, 
-  SQLInterceptorRule, 
-  SQLQueryRecord, 
-  ParsedLogLine,
-  LogLineType 
-} from './types';
-import { logger } from '../../utils/logger';
 import { SQLParser } from '../../language/sqlparser';
 import { formatSQL } from '../../utils';
+import { logger } from '../../utils/logger';
+import {
+  ParsedLogLine,
+  SQLInterceptorConfig,
+  SQLInterceptorRule,
+  SQLQueryRecord
+} from './types';
 
 /**
  * 内置规则 - MyBatis 通用格式
@@ -402,18 +401,6 @@ export class SQLInterceptorService {
   }
 
   /**
-   * 切换拦截状态
-   */
-  public toggle(): boolean {
-    if (this.isEnabled) {
-      this.stop();
-    } else {
-      this.start();
-    }
-    return this.isEnabled;
-  }
-
-  /**
    * 获取当前状态
    */
   public get isRunning(): boolean {
@@ -433,7 +420,9 @@ export class SQLInterceptorService {
         return {
           // 拦截从调试适配器发送给 VS Code 的消息
           onDidSendMessage: (message: any) => {
-            if (!this.isEnabled) return;
+            if (!this.isEnabled) {
+              return;
+            }
             
             // 处理输出事件
             if (message.type === 'event' && message.event === 'output') {
@@ -506,7 +495,9 @@ export class SQLInterceptorService {
     if (vscode.window.onDidStartTerminalShellExecution) {
       // @ts-ignore
       vscode.window.onDidStartTerminalShellExecution(async (event: any) => {
-        if (!this.isEnabled) return;
+        if (!this.isEnabled) {
+          return;
+        }
         
         const terminal = event.terminal;
         const execution = event.execution;
@@ -563,13 +554,17 @@ export class SQLInterceptorService {
     
     // 保留原有的事件监听作为备选
     vscode.window.onDidOpenTerminal(terminal => {
-      if (!this.isEnabled) return;
+      if (!this.isEnabled) {
+        return;
+      }
       logger.debug(`[SQLInterceptor] Terminal opened: ${terminal.name}`);
     }, null, this.disposables);
     
     // 监听任务输出
     vscode.tasks.onDidStartTaskProcess(e => {
-      if (!this.isEnabled) return;
+      if (!this.isEnabled) {
+        return;
+      }
       logger.debug(`[SQLInterceptor] Task started: ${e.execution.task.name}`);
     }, null, this.disposables);
   }
@@ -610,7 +605,9 @@ export class SQLInterceptorService {
    * 处理日志行（支持多行解析）
    */
   public processLogLine(line: string, source: 'debug' | 'terminal'): void {
-    if (!this.isEnabled || !line) return;
+    if (!this.isEnabled || !line) {
+      return;
+    }
 
     try {
       // 先尝试单行解析
@@ -1049,72 +1046,6 @@ export class SQLInterceptorService {
     // 重置 lastIndex
     regex.lastIndex = 0;
     return regex;
-  }
-
-  /**
-   * 测试日志解析（用于诊断）
-   * @param logLine 要测试的日志行
-   * @returns 解析结果
-   */
-  public testLogParse(logLine: string): { 
-    matched: boolean; 
-    ruleName?: string; 
-    type?: string; 
-    extracted?: string;
-    error?: string;
-  } {
-    try {
-      const rules = this.getAllRules().filter(r => r.enabled);
-      
-      for (const rule of rules) {
-        const lineMatchRegex = this.getCachedRegex(rule.lineMatchRegex);
-        if (!lineMatchRegex.test(logLine)) {
-          continue;
-        }
-        lineMatchRegex.lastIndex = 0;
-
-        // 尝试提取 SQL
-        const sqlRegex = this.getCachedRegex(rule.sqlExtractRegex);
-        const sqlMatch = sqlRegex.exec(logLine);
-        if (sqlMatch && sqlMatch[1]) {
-          return {
-            matched: true,
-            ruleName: rule.name,
-            type: 'sql',
-            extracted: sqlMatch[1].trim(),
-          };
-        }
-
-        // 尝试提取参数
-        if (rule.parametersExtractRegex) {
-          const paramRegex = this.getCachedRegex(rule.parametersExtractRegex);
-          const paramMatch = paramRegex.exec(logLine);
-          if (paramMatch && paramMatch[1]) {
-            return {
-              matched: true,
-              ruleName: rule.name,
-              type: 'parameters',
-              extracted: paramMatch[1].trim(),
-            };
-          }
-        }
-
-        // 只是匹配了行，但没有提取到内容
-        return {
-          matched: true,
-          ruleName: rule.name,
-          type: 'matched_no_extract',
-          extracted: logLine,
-        };
-      }
-
-      return { matched: false };
-    } catch (error) {
-      return { 
-        matched: false, 
-        error: error instanceof Error ? error.message : String(error) 
-      };
-    }
   }
 
   /**

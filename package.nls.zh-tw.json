@@ -1,7 +1,6 @@
 {
   "displayName": "MyBatis Helper",
   "description": "一個功能強大的 VSCode 插件，為 MyBatis 開發者提供全方位的輔助功能，大幅提升開發效率。",
-  "command.toggleLogInterceptor.title": "切換日誌攔截",
   "command.showSqlOutput.title": "顯示 SQL 輸出",
   "command.clearSqlHistory.title": "清空 SQL 歷史",
   "command.pauseSQLInterceptor.title": "暫停 SQL 攔截",

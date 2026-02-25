@@ -243,16 +243,25 @@ export class Logger {
     /**
      * 输出 ERROR 级别的日志
      * @param message 日志消息
-     * @param error 错误对象
+     * @param error 错误对象或任意类型
      */
-    public error(message: string, error?: Error): void {
+    public error(message: string, error?: Error | unknown): void {
         if (this.shouldLog(LogLevel.ERROR)) {
             const channel = this.ensureOutputChannel();
             if (channel) {
-                const metadata = error ? {
-                    error: error.message,
-                    stack: error.stack
-                } : undefined;
+                let metadata: { error: string; stack?: string } | undefined;
+                if (error) {
+                    if (error instanceof Error) {
+                        metadata = {
+                            error: error.message,
+                            stack: error.stack
+                        };
+                    } else {
+                        metadata = {
+                            error: String(error)
+                        };
+                    }
+                }
                 const logMessage = this.formatMessage(LogLevel.ERROR, message, metadata);
                 channel.appendLine(logMessage);
             }

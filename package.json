@@ -62,12 +62,6 @@
         "category": "MyBatis Helper"
       },
       {
-        "command": "mybatis-helper.toggleLogInterceptor",
-        "title": "%command.toggleLogInterceptor.title%",
-        "category": "MyBatis Helper",
-        "icon": "$(debug-pause)"
-      },
-      {
         "command": "mybatis-helper.clearSqlHistory",
         "title": "%command.clearSqlHistory.title%",
         "category": "MyBatis Helper",
@@ -83,11 +77,6 @@
         "title": "%command.openSQLSettings.title%",
         "category": "MyBatis Helper",
         "icon": "$(gear)"
-      },
-      {
-        "command": "mybatis-helper.testLogParse",
-        "title": "%command.testLogParse.title%",
-        "category": "MyBatis Helper"
       },
       {
         "command": "mybatis-helper.pauseSQLInterceptor",

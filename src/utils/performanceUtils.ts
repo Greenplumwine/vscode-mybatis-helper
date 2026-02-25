@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { safeRegexMatch } from '.';
+import { logger } from './logger';
 
 /**
  * 性能优化工具类
@@ -99,7 +100,7 @@ export class PerformanceUtils {
           try {
             taskFn();
           } catch (error) {
-            console.error(`Error executing batch task:`, error);
+            logger.error(`Error executing batch task:`, error);
           }
         });
       } finally {
@@ -178,7 +179,7 @@ export class PerformanceUtils {
     // 可以根据需要在这里添加日志记录、性能统计等功能
     // 例如，只有当执行时间超过阈值时才记录日志
     if (executionTime > threshold) {
-      console.log(`Performance: ${operation} took ${executionTime}ms`);
+      logger.debug(`Performance: ${operation} took ${executionTime}ms`);
     }
   }
 
@@ -263,7 +264,7 @@ export class FileUtils {
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (error) {
-      console.error(`Error reading file: ${filePath}`, error);
+      logger.error(`Error reading file: ${filePath}`, error);
       throw new Error(`Failed to read file: ${filePath}`);
     }
   }
@@ -322,7 +323,7 @@ export class FileUtils {
       
       return filePaths;
     } catch (error) {
-      console.error(`Error smart finding files:`, error);
+      logger.error(`Error smart finding files:`, error);
       return [];
     }
   }
@@ -339,7 +340,7 @@ export class FileUtils {
       const packageMatch = content.match(/package\s+([\w\.]+);/);
       return packageMatch ? packageMatch[1] : null;
     } catch (error) {
-      console.error(`Error parsing Java package: ${filePath}`, error);
+      logger.error(`Error parsing Java package: ${filePath}`, error);
       return null;
     }
   }
@@ -363,7 +364,7 @@ export class FileUtils {
       const namespaceMatch = content.match(/namespace=["']([^"']+)["']/);
       return namespaceMatch ? namespaceMatch[1] : null;
     } catch (error) {
-      console.error(`Error parsing XML namespace: ${filePath}`, error);
+      logger.error(`Error parsing XML namespace: ${filePath}`, error);
       return null;
     }
   }
@@ -411,7 +412,7 @@ export class RegexUtils {
       try {
         this.regexCache.set(key, new RegExp(pattern, flags));
       } catch (error) {
-        console.error(`Invalid regex pattern: ${pattern}`, error);
+        logger.error(`Invalid regex pattern: ${pattern}`, error);
         throw error;
       }
     }
@@ -430,7 +431,7 @@ export class RegexUtils {
       const regex = typeof pattern === 'string' ? this.getRegex(pattern, flags) : pattern;
       return safeRegexMatch(text, regex);
     } catch (error) {
-      console.error('Regular expression match failed:', error);
+      logger.error('Regular expression match failed:', error);
       return null;
     }
   }

@@ -743,21 +743,6 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
-    // 切换 SQL 拦截器命令
-    const toggleLogInterceptorCommand = vscode.commands.registerCommand(
-      "mybatis-helper.toggleLogInterceptor",
-      async () => {
-        if (sqlInterceptorService) {
-          const isActive = sqlInterceptorService.toggle();
-          vscode.window.showInformationMessage(
-            isActive
-              ? vscode.l10n.t("sqlInterceptor.started")
-              : vscode.l10n.t("sqlInterceptor.stopped")
-          );
-        }
-      }
-    );
-
     // 暂停 SQL 拦截器命令
     const pauseSQLInterceptorCommand = vscode.commands.registerCommand(
       "mybatis-helper.pauseSQLInterceptor",
@@ -822,38 +807,6 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
-    // 测试日志解析命令（用于诊断）
-    const testLogParseCommand = vscode.commands.registerCommand(
-      "mybatis-helper.testLogParse",
-      async () => {
-        if (!sqlInterceptorService) {
-          vscode.window.showErrorMessage("SQL Interceptor not initialized");
-          return;
-        }
-
-        const logLine = await vscode.window.showInputBox({
-          prompt: "Enter a log line to test parsing",
-          placeHolder: "e.g., Preparing: SELECT * FROM user WHERE id = ?"
-        });
-
-        if (logLine) {
-          const result = sqlInterceptorService.testLogParse(logLine);
-          
-          if (result.matched) {
-            vscode.window.showInformationMessage(
-              `✓ Matched rule: ${result.ruleName}\nType: ${result.type}\nExtracted: ${result.extracted?.substring(0, 50)}...`,
-              { modal: true }
-            );
-          } else {
-            vscode.window.showWarningMessage(
-              `✗ No rule matched\n${result.error || ''}`,
-              { modal: true }
-            );
-          }
-        }
-      }
-    );
-
     // 刷新 SQL History 命令
     const refreshSQLHistoryCommand = vscode.commands.registerCommand(
       "mybatis-helper.refreshSQLHistory",
@@ -898,14 +851,12 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       jumpToXmlCommand,
       jumpToMapperCommand,
       refreshMappingsCommand,
-      toggleLogInterceptorCommand,
       pauseSQLInterceptorCommand,
       resumeSQLInterceptorCommand,
       clearSqlHistoryCommand,
       showSqlDetailCommand,
       copySqlFromTreeCommand,
       openSQLSettingsCommand,
-      testLogParseCommand,
       refreshSQLHistoryCommand,
       diagnoseCommand
     );

@@ -1,7 +1,6 @@
 {
   "displayName": "MyBatis Helper",
   "description": "MyBatis開発者に包括的な支援を提供する強力なVSCode拡張機能で、開発効率を大幅に向上させます。",
-  "command.toggleLogInterceptor.title": "ログインターセプターの切り替え",
   "command.showSqlOutput.title": "SQL出力を表示",
   "command.clearSqlHistory.title": "SQL履歴をクリア",
   "command.pauseSQLInterceptor.title": "SQLインターセプターを一時停止",

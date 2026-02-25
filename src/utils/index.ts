@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { DatabaseType, PluginConfig, FileOpenMode, NameMatchingRule, PathPriorityConfig } from "../types";
 import { RegexUtils, PerformanceUtils } from "./performanceUtils";
 import { JavaExtensionAPI } from "./javaExtensionAPI";
+import { logger } from "./logger";
 
 
 // 导出工具类
@@ -64,7 +65,7 @@ export function safeRegexMatch(
   try {
     return regex.exec(text);
   } catch (error) {
-    console.error("Regular expression match failed:", error);
+    logger.error("Regular expression match failed:", error);
     return null;
   }
 }
@@ -154,7 +155,7 @@ export function formatSQL(sql: string, databaseType?: DatabaseType): string {
     perfUtils.setCache(cacheKey, result, 30000); // 缓存30秒
     return result;
   } catch (error) {
-    console.error("SQL formatting failed:", error);
+    logger.error("SQL formatting failed:", error);
     return sql; // Return original SQL if formatting fails
   }
 }
@@ -233,7 +234,7 @@ export function highlightSQL(sql: string, databaseType: DatabaseType): string {
     perfUtils.setCache(cacheKey, highlightedSQL, 30000); // 缓存30秒
     return highlightedSQL;
   } catch (error) {
-    console.error("SQL highlighting failed:", error);
+    logger.error("SQL highlighting failed:", error);
     return sql; // Return original SQL if highlighting fails
   }
 }
