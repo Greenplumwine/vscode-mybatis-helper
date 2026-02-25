@@ -51,6 +51,11 @@
         "category": "MyBatis Helper"
       },
       {
+        "command": "mybatis-helper.rebuildIndex",
+        "title": "%command.rebuildIndex.title%",
+        "category": "MyBatis Helper"
+      },
+      {
         "command": "mybatis-helper.refreshSQLHistory",
         "title": "%command.refreshSQLHistory.title%",
         "category": "MyBatis Helper",

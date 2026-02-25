@@ -8,6 +8,7 @@
   "command.jumpToXml.title": "XMLにジャンプ",
   "command.jumpToMapper.title": "Mapperにジャンプ",
   "command.refreshMappings.title": "マッピングを更新",
+  "command.rebuildIndex.title": "インデックスキャッシュの再構築",
   "command.refreshData.title": "データを更新",
   "command.testUIDisplay.title": "UI表示のテスト",
   "configuration.title": "MyBatis Helper設定",

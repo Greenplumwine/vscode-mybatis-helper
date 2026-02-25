@@ -5,6 +5,7 @@
   "command.jumpToXml.title": "Jump to XML",
   "command.jumpToMapper.title": "Jump to Mapper",
   "command.refreshMappings.title": "Refresh Mappings",
+  "command.rebuildIndex.title": "Rebuild Index Cache",
   "command.refreshSQLHistory.title": "Refresh SQL History",
   "command.copySqlFromTree.title": "Copy SQL",
   "command.clearSqlHistory.title": "Clear SQL History",

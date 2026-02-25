@@ -8,6 +8,7 @@
   "command.jumpToXml.title": "Перейти к XML",
   "command.jumpToMapper.title": "Перейти к Mapper",
   "command.refreshMappings.title": "Обновить сопоставления",
+  "command.rebuildIndex.title": "Перестроить кэш индекса",
   "command.refreshData.title": "Обновить данные",
   "command.testUIDisplay.title": "Тест отображения UI",
   "configuration.title": "Конфигурация MyBatis Helper",

@@ -8,6 +8,7 @@
   "command.jumpToXml.title": "Saltar a XML",
   "command.jumpToMapper.title": "Saltar a Mapper",
   "command.refreshMappings.title": "Actualizar Mapeos",
+  "command.rebuildIndex.title": "Reconstruir caché de índice",
   "command.refreshData.title": "Actualizar Datos",
   "command.testUIDisplay.title": "Probar Visualización de UI",
   "configuration.title": "Configuración de MyBatis Helper",

@@ -4,6 +4,7 @@
   "command.jumpToXml.title": "跳转到 XML",
   "command.jumpToMapper.title": "跳转到 Mapper",
   "command.refreshMappings.title": "刷新映射关系",
+  "command.rebuildIndex.title": "重建索引缓存",
   "command.refreshSQLHistory.title": "刷新 SQL 历史",
   "command.copySqlFromTree.title": "复制 SQL",
   "command.clearSqlHistory.title": "清空 SQL 历史",

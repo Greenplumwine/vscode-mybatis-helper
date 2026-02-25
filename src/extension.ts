@@ -159,6 +159,21 @@ async function initializePlugin(context: vscode.ExtensionContext) {
 
   logger.info(vscode.l10n.t("extension.activated"));
 
+  // 注册重建索引命令
+  const rebuildIndexCommand = vscode.commands.registerCommand(
+    "mybatis-helper.rebuildIndex",
+    async () => {
+      try {
+        const { classFileWatcher } = await import('./features/mapping/classFileWatcher.js');
+        await classFileWatcher.rebuildIndex();
+        vscode.window.showInformationMessage(vscode.l10n.t("info.indexCacheRebuilt"));
+      } catch (error) {
+        vscode.window.showErrorMessage(vscode.l10n.t("error.rebuildIndexFailed", { error: String(error) }));
+      }
+    }
+  );
+  context.subscriptions.push(rebuildIndexCommand);
+
   const showCommandsCommand = vscode.commands.registerCommand(
     "mybatis-helper.showCommands",
     async () => {
@@ -225,7 +240,7 @@ async function initializeFastMappingFeatures(context: vscode.ExtensionContext): 
       enableLayer1: true,
       enableLayer2: true,
       enableLayer3: true,
-      enableLayer4: false,  // 字节码解析较慢，默认关闭
+      enableLayer4: true,   // 启用字节码解析，自动检测 javap 可用性
       enableLayer5: true,
       enableLayer6: true,
       maxXmlFiles: 5000,
@@ -277,6 +292,22 @@ async function initializeFastMappingFeatures(context: vscode.ExtensionContext): 
     fastCodeLensProvider?.refresh();
     xmlCodeLensProvider?.refresh();
   });
+
+  // 初始化并启动 class 文件监听器（用于增量索引更新）
+  if (useEnterpriseScanner && vscode.workspace.workspaceFolders) {
+    try {
+      const { classFileWatcher } = await import('./features/mapping/classFileWatcher.js');
+      const { indexCacheManager } = await import('./features/mapping/indexCache.js');
+      
+      await classFileWatcher.initialize();
+      await indexCacheManager.initialize(vscode.workspace.workspaceFolders[0].uri.fsPath);
+      await classFileWatcher.startWatching(vscode.workspace.workspaceFolders);
+      
+      logger.info('Class file watcher and index cache initialized');
+    } catch (error) {
+      logger.debug('Failed to initialize class file watcher:', error);
+    }
+  }
 
   logger.info(vscode.l10n.t("extension.featuresInitialized"));
 }
@@ -347,7 +378,7 @@ async function detectProjectType(): Promise<{
         }
       } catch (e) {}
 
-      // 检测是否有本地jar依赖
+      // 检测是否有 jar 依赖（本地 lib 目录或 Maven/Gradle 依赖）
       const libDir = path.join(folder.uri.fsPath, 'lib');
       const libsDir = path.join(folder.uri.fsPath, 'libs');
       try {
@@ -357,6 +388,17 @@ async function detectProjectType(): Promise<{
           result.hasJarDependencies = true;
         }
       } catch (e) {}
+      
+      // 对于 Maven/Gradle 项目，默认认为有 JAR 依赖（用于扫描 @MapperScan）
+      if (!result.hasJarDependencies) {
+        const hasPom = await fs.access(path.join(folder.uri.fsPath, 'pom.xml')).then(() => true).catch(() => false);
+        const hasBuildGradle = await fs.access(path.join(folder.uri.fsPath, 'build.gradle')).then(() => true).catch(() => false);
+        const hasBuildGradleKts = await fs.access(path.join(folder.uri.fsPath, 'build.gradle.kts')).then(() => true).catch(() => false);
+        
+        if (hasPom || hasBuildGradle || hasBuildGradleKts) {
+          result.hasJarDependencies = true;
+        }
+      }
     }
   } catch (error) {
     logger?.debug(vscode.l10n.t("scan.error", { error: String(error) }));
@@ -928,5 +970,14 @@ function deactivatePluginFeatures() {
 
 export function deactivate() {
   deactivatePluginFeatures();
+  
+  // 停止 class 文件监听器
+  try {
+    const { classFileWatcher } = require('./features/mapping/classFileWatcher.js');
+    classFileWatcher.stopWatching();
+  } catch (error) {
+    // 忽略错误
+  }
+  
   logger.info(vscode.l10n.t("extension.deactivated"));
 }

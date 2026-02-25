@@ -5,6 +5,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { FastMappingEngine } from './fastMappingEngine';
 import { Logger } from '../../utils/logger';
 
@@ -38,7 +39,15 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
 
     // 1. 快速检查：是否是 MyBatis Mapper 接口
     const text = document.getText();
-    if (!this.isMyBatisMapper(text)) {
+    const isMapper = this.isMyBatisMapper(text, filePath);
+    
+    // 调试日志
+    if (filePath.includes('Mapper')) {
+      console.log(`[CodeLens] Checking ${path.basename(filePath)}: isMapper=${isMapper}`);
+      this.logger?.debug(`[CodeLens] ${path.basename(filePath)}: isMapper=${isMapper}`);
+    }
+    
+    if (!isMapper) {
       return [];
     }
 
@@ -137,18 +146,25 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
   /**
    * 快速检查是否是 MyBatis Mapper 接口
    */
-  private isMyBatisMapper(text: string): boolean {
+  private isMyBatisMapper(text: string, filePath?: string): boolean {
+    // 必须是接口
     if (!/interface\s+\w+/.test(text)) {
       return false;
     }
 
+    // 检查 MyBatis 标记
     const hasMyBatisMarker = 
       /@Mapper\b/.test(text) ||
       /import\s+org\.apache\.ibatis/.test(text) ||
       /import\s+org\.mybatis/.test(text) ||
       /extends\s+\w*Mapper\s*[<{]/.test(text);
 
-    return hasMyBatisMarker;
+    // 如果文件路径包含 mapper 且类名以 Mapper 结尾，也认为是 Mapper
+    const isMapperByPath = !!filePath && 
+      /[Mm]apper/.test(filePath) && 
+      /interface\s+\w*Mapper\b/.test(text);
+
+    return hasMyBatisMarker || isMapperByPath;
   }
 
   /**

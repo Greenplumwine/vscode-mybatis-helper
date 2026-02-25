@@ -8,6 +8,7 @@
   "command.jumpToXml.title": "跳轉到 XML",
   "command.jumpToMapper.title": "跳轉到 Mapper",
   "command.refreshMappings.title": "刷新映射關係",
+  "command.rebuildIndex.title": "重建索引快取",
   "command.refreshData.title": "刷新數據",
   "command.testUIDisplay.title": "測試 UI 顯示",
   "configuration.title": "MyBatis Helper 配置",
