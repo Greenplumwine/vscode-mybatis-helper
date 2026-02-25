@@ -3,6 +3,7 @@ import { DatabaseType, PluginConfig, FileOpenMode, NameMatchingRule, PathPriorit
 import { RegexUtils, PerformanceUtils } from "./performanceUtils";
 import { JavaExtensionAPI } from "./javaExtensionAPI";
 import { logger } from "./logger";
+import { TIME, CACHE_LIMITS } from "./constants";
 
 
 // 导出工具类
@@ -32,7 +33,7 @@ export function getPluginConfig(): PluginConfig {
 		customXmlDirectories: config.get<string[]>('customXmlDirectories') || [],
 		fileOpenMode: (config.get<string>('fileOpenMode') || 'useExisting') as FileOpenMode,
 		logOutputLevel: config.get<'debug' | 'info' | 'warn' | 'error'>('logOutputLevel') || 'info',
-		maxHistorySize: config.get<number>('maxHistorySize') || 100,
+		maxHistorySize: config.get<number>('maxHistorySize') || CACHE_LIMITS.DEFAULT_MAX_HISTORY,
 		showExecutionTime: config.get<boolean>('showExecutionTime') || false,
 		nameMatchingRules,
 		ignoreSuffixes,
@@ -150,7 +151,7 @@ export function formatSQL(sql: string, databaseType?: DatabaseType): string {
 
     const result = indentedLines.join("\n");
     // 缓存结果
-    perfUtils.setCache(cacheKey, result, 30000); // 缓存30秒
+    perfUtils.setCache(cacheKey, result, TIME.THIRTY_SECONDS);
     return result;
   } catch (error) {
     logger.error("SQL formatting failed:", error);
@@ -229,7 +230,7 @@ export function highlightSQL(sql: string, databaseType: DatabaseType): string {
     );
 
     // 缓存结果
-    perfUtils.setCache(cacheKey, highlightedSQL, 30000); // 缓存30秒
+    perfUtils.setCache(cacheKey, highlightedSQL, TIME.THIRTY_SECONDS);
     return highlightedSQL;
   } catch (error) {
     logger.error("SQL highlighting failed:", error);

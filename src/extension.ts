@@ -63,9 +63,9 @@ let navigationService: UnifiedNavigationService;
 /** 高性能映射引擎 */
 let fastMappingEngine: FastMappingEngine;
 /** Java CodeLens提供器 */
-let fastCodeLensProvider: FastCodeLensProvider;
+let fastCodeLensProvider: FastCodeLensProvider | undefined;
 /** XML CodeLens提供器 */
-let xmlCodeLensProvider: XmlCodeLensProvider;
+let xmlCodeLensProvider: XmlCodeLensProvider | undefined;
 
 // 文件监听防抖定时器
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -266,16 +266,16 @@ async function initializeFastMappingFeatures(context: vscode.ExtensionContext): 
 
   // 监听映射变化事件，刷新 CodeLens
   fastMappingEngine.on('mappingBuilt', () => {
-    fastCodeLensProvider.refresh();
-    xmlCodeLensProvider.refresh();
+    fastCodeLensProvider?.refresh();
+    xmlCodeLensProvider?.refresh();
   });
   fastMappingEngine.on('mappingUpdated', () => {
-    fastCodeLensProvider.refresh();
-    xmlCodeLensProvider.refresh();
+    fastCodeLensProvider?.refresh();
+    xmlCodeLensProvider?.refresh();
   });
   fastMappingEngine.on('mappingRemoved', () => {
-    fastCodeLensProvider.refresh();
-    xmlCodeLensProvider.refresh();
+    fastCodeLensProvider?.refresh();
+    xmlCodeLensProvider?.refresh();
   });
 
   logger.info(vscode.l10n.t("extension.featuresInitialized"));
@@ -421,8 +421,8 @@ function startFileWatching(): void {
           }
         }
         // 刷新 CodeLens
-        fastCodeLensProvider.refresh();
-        xmlCodeLensProvider.refresh();
+        fastCodeLensProvider?.refresh();
+        xmlCodeLensProvider?.refresh();
       } catch (error) {
         logger.error(vscode.l10n.t("file.changeError", { path: uri.fsPath, error: String(error) }));
       }
@@ -917,8 +917,8 @@ function deactivatePluginFeatures() {
     debounceTimers.clear();
 
     sqlCompletionProvider = undefined;
-    fastCodeLensProvider = undefined as any;
-    xmlCodeLensProvider = undefined as any;
+    fastCodeLensProvider = undefined;
+    xmlCodeLensProvider = undefined;
 
     updateStatusBar(vscode.l10n.t("status.nonJavaProject"), false);
   } catch (error) {

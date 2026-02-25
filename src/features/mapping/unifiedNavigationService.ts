@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { FastMappingEngine } from './fastMappingEngine';
 import { MyBatisXmlParser } from './xmlParser';
 import { MapperMapping, MethodMapping } from './types';
+import { Logger } from '../../utils/logger';
 
 interface NavigationOptions {
   openSideBySide?: boolean;
@@ -22,7 +23,7 @@ const DEFAULT_OPTIONS: NavigationOptions = {
 export class UnifiedNavigationService {
   private static instance: UnifiedNavigationService;
   private mappingEngine: FastMappingEngine;
-  private logger: any;
+  private logger!: Logger;
   private xmlParser: MyBatisXmlParser;
 
   private constructor() {

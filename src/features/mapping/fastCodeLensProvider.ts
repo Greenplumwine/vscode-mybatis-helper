@@ -6,10 +6,11 @@
 
 import * as vscode from 'vscode';
 import { FastMappingEngine } from './fastMappingEngine';
+import { Logger } from '../../utils/logger';
 
 export class FastCodeLensProvider implements vscode.CodeLensProvider {
   private mappingEngine: FastMappingEngine;
-  private logger: any;
+  private logger!: Logger;
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 

@@ -19,6 +19,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { MapperScanConfig } from './types';
+import { Logger } from '../../utils/logger';
+import { TIME, SCAN_LIMITS } from '../../utils/constants';
 
 interface ConfigSource {
   type: 'source' | 'jar' | 'runtime' | 'environment';
@@ -34,9 +36,9 @@ interface MultiModuleInfo {
 
 export class EnterpriseConfigResolver {
   private static instance: EnterpriseConfigResolver;
-  private logger: any;
+  private logger!: Logger;
   private configCache: Map<string, { configs: MapperScanConfig[]; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟
+  private readonly CACHE_TTL = TIME.FIVE_MINUTES;
 
   // 运行时配置缓存
   private runtimeConfigs: Map<string, string[]> = new Map();
@@ -557,11 +559,11 @@ export class EnterpriseConfigResolver {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       
       for (const entry of entries) {
-        const fullPath = path.join(dir, (entry as any).name);
-        if ((entry as any).isDirectory()) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
           const subFiles = await this.findClassFiles(fullPath);
           files.push(...subFiles);
-        } else if ((entry as any).name.endsWith('.class')) {
+        } else if (entry.name.endsWith('.class')) {
           files.push(fullPath);
         }
       }

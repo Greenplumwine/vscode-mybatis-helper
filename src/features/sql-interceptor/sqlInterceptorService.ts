@@ -12,6 +12,8 @@ import * as vscode from 'vscode';
 import { SQLParser } from '../../language/sqlparser';
 import { formatSQL } from '../../utils';
 import { logger } from '../../utils/logger';
+import { TIME, THRESHOLDS, CACHE_LIMITS } from '../../utils/constants';
+import { DatabaseType } from '../../types';
 import {
   ParsedLogLine,
   SQLInterceptorConfig,
@@ -110,9 +112,9 @@ export class SQLInterceptorService {
     
     return {
       enabled: workspaceConfig.get('sqlInterceptor.enabled', true),
-      maxHistorySize: workspaceConfig.get('sqlInterceptor.maxHistorySize', 500),
+      maxHistorySize: workspaceConfig.get('sqlInterceptor.maxHistorySize', CACHE_LIMITS.DEFAULT_MAX_HISTORY),
       showExecutionTime: workspaceConfig.get('sqlInterceptor.showExecutionTime', true),
-      databaseType: workspaceConfig.get('databaseType', 'mysql'),
+      databaseType: workspaceConfig.get<DatabaseType>('databaseType', DatabaseType.MYSQL),
       customRules: workspaceConfig.get('sqlInterceptor.customRules', []),
       builtinRules: {},
       listenMode: workspaceConfig.get('sqlInterceptor.listenMode', 'auto'),
@@ -172,7 +174,7 @@ export class SQLInterceptorService {
       enabled: workspaceConfig.get('sqlInterceptor.enabled', true),
       maxHistorySize: workspaceConfig.get('sqlInterceptor.maxHistorySize', 500),
       showExecutionTime: workspaceConfig.get('sqlInterceptor.showExecutionTime', true),
-      databaseType: workspaceConfig.get('databaseType', 'mysql'),
+      databaseType: workspaceConfig.get<DatabaseType>('databaseType', DatabaseType.MYSQL),
       customRules: workspaceConfig.get('sqlInterceptor.customRules', []),
       builtinRules: workspaceConfig.get('sqlInterceptor.builtinRules', {}),
       listenMode: workspaceConfig.get('sqlInterceptor.listenMode', 'auto'),
@@ -182,7 +184,7 @@ export class SQLInterceptorService {
     };
 
     // 更新 SQL parser 数据库类型
-    this.sqlParser.setDatabaseType(this.config.databaseType as any);
+    this.sqlParser.setDatabaseType(this.config.databaseType);
     
     // 清空正则缓存
     this.regexCache.clear();
@@ -350,7 +352,7 @@ export class SQLInterceptorService {
                   const lines = body.output.split('\n');
                   for (const line of lines) {
                     if (line.trim()) {
-                      logger.debug(`[SQLInterceptor] Debug output: ${line.substring(0, 100)}...`);
+                      logger.debug(`[SQLInterceptor] Debug output: ${line.substring(0, THRESHOLDS.LOG_TRUNCATE_LONG)}...`);
                       this.processLogLine(line, 'debug');
                     }
                   }
@@ -548,7 +550,7 @@ export class SQLInterceptorService {
           }
           this.lineBufferTimer = setTimeout(() => {
             this.flushLineBuffer(source);
-          }, (rule.maxLineGap || 5) * 1000);
+          }, (rule.maxLineGap || THRESHOLDS.MAX_LINE_GAP) * TIME.SECOND);
         } else if (parsed.type === 'parameters' || parsed.type === 'executionTime') {
           // 收到参数或执行时间，刷新缓冲
           this.lineBuffer.push(line);
@@ -714,10 +716,10 @@ export class SQLInterceptorService {
     
     switch (parsed.type) {
       case 'sql':
-        // 检测重复 SQL（100ms 内相同的 SQL 视为重复）
+        // 检测重复 SQL（短时间内相同的 SQL 视为重复）
         const now = Date.now();
         const sqlKey = parsed.sql?.trim() || '';
-        if (sqlKey === this.lastProcessedSQL && (now - this.lastProcessedTime) < 100) {
+        if (sqlKey === this.lastProcessedSQL && (now - this.lastProcessedTime) < TIME.DUPLICATE_CHECK_WINDOW) {
           logger.debug(`[SQLInterceptor] Duplicate SQL detected, skipping`);
           return;
         }
@@ -767,7 +769,7 @@ export class SQLInterceptorService {
             );
             this.pendingQuery.formattedSQL = formatSQL(
               this.pendingQuery.fullSQL,
-              this.config.databaseType as any
+              this.config.databaseType
             );
             
             logger.debug(`[SQLInterceptor] Built full SQL: ${this.pendingQuery.fullSQL?.substring(0, 50)}...`);
@@ -903,7 +905,7 @@ export class SQLInterceptorService {
         lastRecord.fullSQL === record.fullSQL) {
       // 如果是重复的 SQL（1秒内），则更新最后一条记录的执行时间（如果有）
       const timeDiff = record.timestamp.getTime() - lastRecord.timestamp.getTime();
-      if (timeDiff < 1000) {
+      if (timeDiff < TIME.SECOND) {
         // 更新执行时间
         if (record.executionTime !== undefined) {
           lastRecord.executionTime = record.executionTime;

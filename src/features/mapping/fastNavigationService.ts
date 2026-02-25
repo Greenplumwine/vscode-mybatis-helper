@@ -12,6 +12,8 @@ import * as vscode from 'vscode';
 import { FastMappingEngine } from './fastMappingEngine';
 import { FastScanner } from './fastScanner';
 import { MapperMapping, MethodMapping } from './types';
+import { Logger } from '../../utils/logger';
+import { THRESHOLDS } from '../../utils/constants';
 
 interface NavigationOptions {
   openSideBySide?: boolean;
@@ -26,11 +28,11 @@ export class FastNavigationService {
   private static instance: FastNavigationService;
   private mappingEngine: FastMappingEngine;
   private scanner: FastScanner;
-  private logger: any;
+  private logger!: Logger;
 
   // 缓存最近使用的映射，加速重复跳转
   private recentMappings: Map<string, string> = new Map(); // javaPath -> xmlPath
-  private readonly MAX_RECENT = 20;
+  private readonly MAX_RECENT = THRESHOLDS.MAX_RECENT_MAPPINGS;
 
   private constructor() {
     this.mappingEngine = FastMappingEngine.getInstance();

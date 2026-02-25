@@ -15,6 +15,8 @@ import { EnterpriseConfigResolver } from './enterpriseConfigResolver';
 import { MyBatisXmlParser } from './xmlParser';
 import { XmlLocationResolver } from './xmlLocationResolver';
 import { JavaMapperInfo, XmlMapperInfo, MapperScanConfig, ScanProgressEvent } from './types';
+import { Logger } from '../../utils/logger';
+import { SCAN_LIMITS } from '../../utils/constants';
 
 interface EnterpriseScanConfig {
   enableLayer1: boolean;  // 当前项目源码
@@ -35,9 +37,9 @@ const DEFAULT_CONFIG: EnterpriseScanConfig = {
   enableLayer4: false,  // 默认关闭，因为较慢
   enableLayer5: true,
   enableLayer6: true,
-  maxXmlFiles: 5000,
-  maxJavaFiles: 10000,
-  batchSize: 50
+  maxXmlFiles: SCAN_LIMITS.ENTERPRISE_MAX_XML_FILES,
+  maxJavaFiles: SCAN_LIMITS.ENTERPRISE_MAX_JAVA_FILES,
+  batchSize: SCAN_LIMITS.BATCH_SIZE
 };
 
 export class EnterpriseScanner extends EventEmitter {
@@ -46,7 +48,7 @@ export class EnterpriseScanner extends EventEmitter {
   private configResolver: EnterpriseConfigResolver;
   private xmlParser: MyBatisXmlParser;
   private locationResolver: XmlLocationResolver;
-  private logger: any;
+  private logger!: Logger;
   private config: EnterpriseScanConfig;
   private isScanning: boolean = false;
 

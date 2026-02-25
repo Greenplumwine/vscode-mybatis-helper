@@ -10,6 +10,7 @@
 
 import { EventEmitter } from 'events';
 import { MapperMapping, MethodMapping, JavaMapperInfo, XmlMapperInfo, Position } from './types';
+import { Logger } from '../../utils/logger';
 
 /**
  * 映射索引结构
@@ -62,7 +63,7 @@ export class FastMappingEngine extends EventEmitter {
     lastScanTime: 0
   };
   
-  private logger: any;
+  private logger!: Logger;
   
   // ========== 统计 ==========
   private stats = {

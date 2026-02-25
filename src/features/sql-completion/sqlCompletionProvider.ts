@@ -11,6 +11,7 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
     private completionCache: Map<string, vscode.CompletionItem[]> = new Map();
     private methodParamsCache: Map<string, Array<{ name: string; type: string }>> = new Map();
     private objectPropertiesCache: Map<string, string[]> = new Map();
+    private disposables: vscode.Disposable[] = [];
 
     /**
      * Creates a new SQLCompletionProvider instance
@@ -27,13 +28,15 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
     private setupFileWatchers(): void {
         // Watch Java files for changes to invalidate cache
         const javaWatcher = vscode.workspace.createFileSystemWatcher('**/*.java', false, true, true);
-        javaWatcher.onDidChange(() => this.clearCache());
-        javaWatcher.onDidDelete(() => this.clearCache());
+        javaWatcher.onDidChange(() => this.clearCache(), this, this.disposables);
+        javaWatcher.onDidDelete(() => this.clearCache(), this, this.disposables);
+        this.disposables.push(javaWatcher);
         
         // Watch XML files for changes to invalidate cache
         const xmlWatcher = vscode.workspace.createFileSystemWatcher('**/*.xml', false, true, true);
-        xmlWatcher.onDidChange(() => this.clearCache());
-        xmlWatcher.onDidDelete(() => this.clearCache());
+        xmlWatcher.onDidChange(() => this.clearCache(), this, this.disposables);
+        xmlWatcher.onDidDelete(() => this.clearCache(), this, this.disposables);
+        this.disposables.push(xmlWatcher);
     }
     
     /**
@@ -680,6 +683,8 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
      */
     public dispose(): void {
         this.clearCache();
-        // TODO: Dispose file watchers if needed
+        this.disposables.forEach(d => d.dispose());
+        this.disposables = [];
+        logger.debug('[SQLCompletionProvider] Disposed file watchers');
     }
 }

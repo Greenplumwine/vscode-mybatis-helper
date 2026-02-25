@@ -1,6 +1,7 @@
 import { formatSQL, highlightSQL, safeRegexMatch } from "../utils";
 import { DatabaseType, SQLQuery } from "../types";
 import { logger } from "../utils/logger";
+import { THRESHOLDS } from "../utils/constants";
 
 /**
  * SQL parser for parsing SQL statements and parameters from MyBatis logs
@@ -145,7 +146,7 @@ export class SQLParser {
 			this.paramRegex.lastIndex = 0;
 
 			// Batch process parameters
-			const paramBatchSize = 100; // Process 100 parameters at a time
+			const paramBatchSize = THRESHOLDS.PARAM_BATCH_SIZE;
 			let paramMatch;
 			let paramCount = 0;
 
@@ -156,7 +157,7 @@ export class SQLParser {
 				paramCount++;
 
 				// Prevent infinite loops
-				if (paramCount > 1000) {
+				if (paramCount > THRESHOLDS.MAX_PARAM_COUNT) {
 					logger.warn('Possible infinite loop detected in parameter parsing');
 					break;
 				}

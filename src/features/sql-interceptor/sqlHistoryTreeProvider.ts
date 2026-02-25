@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { SQLQueryRecord } from './types';
 import { SQLInterceptorService } from './sqlInterceptorService';
+import { THRESHOLDS } from '../../utils/constants';
 
 /**
  * TreeView 数据项类型
@@ -149,8 +150,8 @@ export class SQLHistoryTreeProvider implements vscode.TreeDataProvider<SQLTreeIt
     }
 
     return history.map((query, index) => {
-      // 生成简短标签（SQL 前 50 个字符）
-      const shortSQL = this.truncateSQL(query.formattedSQL || query.rawSQL || '', 50);
+      // 生成简短标签（SQL 前 N 个字符）
+      const shortSQL = this.truncateSQL(query.formattedSQL || query.rawSQL || '', THRESHOLDS.SQL_DISPLAY_TRUNCATE);
       
       // 格式化时间
       const timeStr = this.formatTime(query.timestamp);

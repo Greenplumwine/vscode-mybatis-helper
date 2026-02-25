@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { safeRegexMatch } from '.';
 import { logger } from './logger';
+import { TIME, THRESHOLDS } from './constants';
 
 /**
  * 性能优化工具类
@@ -10,8 +11,8 @@ import { logger } from './logger';
  */
 export class PerformanceUtils {
   private static instance: PerformanceUtils;
-  private cacheStore: Map<string, { value: any; timestamp: number; ttl?: number }> = new Map();
-  private batchTasks: Map<string, { tasks: Function[]; timer: NodeJS.Timeout | null }> = new Map();
+  private cacheStore: Map<string, { value: unknown; timestamp: number; ttl?: number }> = new Map();
+  private batchTasks: Map<string, { tasks: Array<() => void>; timer: NodeJS.Timeout | null }> = new Map();
 
   private constructor() {}
 
@@ -31,7 +32,7 @@ export class PerformanceUtils {
    * @param value 缓存值
    * @param ttl 缓存过期时间(毫秒)，默认为30分钟
    */
-  public setCache(key: string, value: any, ttl: number = 30 * 60 * 1000): void {
+  public setCache<T>(key: string, value: T, ttl: number = TIME.THIRTY_MINUTES): void {
     this.cacheStore.set(key, {
       value,
       timestamp: Date.now(),
@@ -76,7 +77,7 @@ export class PerformanceUtils {
    * @param task 要执行的任务函数
    * @param delay 批处理延迟时间(毫秒)
    */
-  public scheduleBatchTask(batchKey: string, task: Function, delay: number = 100): void {
+  public scheduleBatchTask(batchKey: string, task: () => void, delay: number = 100): void {
     if (!this.batchTasks.has(batchKey)) {
       this.batchTasks.set(batchKey, {
         tasks: [],
@@ -116,7 +117,7 @@ export class PerformanceUtils {
    * @param wait 等待时间(毫秒)
    * @returns 防抖后的函数
    */
-  public debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  public debounce<T extends (...args: unknown[]) => unknown>(func: T, wait: number): (...args: Parameters<T>) => void {
     let timeout: NodeJS.Timeout | null = null;
 
     return (...args: Parameters<T>): void => {
@@ -137,7 +138,7 @@ export class PerformanceUtils {
    * @param limit 时间限制(毫秒)
    * @returns 节流后的函数
    */
-  public throttle<T extends (...args: any[]) => any>(func: T, limit: number): (...args: Parameters<T>) => void {
+  public throttle<T extends (...args: unknown[]) => unknown>(func: T, limit: number): (...args: Parameters<T>) => void {
     let inThrottle: boolean = false;
 
     return (...args: Parameters<T>): void => {
@@ -156,7 +157,7 @@ export class PerformanceUtils {
    * @param ttl 缓存过期时间(毫秒)，默认为30分钟
    * @returns 计算结果或缓存值
    */
-  public withCache<T>(cacheKey: string, computeFn: () => T, ttl: number = 30 * 60 * 1000): T {
+  public withCache<T>(cacheKey: string, computeFn: () => T, ttl: number = TIME.THIRTY_MINUTES): T {
     // 尝试从缓存获取结果
     const cachedValue = this.getCache<T>(cacheKey);
     if (cachedValue !== undefined) {
@@ -175,7 +176,7 @@ export class PerformanceUtils {
    * @param executionTime 执行时间(毫秒)
    * @param threshold 阈值(毫秒)，超过此值才记录日志
    */
-  public recordExecutionTime(operation: string, executionTime: number, threshold: number = 500): void {
+  public recordExecutionTime(operation: string, executionTime: number, threshold: number = THRESHOLDS.SLOW_OPERATION): void {
     // 可以根据需要在这里添加日志记录、性能统计等功能
     // 例如，只有当执行时间超过阈值时才记录日志
     if (executionTime > threshold) {

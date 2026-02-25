@@ -117,6 +117,8 @@ export interface SQLQueryRecord {
 /**
  * SQL 拦截器配置
  */
+import { DatabaseType } from '../../types';
+
 export interface SQLInterceptorConfig {
   /** 是否启用 */
   enabled: boolean;
@@ -125,7 +127,7 @@ export interface SQLInterceptorConfig {
   /** 是否显示执行时间 */
   showExecutionTime: boolean;
   /** 数据库类型 */
-  databaseType: string;
+  databaseType: DatabaseType;
   /** 自定义规则列表 */
   customRules: SQLInterceptorRule[];
   /** 

@@ -15,6 +15,8 @@ import { MyBatisXmlParser } from './xmlParser';
 import { EnhancedJavaAPI } from './enhancedJavaAPI';
 import { XmlLocationResolver } from './xmlLocationResolver';
 import { JavaMapperInfo, XmlMapperInfo, MapperScanConfig, ScanProgressEvent, Position } from './types';
+import { Logger } from '../../utils/logger';
+import { SCAN_LIMITS } from '../../utils/constants';
 
 interface ScanConfig {
   maxXmlFiles: number;
@@ -24,10 +26,10 @@ interface ScanConfig {
 }
 
 const DEFAULT_CONFIG: ScanConfig = {
-  maxXmlFiles: 2000,
-  maxJavaFiles: 5000,
-  batchSize: 50,
-  parallelLimit: 10
+  maxXmlFiles: SCAN_LIMITS.DEFAULT_MAX_XML_FILES,
+  maxJavaFiles: SCAN_LIMITS.DEFAULT_MAX_JAVA_FILES,
+  batchSize: SCAN_LIMITS.BATCH_SIZE,
+  parallelLimit: SCAN_LIMITS.PARALLEL_LIMIT
 };
 
 export class FastScanner extends EventEmitter {
@@ -36,7 +38,7 @@ export class FastScanner extends EventEmitter {
   private xmlParser: MyBatisXmlParser;
   private javaAPI: EnhancedJavaAPI;
   private locationResolver: XmlLocationResolver;
-  private logger: any;
+  private logger!: Logger;
   private config: ScanConfig;
   private isScanning: boolean = false;
 

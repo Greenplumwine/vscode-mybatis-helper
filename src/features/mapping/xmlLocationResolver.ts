@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { MapperScanConfig } from './types';
 import { MyBatisXmlParser } from './xmlParser';
+import { Logger } from '../../utils/logger';
+
 /**
  * XML 位置解析器
  * 按照优先级解析 XML Mapper 文件位置：
@@ -11,7 +13,7 @@ import { MyBatisXmlParser } from './xmlParser';
 export class XmlLocationResolver {
   private static instance: XmlLocationResolver;
   private xmlParser: MyBatisXmlParser;
-  private logger: any;
+  private logger!: Logger;
   private resolvedLocations: string[] = [];
 
   private constructor() {

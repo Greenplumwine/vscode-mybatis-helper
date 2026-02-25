@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 /**
  * Java 扩展 API 集成模块
@@ -8,7 +9,7 @@ export class JavaExtensionAPI {
   private javaExtApi: any = null;
   private extensionContext: vscode.ExtensionContext | null = null;
   private isActivated: boolean = false;
-  private logger: any; // 将在初始化时获取Logger实例
+  private logger!: Logger;
 
   private constructor() {}
 

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { JavaMapperInfo, MapperScanConfig, Position } from './types';
+import { Logger } from '../../utils/logger';
 
 /**
  * 增强的 Java API 封装
@@ -7,7 +8,7 @@ import { JavaMapperInfo, MapperScanConfig, Position } from './types';
  */
 export class EnhancedJavaAPI {
   private static instance: EnhancedJavaAPI;
-  private logger: any;
+  private logger!: Logger;
 
   private constructor() {}
 

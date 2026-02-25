@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { SQLQueryRecord } from './types';
 import { formatSQL, highlightSQL, getPluginConfig } from '../../utils';
+import { TIME, THRESHOLDS } from '../../utils/constants';
 
 export class SQLDetailPanel {
   private static currentPanel: SQLDetailPanel | undefined;
@@ -107,7 +108,7 @@ export class SQLDetailPanel {
           cancellable: false,
         },
         async () => {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, TIME.NOTIFICATION_DURATION));
         }
       );
     } catch (error) {
@@ -129,9 +130,9 @@ export class SQLDetailPanel {
     
     // 生成执行时间 HTML
     const executionTimeHtml = this.query.executionTime !== undefined
-      ? `<div class="execution-time ${this.query.executionTime > 1000 ? 'slow' : ''}">
+      ? `<div class="execution-time ${this.query.executionTime > THRESHOLDS.SLOW_QUERY ? 'slow' : ''}">
            ${vscode.l10n.t('sqlDetail.executionTime', { time: this.query.executionTime })}
-           ${this.query.executionTime > 1000 ? '<span class="warning">⚠️ ' + vscode.l10n.t('sqlDetail.slowWarning') + '</span>' : ''}
+           ${this.query.executionTime > THRESHOLDS.SLOW_QUERY ? '<span class="warning">⚠️ ' + vscode.l10n.t('sqlDetail.slowWarning') + '</span>' : ''}
          </div>`
       : '';
 

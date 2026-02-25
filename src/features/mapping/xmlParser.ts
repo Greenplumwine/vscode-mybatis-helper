@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { XmlMapperInfo, SqlStatementInfo } from './types';
 import * as vscode from 'vscode';
+import { Logger } from '../../utils/logger';
 
 /**
  * MyBatis XML 解析器
@@ -9,7 +10,7 @@ import * as vscode from 'vscode';
 export class MyBatisXmlParser {
   private static instance: MyBatisXmlParser;
   private parser: XMLParser;
-  private logger: any;
+  private logger!: Logger;
 
   private constructor() {
     this.parser = new XMLParser({

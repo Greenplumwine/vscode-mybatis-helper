@@ -10,11 +10,12 @@
 import * as vscode from 'vscode';
 import { FastMappingEngine } from './fastMappingEngine';
 import { MyBatisXmlParser } from './xmlParser';
+import { Logger } from '../../utils/logger';
 
 export class XmlCodeLensProvider implements vscode.CodeLensProvider {
   private mappingEngine: FastMappingEngine;
   private xmlParser: MyBatisXmlParser;
-  private logger: any;
+  private logger!: Logger;
   private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
   public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
