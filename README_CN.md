@@ -458,24 +458,6 @@ MyBatis Helper 提供了灵活的配置选项，用户可以根据自己的需�
 - 说明：控制是否启用 CodeLens 功能
 - 默认值：`true`
 
-### SQL 历史记录大小
-
-- 配置项：`mybatis-helper.sqlHistorySize`
-- 说明：控制 SQL 历史记录的最大条目数
-- 默认值：`100`
-
-### 最大缓存大小
-
-- 配置项：`mybatis-helper.maxCacheSize`
-- 说明：控制文件映射缓存的最大条目数
-- 默认值：`1000`
-
-### 批量处理延迟时间
-
-- 配置项：`mybatis-helper.batchProcessDelay`
-- 说明：日志批量处理的延迟时间（毫秒）
-- 默认值：`200`
-
 ### 文件打开模式
 
 - 配置项：`mybatis-helper.fileOpenMode`

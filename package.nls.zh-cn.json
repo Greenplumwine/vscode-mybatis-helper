@@ -14,7 +14,6 @@
   "configuration.fileOpenMode.description": "在文件之间跳转时的打开模式。选项：useExisting（如果可用则使用现有标签），noSplit（始终在当前编辑器组中打开），alwaysSplit（始终在新编辑器组中打开）",
   "configuration.customXmlDirectories.description": "用于搜索 Mapper 文件的自定义 XML 目录，相对于工作区根目录。示例：[\"src/main/resources/mappers\", \"src/main/resources/xml\"]",
   "configuration.logOutputLevel.description": "插件内部日志的输出级别。选项：info（一般信息），debug（详细调试信息）",
-
   "configuration.nameMatchingRules.description": "用于将 Java Mapper 接口映射到 XML 文件的自定义名称匹配规则。规则按顺序处理，使用第一个匹配的规则",
   "configuration.nameMatchingRules.defaultMapper.name": "默认 Mapper",
   "configuration.nameMatchingRules.defaultMapper.description": "匹配 Mapper 接口的默认规则。示例：UserMapper.java -> User.xml",
@@ -32,7 +31,6 @@
   "configuration.pathPriority.enabled.description": "启用路径优先级排序，以便在搜索文件时优先考虑某些目录",
   "configuration.pathPriority.priorityDirectories.description": "具有更高优先级的目录。这些目录中的文件首先被匹配。示例：[\"/src/\", \"/main/\"]",
   "configuration.pathPriority.excludeDirectories.description": "排除在搜索之外的目录。示例：[\"/build/\", \"/target/\"]",
-
   "configuration.sqlInterceptor.listenMode.description": "选择 SQL 拦截的监听模式。'auto' 将根据 Java 调试配置自动检测。",
   "configuration.sqlInterceptor.listenMode.auto": "根据 java.debug.settings.console 配置自动检测",
   "configuration.sqlInterceptor.listenMode.debugConsole": "强制监听调试控制台",
@@ -52,8 +50,10 @@
   "configuration.sqlInterceptor.customRules.item.parametersExtractRegex.description": "用于从日志行中提取参数的正则表达式。必须有一个捕获组。示例：\"Parameters:\\\\s*(.+)\" 提取 'Parameters: ' 之后的所有内容",
   "configuration.sqlInterceptor.customRules.item.executionTimeExtractRegex.description": "用于提取执行时间的正则表达式。必须有一个毫秒的捕获组。示例：\"Executed in\\\\s*(\\\\d+)\\\\s*ms\" 提取数字",
   "configuration.sqlInterceptor.customRules.item.paramParseRegex.description": "用于解析单个参数的正则表达式。必须有两个捕获组：值和类型。默认值：\"([^\\\\(]+)\\\\(([^\\\\)]+)\\\\)\" 匹配 \"value(type)\" 格式",
-
   "view.sqlHistory.name": "SQL 历史",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "activitybar.mybatisHelper.title": "MyBatis Helper"
+  "activitybar.mybatisHelper.title": "MyBatis Helper",
+  "command.openSQLSettings.title": "打开 SQL 设置",
+  "command.showSqlDetail.title": "显示 SQL 详情",
+  "command.showSqlHistory.title": "显示 SQL 历史"
 }
