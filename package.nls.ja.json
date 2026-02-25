@@ -13,7 +13,6 @@
   "configuration.title": "MyBatis Helper設定",
   "configuration.databaseType.description": "SQLフォーマットと構文ハイライトのためのデータベースタイプ。サポートされている値：mysql, oracle, sqlserver, postgresql",
   "configuration.enableLogInterceptor.description": "SQLログインターセプターを有効にして、コンソールログからSQL文をリアルタイムでキャプチャして表示します",
-  "configuration.customLogPattern.description": "ログからSQL文を解析するためのカスタム正規表現パターン。デフォルトパターンがログ形式に一致しない場合は、これを使用してください",
   "configuration.maxHistorySize.description": "保持するSQL履歴エントリの最大数。有効範囲：10-1000",
   "configuration.showExecutionTime.description": "SQL実行時間を出力パネルに表示し、パフォーマンスボトルネックを特定するのに役立ちます",
   "configuration.batchProcessDelay.description": "ログのバッチ処理の遅延時間（ミリ秒）。応答性とパフォーマンスのバランスを調整するには、この値を調整してください",

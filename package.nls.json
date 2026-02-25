@@ -36,7 +36,6 @@
   "configuration.pathPriority.priorityDirectories.description": "Directories with higher priority. Files in these directories are matched first. Example: [\"/src/\", \"/main/\"]",
   "configuration.pathPriority.excludeDirectories.description": "Directories to exclude from search. Example: [\"/build/\", \"/target/\"]",
 
-  "configuration.customLogPattern.description": "Simplified custom log pattern using placeholders: %PREPARING% for SQL statement, %PARAMETERS% for parameters, %EXECUTION_TIME% for execution time. Example: 'Preparing: %PREPARING% Parameters: %PARAMETERS%'. This is an easier alternative to writing full regex patterns.",
   "configuration.sqlInterceptor.listenMode.description": "Select the listening mode for SQL interception. 'auto' will automatically detect based on Java debug configuration.",
   "configuration.sqlInterceptor.listenMode.auto": "Auto-detect based on java.debug.settings.console configuration",
   "configuration.sqlInterceptor.listenMode.debugConsole": "Force listen to Debug Console",

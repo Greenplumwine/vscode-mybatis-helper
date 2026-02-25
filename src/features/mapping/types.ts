@@ -75,19 +75,6 @@ export interface MapperScanConfig {
 }
 
 /**
- * 文件变更类型
- */
-export type FileChangeType = 'create' | 'change' | 'delete';
-
-/**
- * 文件变更事件接口
- */
-export interface FileChangeEvent {
-  filePath: string;
-  type: FileChangeType;
-}
-
-/**
  * 扫描进度事件接口
  */
 export interface ScanProgressEvent {
@@ -96,11 +83,4 @@ export interface ScanProgressEvent {
   currentFile?: string;
 }
 
-/**
- * 映射发现事件接口
- */
-export interface MappingFoundEvent {
-  javaPath: string;
-  xmlPath?: string;
-  className: string;
-}
+

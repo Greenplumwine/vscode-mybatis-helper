@@ -13,7 +13,6 @@
   "configuration.title": "Конфигурация MyBatis Helper",
   "configuration.databaseType.description": "Тип базы данных для форматирования SQL и подсветки синтаксиса. Поддерживаемые значения: mysql, oracle, sqlserver, postgresql",
   "configuration.enableLogInterceptor.description": "Включить перехватчик журналов SQL для реального времени захвата и отображения SQL-инструкций из журналов консоли",
-  "configuration.customLogPattern.description": "Пользовательский шаблон регулярного выражения для анализа SQL-инструкций из журналов. Используйте это, если стандартный шаблон не соответствует вашему формату журнала",
   "configuration.maxHistorySize.description": "Максимальное количество записей истории SQL для хранения. Допустимый диапазон: 10-1000",
   "configuration.showExecutionTime.description": "Показывать время выполнения SQL в панели вывода, помогая вам идентифицировать узкие места производительности",
   "configuration.batchProcessDelay.description": "Время задержки в миллисекундах для пакетной обработки журналов. Настройте это значение для баланса между отзывчивостью и производительностью",

@@ -174,14 +174,3 @@ export interface ParsedLogLine {
   executionTime?: number;
 }
 
-/**
- * SQL 拦截器事件
- */
-export interface SQLInterceptorEvents {
-  /** 有新的 SQL 记录 */
-  onSQLRecorded: (query: SQLQueryRecord) => void;
-  /** SQL 历史被清除 */
-  onHistoryCleared: () => void;
-  /** 拦截器状态改变 */
-  onStateChanged: (enabled: boolean) => void;
-}

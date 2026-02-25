@@ -13,7 +13,6 @@
   "configuration.title": "MyBatis Helper 配置",
   "configuration.databaseType.description": "用於 SQL 格式化和語法高亮的數據庫類型。支持的值：mysql, oracle, sqlserver, postgresql",
   "configuration.enableLogInterceptor.description": "啟用 SQL 日誌攔截器，實時捕獲和顯示控制台日誌中的 SQL 語句",
-  "configuration.customLogPattern.description": "用於解析日誌中 SQL 語句的自定義正則表達式模式。如果默認模式不匹配您的日誌格式，請使用此選項",
   "configuration.maxHistorySize.description": "保留的 SQL 歷史記錄最大條數。有效範圍：10-1000",
   "configuration.showExecutionTime.description": "在輸出面板中顯示 SQL 執行時間，幫助您識別性能瓶頸",
   "configuration.batchProcessDelay.description": "批處理日誌的延遲時間（毫秒）。調整此值以平衡響應性和性能",

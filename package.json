@@ -291,11 +291,6 @@
           },
           "description": "%configuration.sqlInterceptor.builtinRules.description%"
         },
-        "mybatis-helper.customLogPattern": {
-          "type": "string",
-          "default": "",
-          "description": "%configuration.customLogPattern.description%"
-        },
         "mybatis-helper.sqlInterceptor.customRules": {
           "type": "array",
           "default": [],

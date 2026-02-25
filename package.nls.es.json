@@ -13,7 +13,6 @@
   "configuration.title": "Configuración de MyBatis Helper",
   "configuration.databaseType.description": "Tipo de base de datos para formateo y resaltado de sintaxis SQL. Valores admitidos: mysql, oracle, sqlserver, postgresql",
   "configuration.enableLogInterceptor.description": "Habilitar el interceptor de registro SQL para capturar y mostrar sentencias SQL de los registros de consola en tiempo real",
-  "configuration.customLogPattern.description": "Patrón de expresión regular personalizado para analizar sentencias SQL desde los registros. Usa esto si el patrón predeterminado no coincide con tu formato de registro",
   "configuration.maxHistorySize.description": "Número máximo de entradas de historial SQL para mantener. Rango válido: 10-1000",
   "configuration.showExecutionTime.description": "Mostrar tiempo de ejecución SQL en el panel de salida, ayudándote a identificar cuellos de botella de rendimiento",
   "configuration.batchProcessDelay.description": "Tiempo de retardo en milisegundos para el procesamiento por lotes de registros. Ajusta este valor para equilibrar entre capacidad de respuesta y rendimiento",

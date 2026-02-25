@@ -109,9 +109,9 @@ export class SQLInterceptorService {
     const workspaceConfig = vscode.workspace.getConfiguration('mybatis-helper');
     
     return {
-      enabled: workspaceConfig.get('enableLogInterceptor', true),
-      maxHistorySize: workspaceConfig.get('maxHistorySize', 100),
-      showExecutionTime: workspaceConfig.get('showExecutionTime', true),
+      enabled: workspaceConfig.get('sqlInterceptor.enabled', true),
+      maxHistorySize: workspaceConfig.get('sqlInterceptor.maxHistorySize', 500),
+      showExecutionTime: workspaceConfig.get('sqlInterceptor.showExecutionTime', true),
       databaseType: workspaceConfig.get('databaseType', 'mysql'),
       customRules: workspaceConfig.get('sqlInterceptor.customRules', []),
       builtinRules: {},
@@ -169,9 +169,9 @@ export class SQLInterceptorService {
     const workspaceConfig = vscode.workspace.getConfiguration('mybatis-helper');
     
     this.config = {
-      enabled: workspaceConfig.get('enableLogInterceptor', true),
-      maxHistorySize: workspaceConfig.get('maxHistorySize', 100),
-      showExecutionTime: workspaceConfig.get('showExecutionTime', true),
+      enabled: workspaceConfig.get('sqlInterceptor.enabled', true),
+      maxHistorySize: workspaceConfig.get('sqlInterceptor.maxHistorySize', 500),
+      showExecutionTime: workspaceConfig.get('sqlInterceptor.showExecutionTime', true),
       databaseType: workspaceConfig.get('databaseType', 'mysql'),
       customRules: workspaceConfig.get('sqlInterceptor.customRules', []),
       builtinRules: workspaceConfig.get('sqlInterceptor.builtinRules', {}),
@@ -191,7 +191,7 @@ export class SQLInterceptorService {
   }
 
   /**
-   * 获取所有可用的规则（内置 + 自定义 + 从 customLogPattern 转换的规则）
+   * 获取所有可用的规则（内置 + 自定义）
    */
   public getAllRules(): SQLInterceptorRule[] {
     const builtinEnabled = BUILTIN_RULES.map(rule => ({
@@ -199,99 +199,9 @@ export class SQLInterceptorService {
       enabled: this.config.builtinRules[rule.name] !== false // 默认启用
     }));
     
-    // 转换 customLogPattern 为规则（向后兼容）
-    const patternRules = this.convertLogPatternToRules();
-    
-    return [...builtinEnabled, ...this.config.customRules, ...patternRules];
+    return [...builtinEnabled, ...this.config.customRules];
   }
 
-  /**
-   * 将 customLogPattern 转换为 SQLInterceptorRule
-   * 支持占位符：
-   * - %PREPARING% - SQL 准备语句
-   * - %PARAMETERS% - 参数列表
-   * - %EXECUTION_TIME% - 执行时间（毫秒）
-   * - %SQL% - 简写，等同于 %PREPARING%
-   * 
-   * 例如：
-   * - "Preparing: %PREPARING%"
-   * - "Parameters: %PARAMETERS%, Time: %EXECUTION_TIME%ms"
-   * - "%PREPARING% | %PARAMETERS%"
-   */
-  private convertLogPatternToRules(): SQLInterceptorRule[] {
-    const workspaceConfig = vscode.workspace.getConfiguration('mybatis-helper');
-    const customLogPattern = workspaceConfig.get<string>('customLogPattern', '');
-    
-    if (!customLogPattern) {
-      return [];
-    }
-
-    try {
-      logger.info(`[SQLInterceptor] Converting customLogPattern: ${customLogPattern}`);
-
-      // 构建各个部分的正则
-      let sqlExtractPattern = '';
-      let paramsExtractPattern = '';
-      let timeExtractPattern = '';
-
-      // 处理 %PREPARING% / %SQL% 占位符
-      let processedPattern = customLogPattern
-        .replace(/%SQL%/gi, '%PREPARING%')
-        .replace(/%PREPARING%/gi, '(.*Preparing.*)');
-
-      // 处理 %PARAMETERS% 占位符
-      processedPattern = processedPattern
-        .replace(/%PARAMETERS%/gi, '(.*Parameters.*)');
-
-      // 处理 %EXECUTION_TIME% 占位符
-      processedPattern = processedPattern
-        .replace(/%EXECUTION_TIME%/gi, '(\\d+)');
-
-      // 提取 SQL 提取正则（查找 Preparing: 后的内容）
-      if (customLogPattern.match(/%PREPARING%|%SQL%/i)) {
-        sqlExtractPattern = '[Pp]reparing[:：]?\\s*(.+)';
-      }
-
-      // 提取参数正则（查找 Parameters: 后的内容）
-      if (customLogPattern.match(/%PARAMETERS%/i)) {
-        paramsExtractPattern = '[Pp]arameters[:：]?\\s*(.+)';
-      }
-
-      // 提取执行时间正则
-      if (customLogPattern.match(/%EXECUTION_TIME%/i)) {
-        timeExtractPattern = '(\\d+)';
-      }
-
-      // 构建行匹配正则：使用处理后的模式，并添加不区分大小写标志
-      // 将用户输入中的特殊字符转义，但保留我们替换的捕获组
-      const lineMatchRegex = processedPattern
-        .replace(/\(\.\*Preparing\.\*\)/g, '.*Preparing.*')
-        .replace(/\(\.\*Parameters\.\*\)/g, '.*Parameters.*')
-        .replace(/\(\\\\d\+\)/g, '\\d+')
-        .replace(/([.*+?^${}()|[\]\\])/g, '\\$1');
-
-      const rule: SQLInterceptorRule = {
-        name: 'custom-log-pattern',
-        enabled: true,
-        description: `Custom pattern: ${customLogPattern}`,
-        lineMatchRegex: lineMatchRegex,
-        sqlExtractRegex: sqlExtractPattern,
-        parametersExtractRegex: paramsExtractPattern,
-        executionTimeExtractRegex: timeExtractPattern,
-        paramParseRegex: '([^,（(]+)(?:\\(|（)([^)）]+)(?:\\)|）)',
-        singleLineMode: true,
-      };
-
-      logger.info(`[SQLInterceptor] Generated rule:`, rule);
-      return [rule];
-    } catch (error) {
-      logger.error('[SQLInterceptor] Failed to convert customLogPattern:', error as Error);
-      vscode.window.showWarningMessage(
-        `Invalid customLogPattern: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return [];
-    }
-  }
 
   /**
    * 根据名称获取规则

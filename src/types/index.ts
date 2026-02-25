@@ -3,19 +3,6 @@
  */
 
 /**
- * 日志条目接口
- * 用于存储拦截到的SQL日志信息
- */
-export interface LogEntry {
-	/** 日志记录时间 */
-	timestamp: Date;
-	/** 日志类型 */
-	type: "preparing" | "parameters" | "executed" | "other";
-	/** 日志内容 */
-	content: string;
-}
-
-/**
  * SQL查询接口
  * 用于存储完整的SQL查询信息，包括准备语句、参数、执行时间等
  */
@@ -47,30 +34,6 @@ export interface SQLQuery {
 	processedAt?: string;
 	/** 执行错误信息 */
 	error?: string;
-}
-
-/**
- * SQL历史记录接口
- * 用于存储SQL查询历史
- */
-export interface SQLHistory {
-	/** SQL查询列表 */
-	queries: SQLQuery[];
-	/** 最后更新时间 */
-	lastUpdated: Date;
-}
-
-/**
- * 文件映射接口
- * 用于存储Java Mapper接口和XML文件之间的映射关系
- */
-export interface FileMapping {
-	/** Java Mapper文件路径 */
-	mapperPath: string;
-	/** XML文件路径 */
-	xmlPath: string;
-	/** 最后更新时间 */
-	lastUpdated: Date;
 }
 
 /**
@@ -150,10 +113,6 @@ export interface PluginConfig {
 	fileOpenMode: FileOpenMode;
 	/** 日志输出级别 */
 	logOutputLevel: 'debug' | 'info' | 'warn' | 'error';
-	/** 是否启用日志拦截 */
-	enableLogInterceptor: boolean;
-	/** 自定义日志模式 */
-	customLogPattern: string;
 	/** 最大历史记录大小 */
 	maxHistorySize: number;
 	/** 是否显示执行时间 */

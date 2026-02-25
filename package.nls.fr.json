@@ -13,7 +13,6 @@
   "configuration.title": "Configuration MyBatis Helper",
   "configuration.databaseType.description": "Type de base de données pour le formatage SQL et la coloration syntaxique. Valeurs prises en charge : mysql, oracle, sqlserver, postgresql",
   "configuration.enableLogInterceptor.description": "Activer l'intercepteur de logs SQL pour capturer et afficher les instructions SQL des logs de console en temps réel",
-  "configuration.customLogPattern.description": "Modèle d'expression régulière personnalisé pour analyser les instructions SQL à partir des logs. Utilisez ceci si le modèle par défaut ne correspond pas à votre format de log",
   "configuration.maxHistorySize.description": "Nombre maximum d'entrées d'historique SQL à conserver. Plage valide : 10-1000",
   "configuration.showExecutionTime.description": "Afficher le temps d'exécution SQL dans le panneau de sortie, vous aidant à identifier les goulots d'étranglement de performance",
   "configuration.batchProcessDelay.description": "Délai en millisecondes pour le traitement par lots des logs. Ajustez cette valeur pour équilibrer réactivité et performance",

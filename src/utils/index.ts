@@ -32,8 +32,6 @@ export function getPluginConfig(): PluginConfig {
 		customXmlDirectories: config.get<string[]>('customXmlDirectories') || [],
 		fileOpenMode: (config.get<string>('fileOpenMode') || 'useExisting') as FileOpenMode,
 		logOutputLevel: config.get<'debug' | 'info' | 'warn' | 'error'>('logOutputLevel') || 'info',
-		enableLogInterceptor: config.get<boolean>('enableLogInterceptor') || false,
-		customLogPattern: config.get<string>('customLogPattern') || '',
 		maxHistorySize: config.get<number>('maxHistorySize') || 100,
 		showExecutionTime: config.get<boolean>('showExecutionTime') || false,
 		nameMatchingRules,
