@@ -94,20 +94,38 @@
         "title": "%command.resumeSQLInterceptor.title%",
         "category": "MyBatis Helper",
         "icon": "$(play)"
+      },
+      {
+        "command": "mybatis-helper.generateXmlMethod",
+        "title": "%command.generateXmlMethod.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(add)"
+      },
+      {
+        "command": "mybatis-helper.createMapperXml",
+        "title": "%command.createMapperXml.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(new-file)"
       }
     ],
     "keybindings": [
       {
         "command": "mybatis-helper.jumpToXml",
-        "key": "alt+x",
-        "mac": "cmd+shift+x",
-        "when": "editorFocus && resourceExtname == '.java'"
+        "key": "ctrl+alt+j",
+        "mac": "ctrl+option+j",
+        "when": "editorTextFocus && editorLangId == 'java'"
       },
       {
         "command": "mybatis-helper.jumpToMapper",
-        "key": "alt+m",
-        "mac": "cmd+shift+m",
-        "when": "editorFocus && resourceExtname == '.xml'"
+        "key": "ctrl+alt+x",
+        "mac": "ctrl+option+x",
+        "when": "editorTextFocus && (editorLangId == 'xml' || editorLangId == 'mybatis-xml')"
+      },
+      {
+        "command": "mybatis-helper.generateXmlMethod",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus && editorLangId == 'java'"
       }
     ],
     "configuration": {
@@ -343,9 +361,78 @@
             ]
           },
           "description": "%configuration.sqlInterceptor.customRules.description%"
+        },
+        "mybatis-helper.formatting.sql.dialect": {
+          "type": "string",
+          "default": "mysql",
+          "enum": [
+            "mysql",
+            "postgresql",
+            "oracle",
+            "sqlite",
+            "tsql",
+            "db2"
+          ],
+          "enumDescriptions": [
+            "MySQL/MariaDB",
+            "PostgreSQL",
+            "Oracle",
+            "SQLite",
+            "SQL Server (T-SQL)",
+            "DB2"
+          ],
+          "description": "SQL dialect for formatting"
+        },
+        "mybatis-helper.formatting.sql.keywordCase": {
+          "type": "string",
+          "default": "upper",
+          "enum": [
+            "upper",
+            "lower",
+            "preserve"
+          ],
+          "enumDescriptions": [
+            "Convert keywords to UPPERCASE",
+            "Convert keywords to lowercase",
+            "Preserve original case"
+          ],
+          "description": "Case for SQL keywords in formatting"
+        },
+        "mybatis-helper.formatting.sql.maxLineLength": {
+          "type": "number",
+          "default": 120,
+          "minimum": 40,
+          "maximum": 500,
+          "description": "Maximum line length for SQL formatting"
+        },
+        "mybatis-helper.completion.enableSmartCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable smart SQL completion in MyBatis XML files"
         }
       }
     },
+    "languages": [
+      {
+        "id": "mybatis-xml",
+        "aliases": [
+          "MyBatis XML",
+          "mybatis-xml"
+        ],
+        "extensions": [
+          ".xml"
+        ],
+        "firstLine": "^\\s*<[\\?\\!]\\s*DOCTYPE\\s+mapper",
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mybatis-xml",
+        "scopeName": "text.xml.mybatis",
+        "path": "./syntaxes/mybatis-xml.tmLanguage.json"
+      }
+    ],
     "views": {
       "mybatisHelperView": [
         {
@@ -367,6 +454,20 @@
       ]
     },
     "menus": {
+      "explorer/context": [
+        {
+          "command": "mybatis-helper.createMapperXml",
+          "when": "resourceExtname == .java",
+          "group": "2_workspace@5"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mybatis-helper.generateXmlMethod",
+          "when": "editorLangId == java",
+          "group": "2_mybatis@1"
+        }
+      ],
       "view/title": [
         {
           "command": "mybatis-helper.refreshSQLHistory",
@@ -418,6 +519,9 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.3.4"
+    "axios": "^1.13.6",
+    "fast-xml-parser": "^5.3.4",
+    "sql-formatter": "^15.7.2",
+    "xml-formatter": "^3.6.7"
   }
 }

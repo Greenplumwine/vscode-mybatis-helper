@@ -56,5 +56,7 @@
   "activitybar.mybatisHelper.title": "MyBatis Helper",
   "command.openSQLSettings.title": "打开 SQL 设置",
   "command.showSqlDetail.title": "显示 SQL 详情",
-  "command.showSqlHistory.title": "显示 SQL 历史"
+  "command.showSqlHistory.title": "显示 SQL 历史",
+  "command.generateXmlMethod.title": "生成 XML 方法",
+  "command.createMapperXml.title": "创建 Mapper XML"
 }

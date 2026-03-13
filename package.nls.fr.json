@@ -64,5 +64,7 @@
   "configuration.sqlInterceptor.listenMode.description": "Sélectionnez le mode d'écoute pour l'interception SQL.",
   "configuration.sqlInterceptor.listenMode.terminal": "Forcer l'écoute du Terminal",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "view.sqlHistory.name": "Historique SQL"
+  "view.sqlHistory.name": "Historique SQL",
+  "command.createMapperXml.title": "Créer XML Mapper",
+  "command.generateXmlMethod.title": "Générer Méthode XML"
 }

@@ -123,8 +123,8 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
     ): Promise<vscode.CompletionItem[] | undefined> {
         try {
             logger.debug(`[provideCompletionItems] Called with context: ${JSON.stringify(context)}`);
-            // Only provide completion for XML files
-            if (document.languageId !== 'xml') {
+            // Only provide completion for XML files (including mybatis-xml)
+            if (document.languageId !== 'xml' && document.languageId !== 'mybatis-xml') {
                 logger.debug(`[provideCompletionItems] Skipping non-XML file: ${document.languageId}`);
                 return undefined;
             }
@@ -138,10 +138,9 @@ export class SQLCompletionProvider implements vscode.CompletionItemProvider {
             logger.debug(`[provideCompletionItems] Line prefix: ${linePrefix}`);
 
             // Check if we're typing a parameter (starting with # or $ or #{ or ${)
-            // Match # or $ to trigger completion early, regardless of cursor position
-            // Enhanced regex to match more cases - match # or $ followed by optional { or end of line
-            // Support various parameter formats like: #, $, #{, ${, #{param, #{param,jdbcType=VARCHAR, #{param,jdbcType=VARCHAR,typeHandler=MyTypeHandler
-            const parameterMatch = linePrefix.match(/([#$])(?:\{([^},]*)?(?:,\s*[^},]*)*)?$/);
+            // Support formats: #, $, #{, ${, #{param, #{param,jdbcType=VARCHAR
+            // Match # or $ at end of line prefix, optionally followed by { and parameter name
+            const parameterMatch = linePrefix.match(/.*([#$])(?:\{([^}]*)?)?$/);
             if (!parameterMatch) {
                 logger.debug(`[provideCompletionItems] Not typing a parameter, linePrefix: '${linePrefix}'`);
                 return undefined;

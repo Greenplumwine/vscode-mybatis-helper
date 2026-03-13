@@ -115,5 +115,27 @@
   "status.fileWatchingStarted": "檔案監視已啟動",
   "status.javaApiNotReady": "Java API 未就緒",
   "status.javaExtensionNotFound": "未找到 Java 擴充功能",
-  "warning.notMyBatisMapper": "當前檔案不是 MyBatis Mapper 介面"
+  "warning.notMyBatisMapper": "當前檔案不是 MyBatis Mapper 介面",
+  
+  "command.generateXmlMethod.title": "生成 XML 方法",
+  "command.createMapperXml.title": "創建 Mapper XML",
+  
+  "generateXmlMethod.noActiveEditor": "沒有活動的編輯器",
+  "generateXmlMethod.noMethodSelected": "無法確定要生成的方法",
+  "generateXmlMethod.methodExists": "方法 \"{methodName}\" 已存在於 XML 中",
+  "generateXmlMethod.noMapperFound": "未找到 Mapper XML 檔案。是否創建新的 XML 檔案？",
+  "generateXmlMethod.generated": "已生成 XML 方法：{methodName}",
+  "generateXmlMethod.failed": "生成 XML 方法失敗：{error}",
+  "generateXmlMethod.created": "已創建 Mapper XML：{xmlPath}",
+  
+  "createMapperXml.noJavaFile": "請選擇 Java 檔案",
+  "createMapperXml.notMapper": "這似乎不是 Mapper 介面。是否繼續？",
+  "createMapperXml.fileExists": "檔案 {fileName} 已存在。是否覆蓋？",
+  "createMapperXml.created": "已創建 Mapper XML：{fileName}",
+  "createMapperXml.failed": "創建 Mapper XML 失敗：{error}",
+  
+  "quickPick.yes": "是",
+  "quickPick.no": "否",
+  "quickPick.overwrite": "覆蓋",
+  "quickPick.cancel": "取消"
 }

@@ -22,6 +22,29 @@ import { SQLCompletionProvider } from "./features/sql-completion/sqlCompletionPr
 import { JavaExtensionAPI } from "./utils/javaExtensionAPI";
 import { Logger } from "./utils/logger";
 
+// Phase 1: 导入基础服务层
+import {
+  TagHierarchyResolver,
+  MyBatisXmlParser,
+  JavaMethodParser,
+  LanguageDetector
+} from "./services";
+
+// Phase 2: 导入新的智能补全模块
+import {
+  UnifiedCompletionProvider,
+  TagCompletionProvider
+} from "./features/completion";
+
+// Phase 2: 导入嵌套格式化模块
+import { NestedFormattingProvider } from "./features/formatting";
+
+// Phase 2: 导入命令
+import {
+  generateXmlMethodCommand,
+  createMapperXmlCommand
+} from "./commands";
+
 // 导入高性能新架构组件
 import {
   FastScanner,
@@ -67,6 +90,14 @@ let fastCodeLensProvider: FastCodeLensProvider | undefined;
 /** XML CodeLens提供器 */
 let xmlCodeLensProvider: XmlCodeLensProvider | undefined;
 
+// ========== Phase 2: 新增组件 ==========
+/** 统一智能补全提供器 */
+let unifiedCompletionProvider: UnifiedCompletionProvider | undefined;
+/** 标签补全提供器 */
+let tagCompletionProvider: TagCompletionProvider | undefined;
+/** 嵌套格式化提供器 */
+let nestedFormattingProvider: NestedFormattingProvider | undefined;
+
 // 文件监听防抖定时器
 const debounceTimers = new Map<string, NodeJS.Timeout>();
 const DEBOUNCE_DELAY = 300;
@@ -82,6 +113,11 @@ let fileWatcherStarted = false;
 export function activate(context: vscode.ExtensionContext) {
   logger = Logger.getInstance();
   logger.info(vscode.l10n.t("extension.activating"));
+
+  // Phase 1: 初始化基础服务层
+  initializeBaseServices(context).catch(error => {
+    logger.error('Phase 1: Failed to initialize base services:', error);
+  });
 
   // 设置激活状态，让 view container 显示
   vscode.commands.executeCommand('setContext', 'mybatis-helper.activated', true);
@@ -652,16 +688,63 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 
   // 防止 Provider 重复注册
   if (!providersRegistered) {
-    // 注册 SQL 补全提供器
-    if (!sqlCompletionProvider && fileMapper) {
-      sqlCompletionProvider = new SQLCompletionProvider(fileMapper);
-      const completionRegistration = vscode.languages.registerCompletionItemProvider(
-        ["xml"],
-        sqlCompletionProvider,
-        "#",
-        "$"
+    // Phase 2: 注册新的统一智能补全提供器（替换旧的 SQLCompletionProvider）
+    if (!unifiedCompletionProvider) {
+      // 使用基础服务层的解析器
+      const javaParser = JavaMethodParser.getInstance();
+      const xmlParser = MyBatisXmlParser.getInstance();
+      
+      unifiedCompletionProvider = new UnifiedCompletionProvider(
+        javaParser,
+        xmlParser
       );
-      context.subscriptions.push(completionRegistration);
+      
+      // 注册到 mybatis-xml 语言
+      // 注意：UnifiedCompletionProvider 和 TagCompletionProvider 触发字符不冲突
+      // - UnifiedCompletionProvider: #, $, { 等（用于参数补全）
+      // - TagCompletionProvider: <, 空格, 字母等（用于标签补全）
+      const unifiedCompletionRegistration = vscode.languages.registerCompletionItemProvider(
+        [
+          { language: "mybatis-xml" },
+          { scheme: "file", pattern: "**/*.xml" }
+        ],
+        unifiedCompletionProvider,
+        ...unifiedCompletionProvider.triggerCharacters
+      );
+      context.subscriptions.push(unifiedCompletionRegistration);
+      
+      logger.info('[Extension] Unified completion provider registered');
+    }
+    
+    // Phase 2: 注册标签补全提供器
+    if (!tagCompletionProvider) {
+      tagCompletionProvider = new TagCompletionProvider();
+      const tagCompletionRegistration = vscode.languages.registerCompletionItemProvider(
+        [
+          { language: "mybatis-xml" },
+          { scheme: "file", pattern: "**/*.xml" }
+        ],
+        tagCompletionProvider,
+        ...TagCompletionProvider.triggerCharacters
+      );
+      context.subscriptions.push(tagCompletionRegistration);
+      
+      logger.info('[Extension] Tag completion provider registered');
+    }
+    
+    // Phase 2: 注册嵌套格式化提供器
+    if (!nestedFormattingProvider) {
+      nestedFormattingProvider = new NestedFormattingProvider();
+      const formattingRegistration = vscode.languages.registerDocumentFormattingEditProvider(
+        [
+          { language: "mybatis-xml" },
+          { scheme: "file", pattern: "**/*.xml" }
+        ],
+        nestedFormattingProvider
+      );
+      context.subscriptions.push(formattingRegistration);
+      
+      logger.info('[Extension] Nested formatting provider registered');
     }
 
     providersRegistered = true;
@@ -727,15 +810,27 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
             targetSqlId = sqlId;
           } else {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== "xml") {
+            if (!editor) {
+              vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.noActiveEditor"));
+              return;
+            }
+            
+            // 支持 XML 文件和 MyBatis Mapper 文件类型
+            const isXmlFile = editor.document.languageId === "xml" || 
+                              editor.document.fileName.toLowerCase().endsWith('.xml');
+            if (!isXmlFile) {
               vscode.window.showInformationMessage(vscode.l10n.t("fileMapper.notXmlFile"));
               return;
             }
+            
             targetPath = editor.document.uri.fsPath;
+            logger.debug(`[jumpToMapper] Target XML file: ${targetPath}`);
+            
             // 获取当前 SQL ID
             const position = editor.selection.active;
             const navInfo = await navigationService.getNavigationInfo(editor.document, position);
             targetSqlId = navInfo.methodName;
+            logger.debug(`[jumpToMapper] SQL ID: ${targetSqlId}`);
           }
 
           const success = await navigationService.navigateXmlToJava(targetPath, targetSqlId);
@@ -889,6 +984,22 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
+    // Phase 2: 生成 XML 方法命令
+    const generateXmlMethodCmd = vscode.commands.registerCommand(
+      "mybatis-helper.generateXmlMethod",
+      async (args?: { javaPath?: string; methodName?: string }) => {
+        await generateXmlMethodCommand.execute(args);
+      }
+    );
+
+    // Phase 2: 快速创建 Mapper XML 命令
+    const createMapperXmlCmd = vscode.commands.registerCommand(
+      "mybatis-helper.createMapperXml",
+      async (uri?: vscode.Uri) => {
+        await createMapperXmlCommand.execute(uri);
+      }
+    );
+
     context.subscriptions.push(
       jumpToXmlCommand,
       jumpToMapperCommand,
@@ -900,7 +1011,9 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       copySqlFromTreeCommand,
       openSQLSettingsCommand,
       refreshSQLHistoryCommand,
-      diagnoseCommand
+      diagnoseCommand,
+      generateXmlMethodCmd,
+      createMapperXmlCmd
     );
 
     // 设置 SQL 拦截器运行状态上下文变量（用于控制 TreeView 按钮显示）
@@ -936,6 +1049,37 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
     );
 
     commandsRegistered = true;
+  }
+}
+
+/**
+ * Phase 1: 初始化基础服务层
+ * 包括 LanguageDetector, JavaMethodParser, MyBatisXmlParser, TagHierarchyResolver
+ */
+async function initializeBaseServices(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    logger?.info('Phase 1: Initializing base services...');
+
+    // 1. 初始化语言检测服务（单例，首次调用时初始化）
+    LanguageDetector.getInstance();
+    logger?.debug('Phase 1: LanguageDetector initialized');
+
+    // 2. 初始化 DTD 标签层次解析服务（使用正确的缓存目录）
+    const tagHierarchyResolver = TagHierarchyResolver.getInstance();
+    await tagHierarchyResolver.initialize(context.globalStorageUri.fsPath);
+    logger?.debug('Phase 1: TagHierarchyResolver initialized');
+
+    // 3. 初始化 MyBatis XML 解析服务（包含 DTD 解析）
+    const mybatisXmlParser = MyBatisXmlParser.getInstance();
+    await mybatisXmlParser.initializeTagHierarchy();
+    logger?.debug('Phase 1: MyBatisXmlParser initialized');
+
+    // 4. JavaMethodParser 是按需初始化的，无需显式初始化
+    logger?.debug('Phase 1: JavaMethodParser ready (lazy initialization)');
+
+    logger?.info('Phase 1: All base services initialized successfully');
+  } catch (error) {
+    logger?.error('Phase 1: Failed to initialize base services:', error);
   }
 }
 

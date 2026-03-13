@@ -115,5 +115,27 @@
   "status.javaExtensionNotFound": "未找到 Java 扩展",
   "status.mappingsComplete": "映射完成",
   "status.nonJavaProject": "当前项目不是 Java 项目",
-  "warning.notMyBatisMapper": "无法识别为 MyBatis Mapper 文件"
+  "warning.notMyBatisMapper": "无法识别为 MyBatis Mapper 文件",
+  
+  "command.generateXmlMethod.title": "生成 XML 方法",
+  "command.createMapperXml.title": "创建 Mapper XML",
+  
+  "generateXmlMethod.noActiveEditor": "没有活动的编辑器",
+  "generateXmlMethod.noMethodSelected": "无法确定要生成的方法",
+  "generateXmlMethod.methodExists": "方法 \"{methodName}\" 已存在于 XML 中",
+  "generateXmlMethod.noMapperFound": "未找到 Mapper XML 文件。是否创建新的 XML 文件？",
+  "generateXmlMethod.generated": "已生成 XML 方法：{methodName}",
+  "generateXmlMethod.failed": "生成 XML 方法失败：{error}",
+  "generateXmlMethod.created": "已创建 Mapper XML：{xmlPath}",
+  
+  "createMapperXml.noJavaFile": "请选择 Java 文件",
+  "createMapperXml.notMapper": "这似乎不是 Mapper 接口。是否继续？",
+  "createMapperXml.fileExists": "文件 {fileName} 已存在。是否覆盖？",
+  "createMapperXml.created": "已创建 Mapper XML：{fileName}",
+  "createMapperXml.failed": "创建 Mapper XML 失败：{error}",
+  
+  "quickPick.yes": "是",
+  "quickPick.no": "否",
+  "quickPick.overwrite": "覆盖",
+  "quickPick.cancel": "取消"
 }

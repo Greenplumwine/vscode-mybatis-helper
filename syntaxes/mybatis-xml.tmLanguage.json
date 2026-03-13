@@ -1,0 +1,172 @@
+{
+  "name": "MyBatis XML",
+  "scopeName": "text.xml.mybatis",
+  "fileTypes": ["xml"],
+  "patterns": [
+    {"include": "text.xml"},
+    {"include": "#mybatis-tags"}
+  ],
+  "repository": {
+    "mybatis-tags": {
+      "patterns": [
+        {
+          "comment": "MyBatis mapper tag",
+          "begin": "(<)(mapper)",
+          "beginCaptures": {
+            "1": {"name": "punctuation.definition.tag.begin.xml"},
+            "2": {"name": "entity.name.tag.xml.mybatis mapper"}
+          },
+          "end": "(/?>)",
+          "endCaptures": {"1": {"name": "punctuation.definition.tag.end.xml"}},
+          "patterns": [{"include": "#mybatis-attributes"}]
+        },
+        {
+          "comment": "MyBatis select/insert/update/delete tags",
+          "begin": "(<)(select|insert|update|delete)",
+          "beginCaptures": {
+            "1": {"name": "punctuation.definition.tag.begin.xml"},
+            "2": {"name": "entity.name.tag.xml.mybatis sql-statement"}
+          },
+          "end": "(/?>)",
+          "endCaptures": {"1": {"name": "punctuation.definition.tag.end.xml"}},
+          "patterns": [{"include": "#sql-attributes"}]
+        },
+        {
+          "comment": "MyBatis dynamic SQL tags",
+          "begin": "(<)(if|choose|when|otherwise|where|set|foreach|trim|bind|include|sql|resultMap|association|collection)",
+          "beginCaptures": {
+            "1": {"name": "punctuation.definition.tag.begin.xml"},
+            "2": {"name": "entity.name.tag.xml.mybatis dynamic-sql"}
+          },
+          "end": "(/?>)",
+          "endCaptures": {"1": {"name": "punctuation.definition.tag.end.xml"}},
+          "patterns": [{"include": "#mybatis-attributes"}]
+        },
+        {
+          "comment": "MyBatis closing tags",
+          "match": "(</)(mapper|select|insert|update|delete|if|choose|when|otherwise|where|set|foreach|trim|bind|include|sql|resultMap|association|collection)(>)",
+          "captures": {
+            "1": {"name": "punctuation.definition.tag.begin.xml"},
+            "2": {"name": "entity.name.tag.xml.mybatis"},
+            "3": {"name": "punctuation.definition.tag.end.xml"}
+          }
+        },
+        {
+          "comment": "MyBatis parameter placeholders",
+          "match": "(#{[^}]*})",
+          "captures": {"1": {"name": "variable.parameter.mybatis placeholder"}}
+        },
+        {
+          "comment": "MyBatis variable placeholders",
+          "match": "(\\${[^}]*})",
+          "captures": {"1": {"name": "variable.other.mybatis variable"}}
+        },
+        {
+          "comment": "SQL comments",
+          "match": "(--.*$)",
+          "name": "comment.line.sql"
+        },
+        {
+          "comment": "SQL keywords",
+          "match": "(?i)\\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|AND|OR|NOT|NULL|IS|IN|EXISTS|BETWEEN|LIKE|AS|ON|JOIN|INNER|LEFT|RIGHT|OUTER|CROSS|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MAX|MIN|CASE|WHEN|THEN|ELSE|END)\\b",
+          "name": "keyword.control.sql"
+        },
+        {
+          "comment": "SQL data types",
+          "match": "(?i)\\b(VARCHAR|CHAR|TEXT|INT|INTEGER|BIGINT|SMALLINT|TINYINT|DECIMAL|NUMERIC|FLOAT|DOUBLE|REAL|DATE|TIME|DATETIME|TIMESTAMP|BOOLEAN|BLOB|CLOB)\\b",
+          "name": "support.type.sql"
+        },
+        {
+          "comment": "SQL functions",
+          "match": "(?i)\\b(CONCAT|SUBSTRING|LENGTH|UPPER|LOWER|TRIM|REPLACE|NOW|CURRENT_DATE|CURRENT_TIME|CURRENT_TIMESTAMP|DATE_FORMAT|STR_TO_DATE|IFNULL|COALESCE|CAST|CONVERT)\\b",
+          "name": "support.function.sql"
+        },
+        {
+          "comment": "SQL string literals",
+          "begin": "'",
+          "end": "'",
+          "name": "string.quoted.single.sql",
+          "patterns": [{"match": "\\'", "name": "constant.character.escape.sql"}]
+        },
+        {
+          "comment": "SQL number literals",
+          "match": "\\b\\d+(\\.\\d+)?\\b",
+          "name": "constant.numeric.sql"
+        }
+      ]
+    },
+    "mybatis-attributes": {
+      "patterns": [
+        {
+          "comment": "MyBatis namespace attribute",
+          "match": "(namespace)(=)([\"'])([^\"]*)([\"'])",
+          "captures": {
+            "1": {"name": "entity.other.attribute-name.xml"},
+            "2": {"name": "punctuation.separator.key-value.xml"},
+            "3": {"name": "punctuation.definition.string.begin.xml"},
+            "4": {"name": "string.quoted.double.xml.mybatis namespace"},
+            "5": {"name": "punctuation.definition.string.end.xml"}
+          }
+        },
+        {
+          "comment": "MyBatis id attribute",
+          "match": "(id)(=)([\"'])([^\"]*)([\"'])",
+          "captures": {
+            "1": {"name": "entity.other.attribute-name.xml"},
+            "2": {"name": "punctuation.separator.key-value.xml"},
+            "3": {"name": "punctuation.definition.string.begin.xml"},
+            "4": {"name": "string.quoted.double.xml.mybatis id"},
+            "5": {"name": "punctuation.definition.string.end.xml"}
+          }
+        },
+        {
+          "comment": "MyBatis resultType/parameterType attribute",
+          "match": "(resultType|parameterType)(=)([\"'])([^\"]*)([\"'])",
+          "captures": {
+            "1": {"name": "entity.other.attribute-name.xml"},
+            "2": {"name": "punctuation.separator.key-value.xml"},
+            "3": {"name": "punctuation.definition.string.begin.xml"},
+            "4": {"name": "string.quoted.double.xml.mybatis type"},
+            "5": {"name": "punctuation.definition.string.end.xml"}
+          }
+        },
+        {
+          "comment": "MyBatis test attribute (for if/when)",
+          "match": "(test)(=)([\"'])([^\"]*)([\"'])",
+          "captures": {
+            "1": {"name": "entity.other.attribute-name.xml"},
+            "2": {"name": "punctuation.separator.key-value.xml"},
+            "3": {"name": "punctuation.definition.string.begin.xml"},
+            "4": {"name": "string.quoted.double.xml.mybatis expression"},
+            "5": {"name": "punctuation.definition.string.end.xml"}
+          }
+        },
+        {
+          "comment": "Generic XML attribute",
+          "match": "([a-zA-Z_:][a-zA-Z0-9_:.-]*)(=)([\"'][^\"]*[\"'])",
+          "captures": {
+            "1": {"name": "entity.other.attribute-name.xml"},
+            "2": {"name": "punctuation.separator.key-value.xml"},
+            "3": {"name": "string.quoted.double.xml"}
+          }
+        }
+      ]
+    },
+    "sql-attributes": {
+      "patterns": [
+        {
+          "comment": "SQL statement id",
+          "match": "(id)(=)([\"'])([^\"]*)([\"'])",
+          "captures": {
+            "1": {"name": "entity.other.attribute-name.xml"},
+            "2": {"name": "punctuation.separator.key-value.xml"},
+            "3": {"name": "punctuation.definition.string.begin.xml"},
+            "4": {"name": "string.quoted.double.xml.mybatis method-name"},
+            "5": {"name": "punctuation.definition.string.end.xml"}
+          }
+        },
+        {"include": "#mybatis-attributes"}
+      ]
+    }
+  }
+}

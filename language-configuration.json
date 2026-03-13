@@ -1,0 +1,81 @@
+{
+  "comments": {
+    "blockComment": [
+      "<!--",
+      "-->"
+    ]
+  },
+  "brackets": [
+    [
+      "<",
+      ">"
+    ],
+    [
+      "#{",
+      "}"
+    ],
+    [
+      "${",
+      "}"
+    ],
+    [
+      "(",
+      ")"
+    ]
+  ],
+  "autoClosingPairs": [
+    {
+      "open": "<",
+      "close": ">"
+    },
+    {
+      "open": "'",
+      "close": "'"
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "#{",
+      "close": "}"
+    },
+    {
+      "open": "${",
+      "close": "}"
+    }
+  ],
+  "surroundingPairs": [
+    {
+      "open": "<",
+      "close": ">"
+    },
+    {
+      "open": "'",
+      "close": "'"
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "#{",
+      "close": "}"
+    },
+    {
+      "open": "${",
+      "close": "}"
+    }
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*<(mapper|sql|resultMap|select|insert|update|delete|if|choose|when|otherwise|where|set|foreach|trim)\\b",
+      "end": "^\\s*</(mapper|sql|resultMap|select|insert|update|delete|if|choose|when|otherwise|where|set|foreach|trim)\\b"
+    }
+  },
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>/\\?\\s]+)",
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*<(select|insert|update|delete|if|choose|when|otherwise|where|set|foreach|trim|sql|resultMap|association|collection)\\b[^/>]*$",
+    "decreaseIndentPattern": "^\\s*</(select|insert|update|delete|if|choose|when|otherwise|where|set|foreach|trim|sql|resultMap|association|collection)>"
+  }
+}

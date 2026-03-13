@@ -115,5 +115,27 @@
   "status.javaExtensionNotFound": "Java extension not found",
   "status.mappingsComplete": "Mappings complete",
   "status.nonJavaProject": "Not a Java project",
-  "warning.notMyBatisMapper": "Cannot recognize as MyBatis Mapper file"
+  "warning.notMyBatisMapper": "Cannot recognize as MyBatis Mapper file",
+  
+  "command.generateXmlMethod.title": "Generate XML Method",
+  "command.createMapperXml.title": "Create Mapper XML",
+  
+  "generateXmlMethod.noActiveEditor": "No active editor",
+  "generateXmlMethod.noMethodSelected": "Could not determine method to generate",
+  "generateXmlMethod.methodExists": "Method \"{methodName}\" already exists in XML",
+  "generateXmlMethod.noMapperFound": "No mapper XML found. Create new XML file?",
+  "generateXmlMethod.generated": "Generated XML method: {methodName}",
+  "generateXmlMethod.failed": "Failed to generate XML method: {error}",
+  "generateXmlMethod.created": "Created mapper XML: {xmlPath}",
+  
+  "createMapperXml.noJavaFile": "Please select a Java file",
+  "createMapperXml.notMapper": "This does not appear to be a Mapper interface. Continue?",
+  "createMapperXml.fileExists": "File {fileName} already exists. Overwrite?",
+  "createMapperXml.created": "Created mapper XML: {fileName}",
+  "createMapperXml.failed": "Failed to create mapper XML: {error}",
+  
+  "quickPick.yes": "Yes",
+  "quickPick.no": "No",
+  "quickPick.overwrite": "Overwrite",
+  "quickPick.cancel": "Cancel"
 }

@@ -13,6 +13,8 @@
   "command.openSQLSettings.title": "SQL Interceptor Settings",
   "command.pauseSQLInterceptor.title": "Pause SQL Interceptor",
   "command.resumeSQLInterceptor.title": "Resume SQL Interceptor",
+  "command.generateXmlMethod.title": "Generate XML Method",
+  "command.createMapperXml.title": "Create Mapper XML",
   "configuration.title": "MyBatis Helper Configuration",
   "configuration.enableCodeLens.description": "Enable CodeLens annotations in Java Mapper interfaces and XML files for quick navigation between them",
   "configuration.fileOpenMode.description": "File open mode when jumping between files. Options: useExisting (use existing tab if available), noSplit (always open in current editor group), alwaysSplit (always open in new editor group)",

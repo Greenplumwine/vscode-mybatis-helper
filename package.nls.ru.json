@@ -64,5 +64,7 @@
   "configuration.sqlInterceptor.listenMode.description": "Выберите режим прослушивания для перехвата SQL.",
   "configuration.sqlInterceptor.listenMode.terminal": "Принудительно слушать Терминал",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "view.sqlHistory.name": "История SQL"
+  "view.sqlHistory.name": "История SQL",
+  "command.createMapperXml.title": "Создать XML Mapper",
+  "command.generateXmlMethod.title": "Сгенерировать Метод XML"
 }

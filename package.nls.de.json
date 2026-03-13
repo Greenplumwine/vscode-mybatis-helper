@@ -64,5 +64,7 @@
   "configuration.sqlInterceptor.listenMode.description": "Wählen Sie den Überwachungsmodus für SQL-Abfangung.",
   "configuration.sqlInterceptor.listenMode.terminal": "Erzwinge Überwachung des Terminals",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "view.sqlHistory.name": "SQL-Verlauf"
+  "view.sqlHistory.name": "SQL-Verlauf",
+  "command.createMapperXml.title": "Mapper-XML erstellen",
+  "command.generateXmlMethod.title": "XML-Methode generieren"
 }

@@ -64,5 +64,7 @@
   "configuration.sqlInterceptor.listenMode.description": "選擇 SQL 攔截的監聽模式。'auto' 將根據 Java 偵錯設定自動偵測。",
   "configuration.sqlInterceptor.listenMode.terminal": "強制監聽終端機",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "view.sqlHistory.name": "SQL 歷史"
+  "view.sqlHistory.name": "SQL 歷史",
+  "command.generateXmlMethod.title": "生成 XML 方法",
+  "command.createMapperXml.title": "創建 Mapper XML"
 }

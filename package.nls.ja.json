@@ -64,5 +64,7 @@
   "configuration.sqlInterceptor.listenMode.description": "SQLインターセプションのリスニングモードを選択します。",
   "configuration.sqlInterceptor.listenMode.terminal": "ターミナルのリスニングを強制",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "view.sqlHistory.name": "SQL履歴"
+  "view.sqlHistory.name": "SQL履歴",
+  "command.createMapperXml.title": "Mapper XML を作成",
+  "command.generateXmlMethod.title": "XML メソッドを生成"
 }

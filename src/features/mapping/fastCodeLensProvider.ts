@@ -203,27 +203,36 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
   /**
    * 创建方法级别的 CodeLens
    * 
-   * 只有当方法有对应的 SQL 映射时才显示
+   * Phase 2 增强：互斥显示
+   * - 有 SQL 映射 → 显示 "$(arrow-right) Jump to XML"
+   * - 无 SQL 映射 → 显示 "$(add) Generate XML Method"
    */
   private createMethodCodeLens(
     method: { name: string; line: number; column: number },
     javaPath: string,
     hasSql: boolean
   ): vscode.CodeLens | null {
-    // 没有 SQL 映射的方法不显示 CodeLens
-    if (!hasSql) {
-      return null;
-    }
-
     const range = new vscode.Range(method.line, method.column, method.line, method.column);
 
-    const command: vscode.Command = {
-      title: `$(arrow-right) ${vscode.l10n.t("codelens.java.jumpToSql")}`,
-      command: 'mybatis-helper.jumpToXml',
-      arguments: [javaPath, method.name]
-    };
-
-    return new vscode.CodeLens(range, command);
+    // 根据是否有 SQL 映射决定显示哪个命令
+    if (hasSql) {
+      // 有 SQL 映射：显示 "Jump to XML"
+      const command: vscode.Command = {
+        title: `$(arrow-right) ${vscode.l10n.t("codelens.java.jumpToSql")}`,
+        command: 'mybatis-helper.jumpToXml',
+        arguments: [javaPath, method.name]
+      };
+      return new vscode.CodeLens(range, command);
+    } else {
+      // 无 SQL 映射：显示 "Generate XML Method"
+      const command: vscode.Command = {
+        title: `$(add) ${vscode.l10n.t("codelens.java.generateXmlMethod")}`,
+        command: 'mybatis-helper.generateXmlMethod',
+        tooltip: vscode.l10n.t("codelens.java.generateXmlMethod.tooltip"),
+        arguments: [javaPath, method.name]
+      };
+      return new vscode.CodeLens(range, command);
+    }
   }
 
   resolveCodeLens?(codeLens: vscode.CodeLens): vscode.ProviderResult<vscode.CodeLens> {

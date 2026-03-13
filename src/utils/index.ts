@@ -2,16 +2,38 @@ import * as vscode from "vscode";
 import { DatabaseType, PluginConfig, FileOpenMode, NameMatchingRule, PathPriorityConfig } from "../types";
 import { RegexUtils, PerformanceUtils } from "./performanceUtils";
 import { JavaExtensionAPI } from "./javaExtensionAPI";
-import { logger } from "./logger";
+import { logger, Logger } from "./logger";
 import { TIME, CACHE_LIMITS } from "./constants";
-
 
 // 导出工具类
 export { 
   RegexUtils, 
   PerformanceUtils,
-  JavaExtensionAPI
+  JavaExtensionAPI,
+  Logger,
+  logger
 };
+
+// 导出基础设施组件
+export { 
+  TextProcessor, 
+  createTextProcessor
+} from './textProcessor';
+
+export { 
+  HttpClient, 
+  httpClient,
+  HttpClientConfig 
+} from './httpClient';
+
+// 导出字符串工具函数
+export {
+  camelToSnakeCase,
+  snakeToCamelCase,
+  isEmpty,
+  defaultIfEmpty,
+  removePrefix
+} from './stringUtils';
 
 /**
  * 获取插件配置
