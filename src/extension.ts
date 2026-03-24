@@ -17,8 +17,6 @@ import {
   SQLDetailPanel,
   SQLQueryRecord
 } from "./features/sql-interceptor";
-import { FileMapper } from "./features/mapping/filemapper";
-import { SQLCompletionProvider } from "./features/sql-completion/sqlCompletionProvider";
 import { JavaExtensionAPI } from "./utils/javaExtensionAPI";
 import { Logger } from "./utils/logger";
 
@@ -62,13 +60,9 @@ let isJavaProject: boolean = false;
 let sqlInterceptorService: SQLInterceptorService | undefined;
 /** SQL历史TreeView提供者 */
 let sqlHistoryTreeProvider: SQLHistoryTreeProvider | undefined;
-/** 文件映射器实例 */
-let fileMapper: FileMapper | undefined;
 /** 状态栏项实例 */
 let statusBarItem: vscode.StatusBarItem | undefined;
 
-/** SQL补全提供器实例 */
-let sqlCompletionProvider: SQLCompletionProvider | undefined;
 /** Java扩展API实例 */
 let javaExtApi: JavaExtensionAPI;
 /** 日志实例 */
@@ -666,10 +660,6 @@ async function checkIfJavaProject() {
 function activatePluginFeatures(context: vscode.ExtensionContext) {
   logger.debug(vscode.l10n.t("extension.activatePluginFeatures"));
 
-  if (!fileMapper) {
-    fileMapper = new FileMapper();
-  }
-
   // 初始化 SQL 拦截器
   if (!sqlInterceptorService) {
     sqlInterceptorService = SQLInterceptorService.getInstance();
@@ -1087,22 +1077,12 @@ function deactivatePluginFeatures() {
   try {
     logger.info(vscode.l10n.t("extension.cleaningUp"));
 
-    if (fileMapper) {
-      try {
-        fileMapper.dispose();
-      } catch (error) {
-        logger.error(vscode.l10n.t("error.disposeFailed", { name: "file mapper", error: String(error) }));
-      }
-      fileMapper = undefined;
-    }
-
     // 清理定时器
     for (const timer of debounceTimers.values()) {
       clearTimeout(timer);
     }
     debounceTimers.clear();
 
-    sqlCompletionProvider = undefined;
     fastCodeLensProvider = undefined;
     xmlCodeLensProvider = undefined;
 

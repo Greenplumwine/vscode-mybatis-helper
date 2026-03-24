@@ -11,3 +11,7 @@ pnpm-lock.yaml
 .opencode/
 docs/
 未命名.md
+.claude/
+.planning/
+openspec/
+CLAUDE.md

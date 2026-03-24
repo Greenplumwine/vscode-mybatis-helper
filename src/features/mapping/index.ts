@@ -19,4 +19,3 @@ export { XmlCodeLensProvider } from './xmlCodeLensProvider';
 export { EnhancedJavaAPI } from './enhancedJavaAPI';
 export { MyBatisXmlParser } from './xmlParser';
 export { XmlLocationResolver } from './xmlLocationResolver';
-export { FileMapper } from './filemapper';

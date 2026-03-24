@@ -6,8 +6,9 @@
  */
 
 import { parentPort, workerData } from 'worker_threads';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
 
 interface WorkerInput {
   classFiles: string[];
@@ -24,12 +25,15 @@ interface WorkerOutput {
   duration: number;
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 100;
+
 /**
  * 检查 javap 是否可用
  */
 function isJavapAvailable(): boolean {
   try {
-    execSync('javap -version', { encoding: 'utf-8', timeout: 3000 });
+    execFileSync('javap', ['-version'], { encoding: 'utf-8', timeout: 3000 });
     return true;
   } catch {
     return false;
@@ -37,18 +41,92 @@ function isJavapAvailable(): boolean {
 }
 
 /**
+ * 验证并清理类文件路径
+ * 防止路径遍历和命令注入
+ */
+function sanitizeClassPath(classPath: string): string | null {
+  // 解析为绝对路径
+  const resolved = path.resolve(classPath);
+
+  // 验证路径存在且是文件
+  try {
+    const stats = fs.statSync(resolved);
+    if (!stats.isFile()) {
+      return null;
+    }
+    // 验证扩展名是 .class
+    if (!resolved.endsWith('.class')) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  return resolved;
+}
+
+/**
+ * 延迟函数
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 从 class 文件解析 @MapperScan（带重试机制）
+ */
+async function parseAnnotationsFromClassFileWithRetry(classPath: string, retries: number = MAX_RETRIES): Promise<MapperScanConfig | null> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const result = parseAnnotationsFromClassFile(classPath);
+      return result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // 如果不是最后一次尝试，等待后重试
+      if (attempt < retries - 1) {
+        await delay(RETRY_DELAY_MS * (attempt + 1)); // 指数退避
+      }
+    }
+  }
+
+  // 所有重试都失败了
+  throw new Error(`Failed to parse ${classPath} after ${retries} attempts: ${lastError?.message}`);
+}
+
+/**
  * 从 class 文件解析 @MapperScan
+ * 使用 execFileSync 防止命令注入
  */
 function parseAnnotationsFromClassFile(classPath: string): MapperScanConfig | null {
+  // 验证路径安全
+  const safePath = sanitizeClassPath(classPath);
+  if (!safePath) {
+    throw new Error(`Invalid class file path: ${classPath}`);
+  }
+
   try {
-    const output = execSync(`javap -v "${classPath}"`, { 
-      encoding: 'utf-8', 
-      timeout: 2000 
+    // 使用数组形式的命令参数，防止命令注入
+    const output = execFileSync('javap', ['-v', safePath], {
+      encoding: 'utf-8',
+      timeout: 5000,
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
     });
-    
+
     return parseMapperScanFromBytecode(output, classPath);
   } catch (error) {
-    return null;
+    // 区分 javap 失败和解析失败
+    if (error instanceof Error) {
+      if (error.message.includes('ENOENT')) {
+        throw new Error(`javap not found in PATH`);
+      }
+      if (error.message.includes('ETIMEDOUT') || error.message.includes('timeout')) {
+        throw new Error(`Timeout parsing ${path.basename(classPath)}`);
+      }
+    }
+    throw error;
   }
 }
 
@@ -139,12 +217,14 @@ async function processClassFiles(classFiles: string[]): Promise<WorkerOutput> {
   // 顺序处理（Worker 内部已经是并行的）
   for (const classFile of classFiles) {
     try {
-      const config = parseAnnotationsFromClassFile(classFile);
+      // 使用带重试的版本
+      const config = await parseAnnotationsFromClassFileWithRetry(classFile);
       if (config) {
         configs.push(config);
       }
     } catch (error) {
-      errors.push(`Failed to parse ${classFile}: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      errors.push(`Failed to parse ${classFile}: ${errorMsg}`);
     }
   }
 

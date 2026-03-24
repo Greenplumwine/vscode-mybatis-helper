@@ -88,7 +88,8 @@ export class SQLInterceptorService {
 
   // 已编译的正则表达式缓存
   private regexCache: Map<string, RegExp> = new Map();
-  
+  private readonly MAX_REGEX_CACHE_SIZE = 100;
+
   // 资源订阅列表
   private disposables: vscode.Disposable[] = [];
 
@@ -940,7 +941,7 @@ export class SQLInterceptorService {
   }
 
   /**
-   * 获取缓存的正则表达式
+   * 获取缓存的正则表达式（带 LRU 淘汰）
    */
   private getCachedRegex(pattern: string): RegExp {
     let regex = this.regexCache.get(pattern);
@@ -948,13 +949,28 @@ export class SQLInterceptorService {
       try {
         // 使用 'gi' 标志：g 表示全局匹配，i 表示不区分大小写
         regex = new RegExp(pattern, 'gi');
+
+        // 检查是否需要 LRU 淘汰
+        if (this.regexCache.size >= this.MAX_REGEX_CACHE_SIZE) {
+          // 淘汰最旧的条目（Map 的第一个键）
+          const firstKey = this.regexCache.keys().next().value;
+          if (firstKey !== undefined) {
+            this.regexCache.delete(firstKey);
+          }
+        }
+
         this.regexCache.set(pattern, regex);
       } catch (error) {
         logger.error(`[SQLInterceptor] Invalid regex pattern: ${pattern}`, error as Error);
         // 返回永不匹配的正则
         return /(?!)/;
       }
+    } else {
+      // 已存在，移动到最新位置（LRU 更新）
+      this.regexCache.delete(pattern);
+      this.regexCache.set(pattern, regex);
     }
+
     // 重置 lastIndex
     regex.lastIndex = 0;
     return regex;

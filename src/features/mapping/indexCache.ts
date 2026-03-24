@@ -29,14 +29,16 @@ interface IndexData {
 const INDEX_VERSION = '1.0';
 const INDEX_DIR = '.mybatis';
 const INDEX_FILE = 'index.json';
+const MAX_CACHE_ENTRIES = 1000; // 最大缓存条目数
 
 export class IndexCacheManager {
   private static instance: IndexCacheManager;
   private logger!: Logger;
-  private memoryCache: Map<string, IndexEntry> = new Map();
+  private memoryCache: Map<string, IndexEntry> = new Map(); // Map 保持插入顺序，用于 LRU
   private projectRoot: string = '';
   private indexPath: string = '';
   private isInitialized: boolean = false;
+  private maxEntries: number = MAX_CACHE_ENTRIES;
 
   private constructor() {}
 
@@ -161,11 +163,11 @@ export class IndexCacheManager {
   }
 
   /**
-   * 更新缓存条目
+   * 更新缓存条目（带 LRU 淘汰）
    */
   public async updateEntry(filePath: string, mapperScan?: MapperScanConfig): Promise<void> {
     const relativePath = path.relative(this.projectRoot, filePath);
-    
+
     try {
       const stats = await fs.stat(filePath);
       const entry: IndexEntry = {
@@ -175,9 +177,43 @@ export class IndexCacheManager {
         mapperScan
       };
 
+      // 如果已存在，先删除再添加（更新到最新位置）
+      if (this.memoryCache.has(relativePath)) {
+        this.memoryCache.delete(relativePath);
+      }
+
+      // 检查是否需要 LRU 淘汰
+      if (this.memoryCache.size >= this.maxEntries) {
+        this.evictLRU();
+      }
+
       this.memoryCache.set(relativePath, entry);
     } catch (error) {
       this.logger?.debug(`Failed to update cache for ${filePath}:`, error);
+    }
+  }
+
+  /**
+   * LRU 淘汰：移除最旧的条目
+   */
+  private evictLRU(): void {
+    // Map 的 keys() 按插入顺序返回，第一个是最旧的
+    const firstKey = this.memoryCache.keys().next().value;
+    if (firstKey !== undefined) {
+      this.memoryCache.delete(firstKey);
+      this.logger?.debug(`LRU evicted: ${firstKey}`);
+    }
+  }
+
+  /**
+   * 设置最大缓存条目数
+   */
+  public setMaxEntries(max: number): void {
+    this.maxEntries = Math.max(100, Math.min(max, 5000)); // 限制在 100-5000 之间
+
+    // 如果当前缓存超过新限制，进行淘汰
+    while (this.memoryCache.size > this.maxEntries) {
+      this.evictLRU();
     }
   }
 

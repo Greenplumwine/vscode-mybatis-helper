@@ -6,6 +6,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
+import { execFileSync } from 'child_process';
 import { Logger } from '../../utils/logger';
 import { indexCacheManager } from './indexCache';
 
@@ -113,6 +115,31 @@ export class ClassFileWatcher {
   }
 
   /**
+   * 验证并清理类文件路径
+   * 防止路径遍历和命令注入
+   */
+  private sanitizeClassPath(classPath: string): string | null {
+    // 解析为绝对路径
+    const resolved = path.resolve(classPath);
+
+    // 验证路径存在且是文件
+    try {
+      const stats = fs.statSync(resolved);
+      if (!stats.isFile()) {
+        return null;
+      }
+      // 验证扩展名是 .class
+      if (!resolved.endsWith('.class')) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+
+    return resolved;
+  }
+
+  /**
    * 增量更新索引
    */
   private async incrementalUpdate(filePath: string, type: 'create' | 'change' | 'delete'): Promise<void> {
@@ -122,11 +149,18 @@ export class ClassFileWatcher {
         await indexCacheManager.updateEntry(filePath, undefined);
         this.logger?.info(`Removed from cache: ${path.basename(filePath)}`);
       } else {
+        // 验证路径安全
+        const safePath = this.sanitizeClassPath(filePath);
+        if (!safePath) {
+          this.logger?.debug(`Invalid class file path: ${filePath}`);
+          return;
+        }
+
         // 创建或更新：重新解析
-        const { execSync } = require('child_process');
-        const output = execSync(`javap -v "${filePath}"`, { 
-          encoding: 'utf-8', 
-          timeout: 2000 
+        const output = execFileSync('javap', ['-v', safePath], {
+          encoding: 'utf-8',
+          timeout: 5000,
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
         });
 
         // 快速检查是否包含 MapperScan
@@ -139,7 +173,7 @@ export class ClassFileWatcher {
         // 解析 @MapperScan
         const config = this.parseMapperScanQuick(output, filePath);
         await indexCacheManager.updateEntry(filePath, config || undefined);
-        
+
         if (config) {
           this.logger?.info(`Updated cache: ${path.basename(filePath)} -> ${config.basePackages.join(', ')}`);
         }
