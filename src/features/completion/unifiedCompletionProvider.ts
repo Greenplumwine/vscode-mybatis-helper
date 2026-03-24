@@ -164,6 +164,9 @@ export class UnifiedCompletionProvider implements vscode.CompletionItemProvider 
     token: vscode.CancellationToken,
     context: vscode.CompletionContext
   ): Promise<vscode.CompletionItem[]> {
+    // 入口日志
+    this.logger.debug(`[UnifiedCompletion] triggered by: ${context.triggerCharacter}, language: ${document.languageId}`);
+
     // 1. 构建补全上下文
     const completionContext = await this.contextBuilder.build(
       document,

@@ -108,13 +108,28 @@ export class TagCompletionProvider implements vscode.CompletionItemProvider {
         // 根据触发字符决定提供什么补全
         switch (triggerChar) {
           case ' ':
-            // 空格触发：如果在标签内且有标签名，提供属性补全
+            // 空格触发：如果在标签内且有标签名
             if (xmlContext.currentTag) {
-              // 但先检查是否是自闭合标签结尾
+              // 检查光标后是否是标签结束（> 或 />）或者后面是另一个属性开头
               const afterCursor = lineText.substring(position.character);
-              if (afterCursor.trim().startsWith('>') || afterCursor.trim().startsWith('/>')) {
-                // 在标签名和 > 之间输入空格，提供属性补全
+              // 如果后面是 > 或 />，或者后面是非标签字符（如其他属性），提供属性补全
+              if (afterCursor.trim().startsWith('>') ||
+                  afterCursor.trim().startsWith('/>') ||
+                  /^\s*\w/.test(afterCursor)) {
+                // 在标签名和 > 之间输入空格，或者在属性之间，提供属性补全
                 return this.provideAttributes(hierarchy, xmlContext.currentTag);
+              }
+              // 如果光标前面是空格且不在属性值内，也提供属性补全
+              // 这种情况发生在删除属性后，光标停在空格位置
+              if (!xmlContext.isInAttributeValue) {
+                const beforeCursor = lineText.substring(0, position.character);
+                // 检查是否在标签内且前面是空格（可能刚删除了属性）
+                const lastLtIndex = beforeCursor.lastIndexOf('<');
+                const lastGtIndex = beforeCursor.lastIndexOf('>');
+                if (lastLtIndex > lastGtIndex && /\s$/.test(beforeCursor)) {
+                  // 在标签内且以空格结尾，提供属性补全
+                  return this.provideAttributes(hierarchy, xmlContext.currentTag);
+                }
               }
               // 否则继续提供标签名补全（用户可能在输入带空格的标签名，虽然不常见）
             }
@@ -133,6 +148,11 @@ export class TagCompletionProvider implements vscode.CompletionItemProvider {
             return this.provideTagNames(hierarchy, xmlContext.parentTag, range, xmlContext.currentTag);
           default:
             // < 或其他字符触发：提供标签名补全（带过滤）
+            // 但如果正在输入属性名（currentAttribute 不为 null），提供属性补全
+            if (xmlContext.currentTag && xmlContext.currentAttribute && !xmlContext.isInAttributeValue) {
+              // 正在输入属性名，提供属性补全
+              return this.provideAttributes(hierarchy, xmlContext.currentTag);
+            }
             const items = this.provideTagNames(hierarchy, xmlContext.parentTag, range, xmlContext.currentTag);
             this.logger.debug(`Tag completion provided ${items.length} items: ${items.map(i => i.label).join(', ')}`);
             // 详细日志第一个 item
@@ -363,6 +383,10 @@ export class TagCompletionProvider implements vscode.CompletionItemProvider {
       case 'typeHandler':
         // 由 TypeHandlerStrategy 处理
         return [];
+      case 'collection':
+        // Foreach collection 属性由 UnifiedCompletionProvider 处理
+        // 返回空，让 UnifiedCompletionProvider 提供补全
+        return [];
       case 'useCache':
       case 'flushCache':
         return [
@@ -421,17 +445,66 @@ export class TagCompletionProvider implements vscode.CompletionItemProvider {
     const lastSingleQuote = beforeCursor.lastIndexOf("'");
     const lastTagStart = beforeCursor.lastIndexOf('<');
     const lastTagEnd = beforeCursor.lastIndexOf('>');
-    
+
     // 检查是否在属性值内（在引号中）
-    const isInAttributeValue = (lastDoubleQuote > lastTagStart && lastDoubleQuote > lastTagEnd) ||
-                                 (lastSingleQuote > lastTagStart && lastSingleQuote > lastTagEnd);
-    
+    // 关键：不仅要检查引号在标签开始之后，还要检查引号是否成对出现
+    let isInAttributeValue = false;
+    let currentAttribute: string | null = null;
+
+    // 获取当前标签内的文本（从 < 到光标位置）
+    if (lastTagStart > lastTagEnd) {
+      const tagContent = beforeCursor.substring(lastTagStart);
+
+      // 计算标签内容中双引号和单引号的数量
+      const doubleQuoteCount = (tagContent.match(/"/g) || []).length;
+      const singleQuoteCount = (tagContent.match(/'/g) || []).length;
+
+      // 如果引号数量是奇数，说明有未闭合的引号
+      const hasUnclosedDoubleQuote = doubleQuoteCount % 2 === 1;
+      const hasUnclosedSingleQuote = singleQuoteCount % 2 === 1;
+
+      // 检查最后一个引号类型
+      const lastQuoteChar = lastDoubleQuote > lastSingleQuote ? '"' : "'";
+      const hasUnclosedQuote = lastQuoteChar === '"' ? hasUnclosedDoubleQuote : hasUnclosedSingleQuote;
+
+      // 只有在有未闭合引号且引号在标签开始之后才认为在属性值内
+      isInAttributeValue = hasUnclosedQuote &&
+                           ((lastDoubleQuote > lastTagStart && lastDoubleQuote > lastTagEnd) ||
+                            (lastSingleQuote > lastTagStart && lastSingleQuote > lastTagEnd));
+
+      // 如果在属性值内，提取当前属性名
+      if (isInAttributeValue) {
+        const attrMatch = tagContent.match(/\s([a-zA-Z_:][a-zA-Z0-9_:-]*)=["'][^"']*$/);
+        if (attrMatch) {
+          currentAttribute = attrMatch[1];
+        }
+      } else {
+        // 不在属性值内，但可能在输入新属性名
+        // 检查是否在标签名后面有空格，且后面跟着可能的属性名
+        // 例如: <foreach collection="ids" item="id" o
+        // 需要提取最后一个不完整的属性名
+        const lastAttrMatch = tagContent.match(/\s([a-zA-Z_:][a-zA-Z0-9_:-]*)$/);
+        if (lastAttrMatch) {
+          // 检查这个"属性名"后面是否跟着=，如果没有，说明正在输入新属性名
+          const attrName = lastAttrMatch[1];
+          const afterAttr = tagContent.substring(tagContent.lastIndexOf(attrName) + attrName.length);
+          if (!afterAttr.includes('=')) {
+            currentAttribute = attrName;
+          }
+        }
+      }
+    }
+
     if (isInAttributeValue) {
       context.isInTag = true;  // 在属性值内也属于在标签内
       context.isInAttributeValue = true;
-      const attrMatch = beforeCursor.match(/\s([a-zA-Z_:][a-zA-Z0-9_:-]*)=["'][^"']*$/);
-      if (attrMatch) {
-        context.currentAttribute = attrMatch[1];
+      context.currentAttribute = currentAttribute;
+    } else if (lastTagStart > lastTagEnd) {
+      // 在标签内但不在属性值内
+      context.isInTag = true;
+      // 如果正在输入属性名，记录下来
+      if (currentAttribute) {
+        context.currentAttribute = currentAttribute;
       }
     }
     
