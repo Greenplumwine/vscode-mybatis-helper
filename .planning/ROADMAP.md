@@ -93,7 +93,7 @@ This roadmap outlines the path from current state to v1.0.0 release, focusing on
   - Create samples/basic-mybatis-project/ with working example
 
 **Wave 2:**
-- [ ] 03-02-PLAN.md - Welcome Page and Configuration Wizard
+- [x] 03-02-PLAN.md - Welcome Page and Configuration Wizard
   - Create VS Code webview welcome page (shows on first install)
   - Feature cards, quick setup checklist, action buttons
   - "Don't show again" checkbox with command palette reopen
@@ -101,7 +101,7 @@ This roadmap outlines the path from current state to v1.0.0 release, focusing on
   - Project type detection, XML directories, naming convention, SQL mode
 
 **Wave 3:**
-- [ ] 03-03-PLAN.md - Configuration Validation and Enhanced Diagnostics
+- [x] 03-03-PLAN.md - Configuration Validation and Enhanced Diagnostics
   - Real-time validation on configuration changes
   - On-demand "Validate Configuration" command
   - Enhanced "Diagnose" command with structured output
