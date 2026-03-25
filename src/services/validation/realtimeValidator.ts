@@ -5,7 +5,8 @@
  */
 
 import * as vscode from 'vscode';
-import { validateBasic, ValidationIssue } from './configurationValidator';
+import { validateBasic } from './configurationValidator';
+import { ValidationIssue } from './types';
 import { logger } from '../../utils/logger';
 
 // Debounce delay in milliseconds

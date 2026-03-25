@@ -124,6 +124,18 @@
         "title": "%command.configureWizard.title%",
         "category": "MyBatis Helper",
         "icon": "$(gear)"
+      },
+      {
+        "command": "mybatis-helper.validateConfiguration",
+        "title": "%command.validateConfiguration.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(check)"
+      },
+      {
+        "command": "mybatis-helper.diagnose",
+        "title": "%command.diagnose.title%",
+        "category": "MyBatis Helper",
+        "icon": "$(pulse)"
       }
     ],
     "keybindings": [

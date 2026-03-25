@@ -66,5 +66,10 @@
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
   "view.sqlHistory.name": "SQL 歷史",
   "command.generateXmlMethod.title": "生成 XML 方法",
-  "command.createMapperXml.title": "創建 Mapper XML"
+  "command.createMapperXml.title": "創建 Mapper XML",
+  "command.showPerformanceStats.title": "顯示性能統計",
+  "command.showWelcomePage.title": "顯示歡迎頁面",
+  "command.configureWizard.title": "設定 MyBatis Helper",
+  "command.validateConfiguration.title": "驗證設定",
+  "command.diagnose.title": "診斷 MyBatis Helper"
 }

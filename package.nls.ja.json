@@ -66,5 +66,10 @@
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
   "view.sqlHistory.name": "SQL履歴",
   "command.createMapperXml.title": "Mapper XML を作成",
-  "command.generateXmlMethod.title": "XML メソッドを生成"
+  "command.generateXmlMethod.title": "XML メソッドを生成",
+  "command.showPerformanceStats.title": "パフォーマンス統計を表示",
+  "command.showWelcomePage.title": "ウェルカムページを表示",
+  "command.configureWizard.title": "MyBatis Helperを設定",
+  "command.validateConfiguration.title": "設定を検証",
+  "command.diagnose.title": "MyBatis Helperを診断"
 }

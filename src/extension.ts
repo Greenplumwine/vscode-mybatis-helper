@@ -42,11 +42,16 @@ import {
   generateXmlMethodCommand,
   createMapperXmlCommand,
   showPerformanceStatsCommand,
-  runConfigurationWizard
+  runConfigurationWizard,
+  validateConfigurationCommand,
+  diagnoseCommand
 } from "./commands";
 
 // 导入欢迎页面
 import { showWelcomePage, shouldShowWelcomePage } from "./features/welcome";
+
+// Phase 3: 导入验证服务
+import { registerRealTimeValidation } from "./services/validation";
 
 // 导入高性能新架构组件
 import {
@@ -122,6 +127,9 @@ export function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand('setContext', 'mybatis-helper.activated', true);
 
   context.subscriptions.push(logger.registerConfigListener());
+
+  // Phase 3: Register real-time configuration validation
+  registerRealTimeValidation(context);
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.text = `$(file-code) MyBatis`;
@@ -955,35 +963,6 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
-    // 诊断命令（开发调试用）
-    const diagnoseCommand = vscode.commands.registerCommand(
-      "mybatis-helper.diagnose",
-      async () => {
-        if (!fastMappingEngine || !navigationService) {
-          vscode.window.showWarningMessage(vscode.l10n.t("diagnostics.notInitialized"));
-          return;
-        }
-
-        const engineDiags = fastMappingEngine.getDiagnostics() as { 
-            stats?: { total?: number; withXml?: number; totalMethods?: number; };
-            indexSizes?: { namespace?: number; javaPath?: number; };
-          };
-        const navDiags = navigationService.getDiagnostics();
-        
-        const message = vscode.l10n.t("diagnostics.message", {
-          total: engineDiags.stats?.total || 0,
-          withXml: engineDiags.stats?.withXml || 0,
-          totalMethods: engineDiags.stats?.totalMethods || 0,
-          namespaceSize: engineDiags.indexSizes?.namespace || 0,
-          javaPathSize: engineDiags.indexSizes?.javaPath || 0,
-          navStatus: JSON.stringify(navDiags)
-        });
-
-        vscode.window.showInformationMessage(message, { modal: true });
-        logger.info(vscode.l10n.t("diagnostics.info", { engine: JSON.stringify(engineDiags), nav: JSON.stringify(navDiags) }));
-      }
-    );
-
     // Phase 2: 生成 XML 方法命令
     const generateXmlMethodCmd = vscode.commands.registerCommand(
       "mybatis-helper.generateXmlMethod",
@@ -1024,6 +1003,22 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
+    // Phase 3: 验证配置命令
+    const validateConfigurationCmd = vscode.commands.registerCommand(
+      "mybatis-helper.validateConfiguration",
+      async () => {
+        await validateConfigurationCommand();
+      }
+    );
+
+    // Phase 3: 增强诊断命令（替换原有简单诊断）
+    const diagnoseCmd = vscode.commands.registerCommand(
+      "mybatis-helper.diagnose",
+      async () => {
+        await diagnoseCommand();
+      }
+    );
+
     context.subscriptions.push(
       jumpToXmlCommand,
       jumpToMapperCommand,
@@ -1035,12 +1030,13 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       copySqlFromTreeCommand,
       openSQLSettingsCommand,
       refreshSQLHistoryCommand,
-      diagnoseCommand,
+      diagnoseCmd,
       generateXmlMethodCmd,
       createMapperXmlCmd,
       showPerformanceStatsCmd,
       showWelcomePageCmd,
-      configureWizardCmd
+      configureWizardCmd,
+      validateConfigurationCmd
     );
 
     // 设置 SQL 拦截器运行状态上下文变量（用于控制 TreeView 按钮显示）

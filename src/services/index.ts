@@ -9,3 +9,4 @@ export * from './types';
 export * from './parsing';
 export * from './language';
 export * from './template';
+export * from './validation';

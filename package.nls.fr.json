@@ -66,5 +66,10 @@
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
   "view.sqlHistory.name": "Historique SQL",
   "command.createMapperXml.title": "Créer XML Mapper",
-  "command.generateXmlMethod.title": "Générer Méthode XML"
+  "command.generateXmlMethod.title": "Générer Méthode XML",
+  "command.showPerformanceStats.title": "Afficher les statistiques de performance",
+  "command.showWelcomePage.title": "Afficher la page de bienvenue",
+  "command.configureWizard.title": "Configurer MyBatis Helper",
+  "command.validateConfiguration.title": "Valider la configuration",
+  "command.diagnose.title": "Diagnostiquer MyBatis Helper"
 }
