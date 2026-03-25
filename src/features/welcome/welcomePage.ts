@@ -21,7 +21,8 @@ export function shouldShowWelcomePage(context: vscode.ExtensionContext): boolean
     const welcomeShown = globalState.get<boolean>(WELCOME_SHOWN_KEY, false);
     const showWelcome = vscode.workspace.getConfiguration('mybatis-helper').get<boolean>('showWelcome', true);
 
-    return !welcomeShown || showWelcome;
+    // 只有当用户没有勾选"不再显示"且配置允许显示时才显示
+    return !welcomeShown && showWelcome;
 }
 
 /**
@@ -29,19 +30,26 @@ export function shouldShowWelcomePage(context: vscode.ExtensionContext): boolean
  * @param context Extension context
  */
 export function showWelcomePage(context: vscode.ExtensionContext): void {
+    // Get current welcome shown state for checkbox initialization
+    const welcomeShown = context.globalState.get<boolean>(WELCOME_SHOWN_KEY, false);
+
     const panel = vscode.window.createWebviewPanel(
         'mybatisHelperWelcome',
         vscode.l10n.t('welcome.title'),
         vscode.ViewColumn.One,
         {
             enableScripts: true,
-            localResourceRoots: [context.extensionUri],
+            localResourceRoots: [
+                context.extensionUri,
+                vscode.Uri.joinPath(context.extensionUri, 'node_modules', '@vscode', 'codicons'),
+                vscode.Uri.joinPath(context.extensionUri, 'static')
+            ],
             retainContextWhenHidden: true
         }
     );
 
-    // Set webview content
-    panel.webview.html = getWelcomeContent(panel.webview, context.extensionUri);
+    // Set webview content with welcomeShown state
+    panel.webview.html = getWelcomeContent(panel.webview, context.extensionUri, welcomeShown);
 
     // Handle messages from webview
     panel.webview.onDidReceiveMessage(

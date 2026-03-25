@@ -110,6 +110,7 @@ const DEBOUNCE_DELAY = 300;
 let commandsRegistered = false;
 let providersRegistered = false;
 let fileWatcherStarted = false;
+let welcomePageShown = false;
 
 /**
  * 插件激活函数
@@ -673,8 +674,9 @@ async function checkIfJavaProject() {
 function activatePluginFeatures(context: vscode.ExtensionContext) {
   logger.debug(vscode.l10n.t("extension.activatePluginFeatures"));
 
-  // Show welcome page on first install
-  if (shouldShowWelcomePage(context)) {
+  // Show welcome page on first install (only once)
+  if (!welcomePageShown && shouldShowWelcomePage(context)) {
+    welcomePageShown = true;
     showWelcomePage(context);
   }
 

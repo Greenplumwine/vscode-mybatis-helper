@@ -144,8 +144,6 @@
 
   "command.showWelcomePage.title": "Show Welcome Page",
   "command.configureWizard.title": "Configure MyBatis Helper",
-  "command.validateConfiguration.title": "Validate Configuration",
-  "command.diagnose.title": "Diagnose MyBatis Helper",
   "config.showWelcome.description": "Show welcome page on startup",
 
   "welcome.title": "Welcome to MyBatis Helper",

@@ -11,10 +11,21 @@ import * as vscode from 'vscode';
  * Generate welcome page HTML content
  * @param webview Webview instance
  * @param extensionUri Extension URI for resource resolution
+ * @param welcomeShown Whether welcome page has been marked as "don't show again"
  * @returns HTML string
  */
-export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.Uri, welcomeShown: boolean = false): string {
     const nonce = getNonce();
+
+    // Create URI for codicon.css
+    const codiconsUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')
+    );
+
+    // Create URI for MyBatis Helper icon
+    const iconUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(extensionUri, 'static', 'icon', 'mybatis-helper-icon.svg')
+    );
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -24,10 +35,12 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
         style-src ${webview.cspSource} 'unsafe-inline';
-        script-src 'nonce-${nonce}';
+        font-src ${webview.cspSource};
         img-src ${webview.cspSource} https: data:;
+        script-src 'nonce-${nonce}';
     ">
     <title>${vscode.l10n.t('welcome.title')}</title>
+    <link rel="stylesheet" type="text/css" href="${codiconsUri}">
     <style>
         :root {
             --welcome-padding: 40px;
@@ -61,9 +74,15 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
         }
 
         .header-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-            color: var(--vscode-symbolIcon-classForeground);
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 16px;
+        }
+
+        .header-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .header h1 {
@@ -104,6 +123,10 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
             border-radius: 8px;
             padding: 24px;
             transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
         }
 
         .feature-card:hover {
@@ -113,9 +136,18 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
         }
 
         .feature-icon {
-            font-size: var(--icon-size);
+            font-size: 48px;
             margin-bottom: 16px;
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            color: var(--vscode-symbolIcon-classForeground);
+        }
+
+        .feature-icon::before {
+            font-size: 48px;
         }
 
         .feature-card h3 {
@@ -123,12 +155,14 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
             font-weight: 500;
             margin-bottom: 8px;
             color: var(--vscode-foreground);
+            width: 100%;
         }
 
         .feature-card p {
             font-size: 14px;
             color: var(--vscode-descriptionForeground);
             line-height: 1.5;
+            width: 100%;
         }
 
         /* Quick Setup Section */
@@ -250,6 +284,10 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
             font-size: 16px;
         }
 
+        .btn-icon {
+            display: none;
+        }
+
         /* Footer Section */
         .footer {
             padding-top: 24px;
@@ -308,7 +346,9 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
 </head>
 <body>
     <div class="header">
-        <div class="header-icon codicon codicon-symbol-class"></div>
+        <div class="header-icon">
+            <img src="${iconUri}" alt="MyBatis Helper">
+        </div>
         <h1>${vscode.l10n.t('welcome.title')}</h1>
         <p>${vscode.l10n.t('welcome.subtitle')}</p>
     </div>
@@ -317,17 +357,17 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
         <h2 class="section-title">${vscode.l10n.t('welcome.features.title')}</h2>
         <div class="feature-cards">
             <div class="feature-card">
-                <span class="feature-icon codicon codicon-arrow-swap"></span>
+                <i class="feature-icon codicon codicon-arrow-swap"></i>
                 <h3>${vscode.l10n.t('welcome.feature.navigate')}</h3>
                 <p>${vscode.l10n.t('welcome.feature.navigate.desc')}</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon codicon codicon-database"></span>
+                <i class="feature-icon codicon codicon-database"></i>
                 <h3>${vscode.l10n.t('welcome.feature.capture')}</h3>
                 <p>${vscode.l10n.t('welcome.feature.capture.desc')}</p>
             </div>
             <div class="feature-card">
-                <span class="feature-icon codicon codicon-symbol-snippet"></span>
+                <i class="feature-icon codicon codicon-symbol-snippet"></i>
                 <h3>${vscode.l10n.t('welcome.feature.complete')}</h3>
                 <p>${vscode.l10n.t('welcome.feature.complete.desc')}</p>
             </div>
@@ -339,21 +379,21 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
         <ul class="setup-list">
             <li class="setup-item">
                 <div class="setup-checkbox loading" id="check-java">
-                    <span class="codicon codicon-check"></span>
+                    <i class="codicon codicon-check"></i>
                 </div>
                 <span class="setup-text">${vscode.l10n.t('welcome.setup.java')}</span>
                 <span class="setup-status" id="status-java">${vscode.l10n.t('welcome.setup.checking')}</span>
             </li>
             <li class="setup-item">
                 <div class="setup-checkbox loading" id="check-mappers">
-                    <span class="codicon codicon-check"></span>
+                    <i class="codicon codicon-check"></i>
                 </div>
                 <span class="setup-text">${vscode.l10n.t('welcome.setup.mappers')}</span>
                 <span class="setup-status" id="status-mappers">${vscode.l10n.t('welcome.setup.checking')}</span>
             </li>
             <li class="setup-item">
                 <div class="setup-checkbox loading" id="check-sql">
-                    <span class="codicon codicon-check"></span>
+                    <i class="codicon codicon-check"></i>
                 </div>
                 <span class="setup-text">${vscode.l10n.t('welcome.setup.sql')}</span>
                 <span class="setup-status" id="status-sql">${vscode.l10n.t('welcome.setup.checking')}</span>
@@ -365,15 +405,15 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
         <h2 class="section-title">${vscode.l10n.t('welcome.actions.title')}</h2>
         <div class="action-buttons">
             <button class="action-button secondary" id="btn-sample">
-                <span class="codicon codicon-folder-opened"></span>
+                <i class="codicon codicon-folder-opened"></i>
                 ${vscode.l10n.t('welcome.action.sample')}
             </button>
             <button class="action-button primary" id="btn-configure">
-                <span class="codicon codicon-gear"></span>
+                <i class="codicon codicon-gear"></i>
                 ${vscode.l10n.t('welcome.action.configure')}
             </button>
             <button class="action-button secondary" id="btn-docs">
-                <span class="codicon codicon-book"></span>
+                <i class="codicon codicon-book"></i>
                 ${vscode.l10n.t('welcome.action.docs')}
             </button>
         </div>
@@ -381,7 +421,7 @@ export function getWelcomeContent(webview: vscode.Webview, extensionUri: vscode.
 
     <div class="footer">
         <label class="dont-show-again">
-            <input type="checkbox" id="dont-show-again">
+            <input type="checkbox" id="dont-show-again" ${welcomeShown ? 'checked' : ''}>
             <span>${vscode.l10n.t('welcome.dontShowAgain')}</span>
         </label>
         <span class="version-info">MyBatis Helper v0.0.8</span>

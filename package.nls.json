@@ -65,5 +65,6 @@
   "view.sqlHistory.name": "SQL History",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
   "activitybar.mybatisHelper.title": "MyBatis Helper",
-  "config.showWelcome.description": "Show welcome page on startup"
+  "command.validateConfiguration.title": "Validate Configuration",
+  "command.diagnose.title": "Diagnose MyBatis Helper"
 }

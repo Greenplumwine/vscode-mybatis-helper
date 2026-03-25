@@ -560,6 +560,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@vscode/codicons": "^0.0.45",
     "axios": "^1.13.6",
     "fast-xml-parser": "^5.3.4",
     "sql-formatter": "^15.7.2",
