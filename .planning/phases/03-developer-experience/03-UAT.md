@@ -6,19 +6,20 @@ source:
   - 03-02-SUMMARY.md
   - 03-03-SUMMARY.md
 started: "2026-03-25T08:00:00.000Z"
-updated: "2026-03-25T08:00:00.000Z"
+updated: "2026-03-25T23:50:00.000Z"
 ---
 
 ## Current Test
 
-number: 1
-name: README Quick Start Section
+number: 3
+name: Sample Project
 expected: |
-  README.md 包含"## Quick Start"部分，提供 3 步设置说明：
-  1. 安装 Java 扩展
-  2. 打开 MyBatis 项目
-  3. 使用 Ctrl+Alt+J/Ctrl+Alt+X 进行导航
-  同时包含指向示例项目和文档的链接。
+  samples/basic-mybatis-project/ 目录存在，包含：
+  - pom.xml (Maven 配置，包含 MyBatis 依赖)
+  - UserMapper.java (Java Mapper 接口)
+  - UserMapper.xml (XML 映射文件)
+  - UserMapperTest.java (测试文件)
+  - mybatis-config.xml (MyBatis 配置)
 awaiting: user response
 
 ## Tests
@@ -29,7 +30,7 @@ result: pass
 
 ### 2. Documentation Files
 expected: docs/ folder contains TROUBLESHOOTING.md, FEATURES.md, CONFIGURATION.md with comprehensive content
-result: pending
+result: pass
 
 ### 3. Sample Project
 expected: samples/basic-mybatis-project/ exists with Maven project, UserMapper, XML, and tests
@@ -62,9 +63,9 @@ result: pending
 ## Summary
 
 total: 9
-passed: 0
+passed: 2
 issues: 0
-pending: 9
+pending: 7
 skipped: 0
 
 ## Gaps

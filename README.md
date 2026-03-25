@@ -27,7 +27,7 @@ Get started with MyBatis Helper in 3 simple steps:
    - Open the sample project in [`samples/basic-mybatis-project/`](samples/basic-mybatis-project/)
    - Run `mvn test` to see SQL interception in action
 
-> **New to MyBatis Helper?** Check out the [Features Guide](docs/FEATURES.md) for detailed documentation.
+> **New to MyBatis Helper?** Check out the [Features Guide](docs/en/FEATURES.md) for detailed documentation.
 
 ## Features
 
