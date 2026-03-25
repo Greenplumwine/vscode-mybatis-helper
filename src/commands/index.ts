@@ -10,12 +10,18 @@
 
 export { generateXmlMethodCommand } from './generateXmlMethod';
 export { createMapperXmlCommand } from './createMapperXml';
+export { showPerformanceStatsCommand } from './showPerformanceStats';
+export { runConfigurationWizard } from './configurationWizard';
 
 // 重新导出实例
 import { generateXmlMethodCommand } from './generateXmlMethod';
 import { createMapperXmlCommand } from './createMapperXml';
+import { showPerformanceStatsCommand } from './showPerformanceStats';
+import { runConfigurationWizard } from './configurationWizard';
 
 export const commands = {
   generateXmlMethod: generateXmlMethodCommand,
-  createMapperXml: createMapperXmlCommand
+  createMapperXml: createMapperXmlCommand,
+  showPerformanceStats: showPerformanceStatsCommand,
+  runConfigurationWizard
 };
