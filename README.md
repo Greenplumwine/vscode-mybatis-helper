@@ -10,7 +10,35 @@ A powerful VSCode extension that provides comprehensive assistance for MyBatis d
 
 MyBatis Helper is a VSCode extension designed specifically for MyBatis developers to enhance productivity in MyBatis projects. The extension provides features like console log interception, SQL conversion, and quick file navigation to help developers build and debug MyBatis applications more efficiently.
 
+## Quick Start
+
+Get started with MyBatis Helper in 3 simple steps:
+
+1. **Install Prerequisites**
+   - Install [Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack) from VS Code marketplace
+   - Open your MyBatis project (with `pom.xml` or `build.gradle`)
+
+2. **Use the Features**
+   - **Navigation**: Press `Ctrl+Alt+J` (Windows/Linux) or `Ctrl+Option+J` (macOS) to jump from Java to XML
+   - **SQL Interception**: Open the MyBatis Helper sidebar (database icon) to see captured SQL
+   - **Code Completion**: Type `#{` in XML files to see parameter suggestions
+
+3. **Try the Sample**
+   - Open the sample project in [`samples/basic-mybatis-project/`](samples/basic-mybatis-project/)
+   - Run `mvn test` to see SQL interception in action
+
+> **New to MyBatis Helper?** Check out the [Features Guide](docs/FEATURES.md) for detailed documentation.
+
 ## Features
+
+![navigation](static/images/navigation-demo.gif)
+*Java to XML navigation - press `Ctrl+Alt+J` to jump*
+
+![sql-interceptor](static/images/sql-interceptor-demo.gif)
+*SQL Interceptor - capture and view executed SQL*
+
+![completion](static/images/completion-demo.gif)
+*Code Completion - intelligent parameter suggestions*
 
 ### 1. SQL Log Interception and Conversion
 
@@ -94,6 +122,12 @@ Real-time interception of MyBatis SQL statements from application logs, automati
 - Detailed recording of plugin runtime status and error information
 - Facilitates developer debugging and troubleshooting
 
+## Documentation
+
+- [Features Guide](docs/FEATURES.md) - Detailed feature documentation and usage examples
+- [Configuration Reference](docs/CONFIGURATION.md) - All configuration options explained
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+
 ## Installation
 
 ### Method 1: Install from VSCode Extension Marketplace
@@ -111,6 +145,8 @@ Real-time interception of MyBatis SQL statements from application logs, automati
 4. Restart VSCode after installation completes
 
 ## User Guide
+
+> **Tip:** Try the [sample project](samples/basic-mybatis-project/) to see all features in action. Run `mvn test` and watch SQL appear in the sidebar!
 
 ### 1. SQL Log Interception Feature Details
 
