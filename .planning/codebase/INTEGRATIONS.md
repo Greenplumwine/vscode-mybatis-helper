@@ -4,114 +4,146 @@
 
 ## APIs & External Services
 
-**MyBatis DTD:**
-- Service: MyBatis official DTD repository
-- URL: `http://mybatis.org/dtd/mybatis-3-mapper.dtd`
-- Purpose: XML validation and tag hierarchy parsing
-- Client: Custom `HttpClient` wrapper around axios
-- Fallback: Built-in tag hierarchy for offline environments
+**Red Hat Java Extension (redhat.java):**
+- Purpose: Hard dependency for Java language support
+- Integration point: `src/utils/javaExtensionAPI.ts`
+- API version: 1 (via `javaExt.exports.getAPI(1)`)
+- Fallback: Graceful degradation to file-based search when unavailable
+- Used for:
+  - Classpath resolution
+  - Java file navigation
+  - Project structure detection
 
-**HTTP Client:**
-- Library: axios ^1.13.6
-- Features: Timeout (15s default), retry with exponential backoff (max 3 retries), request/response interceptors
+**HTTP/Network (axios):**
+- Client: `src/utils/httpClient.ts`
+- Features: Retry with exponential backoff, timeout handling
 - User-Agent: `MyBatis-Helper-VSCode-Extension/1.0.0`
+- Current usage: DTD resolution for XML validation
+- Potential: External API integrations (not currently used)
 
 ## Data Storage
 
 **Databases:**
-- None - Extension operates on file system only
+- None - No persistent database storage
 
 **File Storage:**
-- Local filesystem via VS Code workspace API
-- Index cache: Stored in workspace storage (`context.globalStorageUri`)
-- DTD cache: Cached locally after download
+- Local filesystem only
+- Index cache: `IndexCacheManager` at `src/features/mapping/indexCache.ts`
+- Cache location: `context.globalStorageUri.fsPath`
+- No eviction policy (unbounded growth noted in CLAUDE.md)
 
 **Caching:**
-- In-memory mapping engine indices
-- File-based index cache for incremental updates
-- DTD file caching for offline use
+- In-memory Maps for mapping engine (`FastMappingEngine`)
+- Regex pattern caching (unbounded)
+- DTD tag hierarchy caching
+- All caches are in-memory, cleared on extension reload
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- None required - Extension works with local files only
+- None - No authentication required
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- Custom logger utility (`src/utils/logger.ts`)
-- VS Code output channel for extension logs
-- Configurable log levels: `info`, `debug`
+- Custom Logger class: `src/utils/logger.ts`
+- Output channel: `MyBatis Helper`
+- Log levels: info, debug (configurable via `mybatis-helper.logOutputLevel`)
 
 **Logs:**
-- Output channel: "MyBatis Helper"
-- Structured logging with context
-- File change tracking and performance metrics
+- VS Code Output Channel for extension logs
+- Debug console integration for SQL interception
+- Terminal output monitoring for SQL logs
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- VS Code Extension Marketplace
-- Publisher: Greenplumwine
+- VS Code Marketplace
+- Publisher: `Greenplumwine`
 
 **CI Pipeline:**
-- Not detected in repository
-- Scripts available:
-  - `vscode:prepublish` - Pre-publish compilation
-  - `compile` - TypeScript compilation
-  - `lint` - ESLint checking
-  - `test` - VS Code extension testing
+- None detected
 
-## VS Code Extension Dependencies
+**Build Process:**
+- Local TypeScript compilation
+- `vscode:prepublish` script runs compile
 
-**Required Extensions:**
-- `redhat.java` - Java language support extension
-  - Used for: Java AST parsing, classpath resolution, symbol navigation
-  - API access via `JavaExtensionAPI` utility
+## External Tools
 
-**Integrated APIs:**
-- `vscode.languages` - Language features (CodeLens, Completion, Formatting)
-- `vscode.workspace` - File system watchers, workspace state
-- `vscode.commands` - Command registration and execution
-- `vscode.window` - UI interactions (status bar, notifications, webview panels)
-- `vscode.l10n` - Internationalization
+**javap (JDK tool):**
+- Purpose: Parse `.class` files to extract @MapperScan annotations
+- Integration: `src/features/mapping/classParsingWorker.ts`
+- Execution: `execFileSync('javap', ['-v', classPath])`
+- Security: Path sanitization via `sanitizeClassPath()` function
+- Fallback: Graceful handling when javap unavailable
+
+**Worker Threads:**
+- File: `src/features/mapping/classParsingWorker.ts`
+- Purpose: Non-blocking class file parsing
+- Communication: Message passing with parentPort
+
+## VS Code APIs Used
+
+**Core APIs:**
+- `vscode.extensions.getExtension()` - Java extension detection
+- `vscode.workspace.findFiles()` - File discovery
+- `vscode.workspace.openTextDocument()` - File reading
+- `vscode.window.showTextDocument()` - File display
+- `vscode.window.createStatusBarItem()` - Status bar
+- `vscode.window.registerTreeDataProvider()` - SQL History view
+- `vscode.workspace.createFileSystemWatcher()` - File change monitoring
+
+**Language APIs:**
+- `vscode.languages.registerCodeLensProvider()` - Java/XML CodeLens
+- `vscode.languages.registerCompletionItemProvider()` - Smart completion
+- `vscode.languages.registerDocumentFormattingEditProvider()` - XML formatting
+
+**Command APIs:**
+- `vscode.commands.registerCommand()` - All 14 extension commands
+- `vscode.commands.executeCommand()` - Context variables, settings
+
+**Localization:**
+- `vscode.l10n.t()` - 9 language bundles in `l10n/` directory
+- Bundles: de, es, fr, ja, ru, zh-cn, zh-tw, plus base bundle.l10n.json
 
 ## Environment Configuration
 
-**Required Settings:**
-- No mandatory environment variables
-- All configuration via VS Code settings UI
+**Required Configuration:**
+- None mandatory - Extension auto-configures
 
-**Key Configuration Categories:**
-- `mybatis-helper.enableCodeLens` - Toggle CodeLens visibility
-- `mybatis-helper.fileOpenMode` - File opening behavior
-- `mybatis-helper.customXmlDirectories` - Additional XML search paths
-- `mybatis-helper.sqlInterceptor.*` - SQL interception and history settings
-- `mybatis-helper.formatting.sql.*` - SQL formatting preferences
-- `mybatis-helper.completion.*` - IntelliSense completion settings
+**Optional Settings (namespace: `mybatis-helper`):**
+- `databaseType` - SQL dialect for formatting
+- `sqlInterceptor.listenMode` - auto/debugConsole/terminal
+- `nameMatchingRules` - Custom Java-XML matching patterns
+- `pathPriority` - Directory priority for file lookup
+- `formatting.sql.dialect` - SQL dialect (mysql, postgresql, oracle, sqlite, tsql, db2)
+- `formatting.sql.keywordCase` - upper/lower/preserve
+- `formatting.sql.maxLineLength` - 40-500 characters
+- `completion.enableSmartCompletion` - Enable/disable smart completion
 
-**Extension Dependencies (Runtime):**
-- Node.js built-in modules: `fs/promises`, `path`, `os`, `crypto`, `worker_threads`, `events`
-- VS Code Extension Host APIs
+**Activation Context Variables:**
+- `mybatis-helper.activated` - Extension active state
+- `mybatis-helper.sqlInterceptorRunning` - Interceptor state
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- File system watchers for `.java` and `.xml` files
-- VS Code configuration change events
-- Java extension activation events
+- None
 
 **Outgoing:**
-- None - Extension is self-contained
+- None
 
-## Network Requirements
+## Security Considerations
 
-**External Connections:**
-- Optional: `http://mybatis.org/dtd/mybatis-3-mapper.dtd` (DTD download)
-- Can operate fully offline with built-in DTD fallback
+**Path Handling:**
+- Extensive use of `.toLowerCase()` for path normalization
+- Unicode NFC normalization for macOS compatibility
+- Path traversal protection in class parsing worker
 
-**Proxy Support:**
-- Inherits VS Code proxy settings via axios
+**Command Execution:**
+- `execFileSync` with array arguments (not shell strings)
+- Path sanitization before javap execution
+- Timeout and buffer limits on external processes
 
 ---
 

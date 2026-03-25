@@ -1,180 +1,205 @@
 # Architecture
 
-**Analysis Date:** 2026-03-24
+**Analysis Date:** 2026-03-25
 
 ## Pattern Overview
 
-**Overall:** VS Code Extension Architecture with Plugin Pattern
+**Overall:** Layered architecture with singleton services and event-driven communication
 
 **Key Characteristics:**
-- Event-driven architecture using VS Code Extension API
-- Singleton pattern for core services (FastMappingEngine, FastScanner, etc.)
-- Strategy pattern for completion providers
-- Pipeline pattern for formatting
-- Layered scanning strategy for enterprise projects
+- Singleton pattern for all core services (FastMappingEngine, UnifiedNavigationService, SQLInterceptorService)
+- EventEmitter-based communication between components
+- Dual scanner system with runtime selection (FastScanner vs EnterpriseScanner)
+- Worker thread system for CPU-intensive operations
+- Provider pattern for VS Code extension points
 
 ## Layers
 
-**Extension Entry Layer:**
-- Purpose: Plugin activation, lifecycle management, command registration
+**Extension Layer:**
+- Purpose: VS Code lifecycle management and feature coordination
 - Location: `src/extension.ts`
-- Contains: Activation handlers, command registrations, provider registrations
+- Contains: Activation logic, command registration, provider registration, file watching
 - Depends on: All feature modules, services
 - Used by: VS Code host
 
 **Feature Layer:**
-- Purpose: Core functionality implementation organized by feature
+- Purpose: Core business logic organized by feature domain
 - Location: `src/features/`
 - Contains: Mapping, completion, formatting, SQL interception
-- Depends on: Services layer, Utils layer
-- Used by: Extension entry layer
+- Depends on: Services layer, VS Code API
+- Used by: Extension layer, VS Code UI
 
-**Services Layer:**
-- Purpose: Shared business logic and parsing services
+**Service Layer:**
+- Purpose: Shared business logic and parsing utilities
 - Location: `src/services/`
-- Contains: Language detection, XML parsing, Java method parsing, template generation
-- Depends on: Utils layer
+- Contains: XML parsing, Java method parsing, DTD resolution, language detection, templates
+- Depends on: Types, utilities
 - Used by: Feature layer
 
-**Utils Layer:**
-- Purpose: Cross-cutting utilities and helpers
+**Utility Layer:**
+- Purpose: Cross-cutting concerns and helpers
 - Location: `src/utils/`
-- Contains: Logger, performance utilities, HTTP client, text processing
+- Contains: Logger, Java extension API wrapper, performance utilities, string utilities
 - Depends on: VS Code API
 - Used by: All layers
 
 **Types Layer:**
 - Purpose: Shared TypeScript type definitions
 - Location: `src/types/`
-- Contains: Core interfaces (SQLQuery, DatabaseType, PluginConfig)
-- Depends on: None
+- Contains: Domain models, interfaces, enums
 - Used by: All layers
 
 ## Data Flow
 
-**Java-to-XML Navigation Flow:**
+**Extension Activation Flow:**
 
-1. User triggers jump command from Java file
-2. `UnifiedNavigationService` receives request with document and position
-3. Navigation service queries `FastMappingEngine` for namespace mapping
-4. If mapping exists, resolves XML file path and method location
-5. Opens XML file at specific SQL ID location
+1. `activate()` in `src/extension.ts` called by VS Code
+2. Initialize base services (LanguageDetector, TagHierarchyResolver, MyBatisXmlParser)
+3. Wait for `redhat.java` extension activation
+4. Initialize JavaExtensionAPI
+5. Detect project type (standard vs multi-module vs microservice)
+6. Initialize appropriate scanner (FastScanner or EnterpriseScanner)
+7. Initialize FastMappingEngine and UnifiedNavigationService
+8. Register CodeLens providers (FastCodeLensProvider, XmlCodeLensProvider)
+9. Register command handlers
+10. Start file watching for incremental updates
 
-**XML-to-Java Navigation Flow:**
+**Java to XML Navigation Flow:**
 
-1. User triggers jump command from XML file
-2. `UnifiedNavigationService` parses XML namespace and SQL ID
-3. Queries `FastMappingEngine` for corresponding Java Mapper class
-4. Resolves Java file path and method position
-5. Opens Java file at method declaration
+1. User triggers jump from Java file
+2. `UnifiedNavigationService.navigateJavaToXml()` called
+3. Lookup mapping in `FastMappingEngine` via `getByJavaPath()` - O(1)
+4. If no mapping, dynamically parse Java file and search for XML
+5. Open XML file and navigate to method position
+6. Position determined by XML statement location stored in mapping
 
-**Mapping Build Flow:**
+**XML to Java Navigation Flow:**
 
-1. `FastScanner` or `EnterpriseScanner` scans workspace files
-2. XML files parsed by `MyBatisXmlParser` to extract namespace and SQL IDs
-3. Java files analyzed via `EnhancedJavaAPI` to extract method signatures
-4. `FastMappingEngine` builds bidirectional indexes (namespace -> paths, paths -> namespace)
-5. Event emitters notify CodeLens providers to refresh
+1. User triggers jump from XML file
+2. `UnifiedNavigationService.navigateXmlToJava()` called
+3. Parse XML to extract namespace
+4. Lookup mapping in `FastMappingEngine` via `getByNamespace()` - O(1)
+5. If no mapping, search filesystem for Java file by namespace
+6. Use VS Code Java symbol API to find exact method position
+7. Open Java file and reveal method
 
 **SQL Interception Flow:**
 
-1. `SQLInterceptorService` listens to debug console or terminal output
-2. Parses MyBatis SQL logs using configurable regex patterns
-3. Extracts SQL statements, parameters, execution times
-4. Stores in memory history via `SQLHistoryTreeProvider`
-5. Displays in custom TreeView panel
+1. `SQLInterceptorService` registers DebugAdapterTrackerFactory
+2. Debug session starts, tracker receives output events
+3. Log lines matched against configured rules (builtin + custom)
+4. SQL, parameters, and execution time extracted via regex
+5. `SQLParser` fills parameters into SQL template
+6. Complete query stored in history array
+7. TreeView refreshed via event emission
 
-## State Management
+**Incremental Update Flow:**
 
-**Mapping State:**
-- Managed by: `FastMappingEngine` (singleton)
-- Storage: In-memory Maps (namespaceIndex, javaPathIndex, xmlPathIndex)
-- Persistence: None (rebuilt on activation)
-- Updates: Incremental via file watchers
-
-**Configuration State:**
-- Managed by: VS Code workspace configuration
-- Storage: VS Code settings.json
-- Access: Via `vscode.workspace.getConfiguration()`
-- Key configs: `mybatis-helper.*` namespace
-
-**SQL History State:**
-- Managed by: `SQLInterceptorService` (singleton)
-- Storage: In-memory array with configurable max size
-- Persistence: None (cleared on extension reload)
+1. FileSystemWatcher detects file change
+2. 300ms debounce timer fires
+3. Scanner rescans single file (rescanJavaFile/rescanXmlFile)
+4. FastMappingEngine updates indexes
+5. CodeLens providers refreshed via events
 
 ## Key Abstractions
 
 **FastMappingEngine:**
-- Purpose: O(1) lookup for Java-XML mappings
+- Purpose: O(1) bidirectional lookup between Java and XML mappers
 - Location: `src/features/mapping/fastMappingEngine.ts`
-- Pattern: Singleton with EventEmitter
-- Indexes: namespace -> mapping, javaPath -> namespace, xmlPath -> namespace
+- Pattern: Singleton with multiple Map indexes
+- Indexes:
+  - `namespaceIndex`: namespace -> MappingIndex
+  - `javaPathIndex`: normalized path -> namespace
+  - `xmlPathIndex`: normalized path -> namespace
+  - `classNameIndex`: simpleClassName -> Set<namespace>
+  - `packageIndex`: packagePrefix -> Set<namespace>
 
 **UnifiedNavigationService:**
-- Purpose: Bidirectional navigation between Java and XML
+- Purpose: Coordinate navigation between Java and XML with fallback strategies
 - Location: `src/features/mapping/unifiedNavigationService.ts`
-- Pattern: Singleton
-- Dependencies: FastMappingEngine, XmlLocationResolver
+- Pattern: Singleton with dynamic lookup fallback
+- Strategies:
+  - Index lookup (O(1))
+  - Dynamic file parsing
+  - Filesystem search by namespace
+  - Filesystem search by class name
 
-**UnifiedCompletionProvider:**
-- Purpose: Context-aware code completion in XML files
-- Location: `src/features/completion/unifiedCompletionProvider.ts`
-- Pattern: Strategy pattern with multiple completion strategies
-- Strategies: PlaceholderStrategy, PropertyStrategy, TypeStrategy, ForeachVariableStrategy
+**SQLInterceptorService:**
+- Purpose: Capture and parse SQL from debug console and terminal
+- Location: `src/features/sql-interceptor/sqlInterceptorService.ts`
+- Pattern: Singleton with event emitters and regex rule engine
+- Listens to: Debug adapter messages, terminal shell execution
+- Emits: onSQLRecorded, onHistoryCleared, onStateChanged
 
-**NestedFormattingProvider:**
-- Purpose: Format MyBatis XML with SQL inside
-- Location: `src/features/formatting/nestedFormattingProvider.ts`
-- Pattern: Pipeline pattern
-- Pipeline steps: SQL extraction, SQL formatting, XML formatting, indent adjustment
+**Scanner Architecture:**
+- FastScanner: Standard projects, file-based scanning with parallel batch processing
+- EnterpriseScanner: Large/monorepo projects with 6-layer scanning (source -> submodules -> jars -> classes -> runtime -> env)
+- Selection based on project type detection (multi-module, microservice markers, jar dependencies)
 
 ## Entry Points
 
-**Extension Activation:**
-- Location: `src/extension.ts` - `activate()` function
-- Triggers: Workspace contains pom.xml or build.gradle
-- Responsibilities: Initialize services, register commands/providers, detect project type
+**Extension Entry:**
+- Location: `src/extension.ts`
+- Triggers: Workspace contains `pom.xml` or `build.gradle`
+- Responsibilities: Service initialization, command registration, provider registration
 
 **Command Handlers:**
-- Location: `src/extension.ts` and `src/commands/`
-- Commands: `mybatis-helper.jumpToXml`, `mybatis-helper.jumpToMapper`, `mybatis-helper.generateXmlMethod`, etc.
-- Registration: Via `vscode.commands.registerCommand()`
+- Location: `src/extension.ts` lines 743-1042
+- Commands: jumpToXml, jumpToMapper, refreshMappings, showSqlHistory, generateXmlMethod, createMapperXml, etc.
 
-**Language Providers:**
-- CodeLens: `FastCodeLensProvider`, `XmlCodeLensProvider`
-- Completion: `UnifiedCompletionProvider`, `TagCompletionProvider`
-- Formatting: `NestedFormattingProvider`
-- Registration: Via `vscode.languages.register*Provider()`
+**CodeLens Providers:**
+- FastCodeLensProvider: `src/features/mapping/fastCodeLensProvider.ts` - Java files
+- XmlCodeLensProvider: `src/features/mapping/xmlCodeLensProvider.ts` - XML files
+
+**Completion Providers:**
+- UnifiedCompletionProvider: `src/features/completion/unifiedCompletionProvider.ts` - Parameter completion (#, $, {)
+- TagCompletionProvider: `src/features/completion/tagCompletionProvider.ts` - XML tag completion (<, space)
+
+## Worker Thread System
+
+**Purpose:** Parse compiled `.class` files without blocking main thread
+
+**Worker File:** `src/features/mapping/classParsingWorker.ts`
+
+**Operation:**
+1. EnterpriseScanner identifies class files in target directories
+2. Spawns Worker thread with file list
+3. Worker uses `javap -v` to extract bytecode
+4. Parses `@MapperScan` annotations from bytecode
+5. Returns config array to main thread
+
+**Security:**
+- Path sanitization via `sanitizeClassPath()`
+- Command injection prevention via `execFileSync` with array args
+- Extension validation (.class only)
 
 ## Error Handling
 
-**Strategy:** Centralized logging with user-facing messages
+**Strategy:** Graceful degradation with logging
 
 **Patterns:**
-- All errors logged via `Logger` utility
-- User notifications via `vscode.window.showErrorMessage()`
-- Graceful degradation (e.g., fallback scanners if primary fails)
-- Try-catch blocks at command handler level
+- Try-catch blocks with logger.error() for all async operations
+- Fallback to alternative strategies (index -> dynamic parse -> filesystem search)
+- User-facing messages via vscode.window.showWarningMessage/showErrorMessage
+- Non-blocking error handling for scanning (continues with partial results)
 
 ## Cross-Cutting Concerns
 
 **Logging:**
-- Framework: Custom `Logger` class (`src/utils/logger.ts`)
-- Levels: debug, info, warn, error
-- Output: VS Code OutputChannel
+- Centralized Logger singleton: `src/utils/logger.ts`
+- Configurable levels (info/debug)
+- All major operations logged with timing info
+
+**Configuration:**
+- VS Code settings namespace: `mybatis-helper`
+- Key configs: databaseType, sqlInterceptor.listenMode, nameMatchingRules, pathPriority
+- Hot reload via onDidChangeConfiguration
 
 **Internationalization:**
-- Framework: VS Code l10n API
-- Location: `l10n/bundle.l10n.*.json`
+- 9 language bundles in `l10n/`
+- Keys defined in `l10n/bundle.l10n.json`
 - Usage: `vscode.l10n.t("key")`
-
-**Performance:**
-- Worker threads for class parsing (`classParsingWorker.ts`)
-- Debounced file watching (300ms delay)
-- Parallel scanning with configurable limits
-- Index caching for enterprise projects
 
 ---
 
-*Architecture analysis: 2026-03-24*
+*Architecture analysis: 2026-03-25*

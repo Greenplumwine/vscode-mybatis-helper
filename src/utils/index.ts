@@ -35,6 +35,17 @@ export {
   removePrefix
 } from './stringUtils';
 
+// 导出路径安全工具
+export {
+  sanitizeClassPath,
+  sanitizeJarPath,
+  isValidClassName,
+  sanitizeFilePath
+} from './pathSecurity';
+
+// 导出性能监控
+export { PerformanceMonitor } from './performanceMonitor';
+
 /**
  * 获取插件配置
  * 从VS Code配置中读取并合并插件的所有配置选项

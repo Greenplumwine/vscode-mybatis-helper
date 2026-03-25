@@ -6,10 +6,13 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
-import { execFileSync } from 'child_process';
+import * as fs from 'fs/promises';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { Logger } from '../../utils/logger';
 import { indexCacheManager } from './indexCache';
+
+const execFileAsync = promisify(execFile);
 
 export class ClassFileWatcher {
   private static instance: ClassFileWatcher;
@@ -95,7 +98,7 @@ export class ClassFileWatcher {
    */
   private handleClassFileChange(uri: vscode.Uri, type: 'create' | 'change' | 'delete'): void {
     const filePath = uri.fsPath;
-    
+
     // 只处理配置类
     const configPattern = /(Config|Configuration|Application|AutoConfiguration)\.class$/i;
     if (!configPattern.test(filePath)) {
@@ -109,8 +112,12 @@ export class ClassFileWatcher {
       clearTimeout(this.debounceTimer);
     }
 
-    this.debounceTimer = setTimeout(() => {
-      this.incrementalUpdate(filePath, type);
+    this.debounceTimer = setTimeout(async () => {
+      try {
+        await this.incrementalUpdate(filePath, type);
+      } catch (error) {
+        this.logger?.error('Error handling class file change:', error);
+      }
     }, this.DEBOUNCE_DELAY);
   }
 
@@ -118,13 +125,13 @@ export class ClassFileWatcher {
    * 验证并清理类文件路径
    * 防止路径遍历和命令注入
    */
-  private sanitizeClassPath(classPath: string): string | null {
+  private async sanitizeClassPath(classPath: string): Promise<string | null> {
     // 解析为绝对路径
     const resolved = path.resolve(classPath);
 
     // 验证路径存在且是文件
     try {
-      const stats = fs.statSync(resolved);
+      const stats = await fs.stat(resolved);
       if (!stats.isFile()) {
         return null;
       }
@@ -150,28 +157,28 @@ export class ClassFileWatcher {
         this.logger?.info(`Removed from cache: ${path.basename(filePath)}`);
       } else {
         // 验证路径安全
-        const safePath = this.sanitizeClassPath(filePath);
+        const safePath = await this.sanitizeClassPath(filePath);
         if (!safePath) {
           this.logger?.debug(`Invalid class file path: ${filePath}`);
           return;
         }
 
-        // 创建或更新：重新解析
-        const output = execFileSync('javap', ['-v', safePath], {
+        // 创建或更新：重新解析（使用异步 execFile）
+        const { stdout } = await execFileAsync('javap', ['-v', safePath], {
           encoding: 'utf-8',
           timeout: 5000,
           maxBuffer: 10 * 1024 * 1024 // 10MB buffer
         });
 
         // 快速检查是否包含 MapperScan
-        if (!output.includes('MapperScan')) {
+        if (!stdout.includes('MapperScan')) {
           // 更新缓存（无 @MapperScan）
           await indexCacheManager.updateEntry(filePath, undefined);
           return;
         }
 
         // 解析 @MapperScan
-        const config = this.parseMapperScanQuick(output, filePath);
+        const config = this.parseMapperScanQuick(stdout, filePath);
         await indexCacheManager.updateEntry(filePath, config || undefined);
 
         if (config) {

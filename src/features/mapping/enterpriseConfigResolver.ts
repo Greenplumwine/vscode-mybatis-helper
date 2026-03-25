@@ -18,9 +18,11 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { execFileSync } from 'child_process';
 import { MapperScanConfig } from './types';
 import { Logger } from '../../utils/logger';
 import { TIME, SCAN_LIMITS } from '../../utils/constants';
+import { sanitizeJarPath, sanitizeClassPath, isValidClassName } from '../../utils/pathSecurity';
 
 interface ConfigSource {
   type: 'source' | 'jar' | 'runtime' | 'environment';
@@ -767,8 +769,7 @@ export class EnterpriseConfigResolver {
    */
   private isJavapAvailable(): boolean {
     try {
-      const { execSync } = require('child_process');
-      execSync('javap -version', { encoding: 'utf-8', timeout: 3000 });
+      execFileSync('javap', ['-version'], { encoding: 'utf-8', timeout: 3000 });
       return true;
     } catch {
       this.logger?.debug('javap command not available');
@@ -855,23 +856,28 @@ export class EnterpriseConfigResolver {
    */
   private async parseAnnotationsFromJar(jarPath: string): Promise<MapperScanConfig[]> {
     const configs: MapperScanConfig[] = [];
-    
+
     // 如果 javap 不可用，直接返回空数组
     if (!this.isJavapAvailable()) {
       this.logger?.debug('javap not available, skipping JAR bytecode parsing');
       return configs;
     }
-    
+
+    // 验证 JAR 路径安全
+    const safeJarPath = sanitizeJarPath(jarPath);
+    if (!safeJarPath) {
+      this.logger?.warn(`Invalid jar path: ${jarPath}`);
+      return configs;
+    }
+
     try {
-      const { execSync } = require('child_process');
-      
-      // 列出jar中的class文件
-      const output = execSync(`jar tf "${jarPath}"`, { encoding: 'utf-8' });
+      // 列出jar中的class文件 - 使用 execFileSync 数组参数
+      const output = execFileSync('jar', ['tf', safeJarPath], { encoding: 'utf-8' });
       const files = output.split('\n');
-      
+
       // 查找可能的配置类
-      const configClasses = files.filter((f: string) => 
-        f.endsWith('Config.class') || 
+      const configClasses = files.filter((f: string) =>
+        f.endsWith('Config.class') ||
         f.endsWith('Configuration.class') ||
         f.endsWith('AutoConfiguration.class')
       );
@@ -883,13 +889,20 @@ export class EnterpriseConfigResolver {
         try {
           // 构建类名
           const className = classFile.replace(/\//g, '.').replace('.class', '');
-          
-          // 使用 javap 直接解析 JAR 中的 class
-          const javapOutput = execSync(
-            `javap -v -classpath "${jarPath}" "${className}"`,
+
+          // 验证类名安全
+          if (!isValidClassName(className)) {
+            this.logger?.debug(`Invalid class name: ${className}`);
+            continue;
+          }
+
+          // 使用 javap 直接解析 JAR 中的 class - 使用 execFileSync 数组参数
+          const javapOutput = execFileSync(
+            'javap',
+            ['-v', '-classpath', safeJarPath, className],
             { encoding: 'utf-8', timeout: 2000 }
           );
-          
+
           const config = this.parseMapperScanFromBytecode(javapOutput, `${jarPath}!${classFile}`);
           if (config) {
             configs.push(config);
@@ -916,13 +929,17 @@ export class EnterpriseConfigResolver {
       this.logger?.debug('javap not available, skipping class file bytecode parsing');
       return null;
     }
-    
-    try {
-      const { execSync } = require('child_process');
-      const output = execSync(`javap -v "${classPath}"`, { encoding: 'utf-8', timeout: 2000 });
-      
 
-      
+    // 验证类文件路径安全
+    const safeClassPath = sanitizeClassPath(classPath);
+    if (!safeClassPath) {
+      this.logger?.warn(`Invalid class path: ${classPath}`);
+      return null;
+    }
+
+    try {
+      const output = execFileSync('javap', ['-v', safeClassPath], { encoding: 'utf-8', timeout: 2000 });
+
       return this.parseMapperScanFromBytecode(output, classPath);
     } catch (error) {
       this.logger?.debug(`Error parsing class file ${classPath}:`, error);

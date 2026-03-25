@@ -124,9 +124,9 @@ Real-time interception of MyBatis SQL statements from application logs, automati
 
 ## Documentation
 
-- [Features Guide](docs/FEATURES.md) - Detailed feature documentation and usage examples
-- [Configuration Reference](docs/CONFIGURATION.md) - All configuration options explained
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Features Guide](docs/en/FEATURES.md) - Detailed feature documentation and usage examples
+- [Configuration Reference](docs/en/CONFIGURATION.md) - All configuration options explained
+- [Troubleshooting](docs/en/TROUBLESHOOTING.md) - Common issues and solutions
 
 ## Installation
 

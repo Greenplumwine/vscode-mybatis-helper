@@ -5,100 +5,110 @@
 ## Languages
 
 **Primary:**
-- TypeScript 5.9.2 - Core extension logic and VS Code API integration
-- JavaScript (ES2022) - Compiled output (`out/` directory)
+- TypeScript 5.9.2 - All extension logic, parsers, and services
+- JSON - Configuration files, localization bundles
 
 **Secondary:**
-- JSON - Configuration files, localization bundles, syntax definitions
-- XML - MyBatis mapper file parsing and processing
-- Java - Language support and bytecode analysis
+- Java - Target language for MyBatis development (extension operates on Java source files)
+- XML - MyBatis mapper files, Maven/Gradle configuration
 
 ## Runtime
 
 **Environment:**
-- Node.js (VS Code Extension Host)
-- VS Code Engine: ^1.93.0
+- Node.js (bundled with VS Code Electron runtime)
+- VS Code Extension Host API ^1.93.0
 
 **Package Manager:**
-- pnpm (evidenced by `pnpm-lock.yaml`)
-- Lockfile: `pnpm-lock.yaml` present
+- pnpm (evident from pnpm-lock.yaml)
+- Lockfile: present
 
 ## Frameworks
 
 **Core:**
-- VS Code Extension API (`vscode`) - Extension host integration
-- TypeScript Compiler (tsc) - Build and type checking
+- VS Code Extension API ^1.93.0 - Extension lifecycle, commands, language providers, TreeViews
+- Node.js Worker Threads - Class file parsing in background threads (`src/features/mapping/classParsingWorker.ts`)
 
 **Testing:**
-- Mocha ^10.0.10 - Test framework
-- `@vscode/test-cli` ^0.0.11 - VS Code extension testing CLI
-- `@vscode/test-electron` ^2.5.2 - Electron-based VS Code testing
+- @vscode/test-cli ^0.0.11 - VS Code extension test runner
+- @vscode/test-electron ^2.5.2 - Electron-based test environment
+- Mocha ^10.0.10 - Test framework (types only, inferred from devDependencies)
 
 **Build/Dev:**
-- TypeScript ^5.9.2 - Primary compiler
-- ESLint ^9.32.0 with `@typescript-eslint/*` ^8.39.0 - Linting
+- TypeScript ^5.9.2 - Compilation with strict mode enabled
+- ESLint ^9.32.0 with @typescript-eslint - Linting
 
 ## Key Dependencies
 
 **Critical:**
-- `fast-xml-parser` ^5.3.4 - High-performance XML parsing for MyBatis mapper files
-- `sql-formatter` ^15.7.2 - SQL statement formatting with dialect support
+- `fast-xml-parser` ^5.3.4 - Core XML parsing for MyBatis mapper files
+  - Used in: `src/services/parsing/mybatisXmlParser.ts`
+  - Purpose: Parse XML structure, extract SQL statements, namespace mappings
+
+- `sql-formatter` ^15.7.2 - SQL formatting for intercepted queries
+  - Used in: `src/features/formatting/pipeline/sqlFormatter.ts`
+  - Purpose: Format SQL with configurable dialects (MySQL, PostgreSQL, Oracle, etc.)
+
 - `xml-formatter` ^3.6.7 - XML document formatting
-- `axios` ^1.13.6 - HTTP client for DTD fetching and external requests
+  - Used in: `src/features/formatting/pipeline/xmlFormatter.ts`
+  - Purpose: Format MyBatis XML mapper files
+
+- `axios` ^1.13.6 - HTTP client for external requests
+  - Used in: `src/utils/httpClient.ts`
+  - Purpose: DTD resolution, potential future API integrations
 
 **Infrastructure:**
-- `redhat.java` (extension dependency) - Java language support integration
-- Node.js built-ins: `fs/promises`, `path`, `os`, `crypto`, `worker_threads`
+- `redhat.java` - Extension dependency (hard requirement)
+  - Purpose: Java language support, classpath resolution
+  - Activated via: `src/extension.ts` lines 130-151
 
 ## Configuration
 
-**Environment:**
-- No `.env` file detected
-- Configuration via VS Code settings API (`vscode.workspace.getConfiguration`)
-- Extension settings namespace: `mybatis-helper`
+**TypeScript:**
+- `tsconfig.json`: Node16 module resolution, ES2022 target, strict mode
+- Source: `src/`, Output: `out/`
+- Source maps enabled
+
+**ESLint:**
+- Config: `eslint.config.mjs` (flat config format)
+- Parser: @typescript-eslint/parser
+- Plugins: @typescript-eslint
+- Rules: naming-convention, curly, eqeqeq, no-throw-literal, semi
 
 **Build:**
-- `tsconfig.json` - TypeScript compiler configuration
-  - Target: ES2022
-  - Module: Node16
-  - OutDir: `out/`
-  - RootDir: `src/`
-  - Strict mode enabled
-- `eslint.config.mjs` - ESLint flat config with TypeScript support
-
-**Extension Manifest:**
-- `package.json` - VS Code extension manifest with commands, keybindings, configuration schema
-- `language-configuration.json` - MyBatis XML language configuration (brackets, auto-closing, folding)
-- `syntaxes/mybatis-xml.tmLanguage.json` - TextMate grammar for syntax highlighting
+- Compile: `tsc -p ./`
+- Watch: `tsc -watch -p ./`
+- Prepublish: `pnpm run compile`
 
 ## Platform Requirements
 
 **Development:**
-- VS Code ^1.93.0 or compatible (Cursor, Windsurf, etc.)
-- Node.js runtime (bundled with VS Code)
+- VS Code ^1.93.0
+- Node.js (matching VS Code's bundled version)
 - pnpm for package management
+- JDK (for `javap` command - used in class file parsing worker)
 
 **Production:**
-- VS Code extension marketplace deployment
-- Target: VS Code desktop (Electron)
-- Supports: Windows, macOS, Linux (via VS Code)
+- VS Code ^1.93.0 or later
+- `redhat.java` extension must be installed
+- JDK with `javap` in PATH (for enterprise scanner features)
+- Maven or Gradle project structure (pom.xml or build.gradle for activation)
 
-## Notable Technical Features
+## Extension Architecture
 
-**Performance Optimizations:**
-- Worker threads for class file parsing (`classParsingWorker.ts`)
-- Incremental indexing with file watchers
-- Multi-layer scanning strategy (EnterpriseScanner)
-- Index caching for large projects
+**Activation Events:**
+- `workspaceContains:**/pom.xml`
+- `workspaceContains:**/build.gradle`
 
-**Internationalization:**
-- VS Code l10n API with 9 language bundles:
-  - English (default), Chinese (Simplified/Traditional), German, Spanish, French, Japanese, Russian
+**Entry Point:**
+- `out/extension.js` (compiled from `src/extension.ts`)
 
-**Language Support:**
-- Custom language ID: `mybatis-xml`
-- File pattern: `**/*.xml` with DOCTYPE detection
-- Syntax highlighting for MyBatis-specific tags
+**Contributions:**
+- 14 commands (jumpToXml, jumpToMapper, generateXmlMethod, etc.)
+- Custom language: `mybatis-xml`
+- TreeView: `mybatisSQLHistory`
+- Activity bar container: `mybatisHelperView`
+- Formatting provider for XML/MyBatis XML
+- Completion providers for MyBatis XML
 
 ---
 

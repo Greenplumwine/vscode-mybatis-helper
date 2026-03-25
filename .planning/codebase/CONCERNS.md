@@ -2,185 +2,301 @@
 
 **Analysis Date:** 2026-03-24
 
-## Tech Debt
+## Security Issues
 
-### Legacy FileMapper Still Present
-- Issue: Old `FileMapper` class (`src/features/mapping/filemapper.ts`) remains in codebase but is superseded by `FastMappingEngine` and `EnterpriseScanner`
-- Files: `src/extension.ts` (lines 20, 66, 669-671, 1090-1096)
-- Impact: Dead code increases bundle size and maintenance burden
-- Fix approach: Remove FileMapper references and delete filemapper.ts entirely
+### Command Injection via execSync/execFileSync with User Paths
 
-### TODO Comments in Production Code
-- Issue: Multiple TODO comments indicate incomplete features
-- Files:
-  - `src/services/language/javaMethodParser.ts` (line 869): "TODO: 从 methodInfo 获取注解"
-  - `src/features/formatting/nestedFormattingProvider.ts` (line 169): "TODO: 实现范围格式化逻辑"
-  - `src/services/template/templateEngine.ts` (line 306): "TODO: 实现自定义模板注册逻辑"
-- Impact: Features marked as TODO are incomplete or stubbed
-- Fix approach: Implement the missing functionality or remove the stubs
+**Issue:** Multiple locations use `execSync` and `execFileSync` with user-controlled file paths without proper sanitization.
 
-### Dual Scanner Architecture Complexity
-- Issue: Two separate scanner implementations (`FastScanner` and `EnterpriseScanner`) with conditional switching
-- Files: `src/extension.ts` (lines 79-83, 262-295, 449-451)
-- Impact: Increased complexity, potential for divergent behavior, harder to maintain
-- Fix approach: Consider unifying into single scanner with configurable strategies
+**Files:**
+- `src/features/mapping/classParsingWorker.ts` (lines 112, 36)
+- `src/features/mapping/classFileWatcher.ts` (line 160)
+- `src/features/mapping/enterpriseConfigResolver.ts` (lines 770, 867, 869, 888, 922)
 
-### Worker Thread Error Handling
-- Issue: Class parsing worker (`classParsingWorker.ts`) has minimal error handling for `execSync` calls
-- Files: `src/features/mapping/classParsingWorker.ts` (lines 44-52)
-- Impact: javap failures silently return null, no retry mechanism
-- Fix approach: Add structured error handling and fallback strategies
+**Risk:** HIGH - Potential command injection if malicious class file paths are crafted with shell metacharacters.
 
-## Security Considerations
+**Current Mitigation:**
+- `classParsingWorker.ts` has `sanitizeClassPath()` function (lines 47-66) that validates:
+  - Path resolves to absolute path
+  - File exists and is a file
+  - Extension is `.class`
+- Uses `execFileSync` with array arguments (safer than string concatenation)
 
-### Command Injection via javap
-- Issue: `execSync` is used with user-controlled file paths without sanitization
-- Files:
-  - `src/features/mapping/classParsingWorker.ts` (line 44): `execSync(`javap -v "${classPath}"``
-  - `src/features/mapping/classFileWatcher.ts` (line 127): `execSync(`javap -v "${filePath}"``
-- Impact: Potential command injection if malicious class file path is crafted
-- Current mitigation: Paths come from VS Code workspace file watching (trusted source)
-- Recommendations: Use array-style exec or sanitize paths with `path.normalize()` and validation
+**Gaps:**
+- `enterpriseConfigResolver.ts` uses `execSync` with string interpolation: `execSync(`jar tf "${jarPath}"`)` (line 869)
+- `enterpriseConfigResolver.ts` uses: `execSync(`javap -v -classpath "${jarPath}" "${className}"`)` (line 888)
+- No validation of `jarPath` before passing to shell commands
 
-### Regex Cache Unbounded Growth
-- Issue: `regexCache` Map in `SQLInterceptorService` has no size limit
-- Files: `src/features/sql-interceptor/sqlInterceptorService.ts` (lines 90, 945-961)
-- Impact: Memory leak if many unique regex patterns are used
-- Current mitigation: Patterns come from configuration, typically limited
-- Recommendations: Add LRU cache with max size
+**Fix Approach:**
+1. Use `execFileSync` with array arguments consistently across all locations
+2. Validate all paths with `sanitizeClassPath()` before execution
+3. Apply path traversal checks from `textProcessor.ts`
 
-### XML External Entity (XXE) Risk
-- Issue: XML parsing may be vulnerable to XXE if not properly configured
-- Files: `src/features/mapping/xmlParser.ts`
-- Impact: Potential information disclosure or SSRF
-- Current mitigation: Uses `fast-xml-parser` library
-- Recommendations: Verify parser is configured with `processEntities: false` or equivalent
+### Path Traversal in File Operations
 
-## Performance Bottlenecks
+**Issue:** Path normalization relies on `.toLowerCase()` which may not handle all case sensitivity scenarios correctly.
+
+**Files:**
+- `src/features/mapping/fastMappingEngine.ts` (lines 175, 189, 244, 343, 359, 391, 401, 453, 455, 541, 545)
+- `src/features/mapping/fastScanner.ts` (lines 670, 676)
+
+**Risk:** MEDIUM - On Linux (case-sensitive filesystem), path lookups may fail for files with mixed case. On macOS/Windows, potential for path confusion attacks.
+
+**Current Mitigation:**
+- Uses `normalize('NFC')` for Unicode normalization (HFS+ compatibility)
+- `.toLowerCase()` for case-insensitive comparison
+
+**Gaps:**
+- No handling of macOS HFS+ NFD encoding edge cases beyond NFC normalization
+- Path traversal sequences (`..`) not checked in all file operations
+
+**Fix Approach:**
+1. Use `TextProcessor.isPathSafe()` utility consistently
+2. Consider using a proper path normalization library
+
+## Performance Issues
+
+### Unbounded Regex Cache
+
+**Issue:** Regex cache in `RegexUtils` has no size limit, leading to unbounded memory growth.
+
+**Files:**
+- `src/utils/performanceUtils.ts` (lines 207-277)
+
+**Risk:** MEDIUM - Memory leak potential with many unique regex patterns.
+
+**Current State:**
+```typescript
+private regexCache: Map<string, RegExp> = new Map();
+```
+
+**Fix Approach:**
+- Implement LRU eviction with max size (similar to `SQLInterceptorService.MAX_REGEX_CACHE_SIZE = 100`)
 
 ### Synchronous File Operations in Hot Paths
-- Issue: `fs.readFileSync` or synchronous parsing in scanner loops
-- Files: `src/features/mapping/enterpriseScanner.ts` (lines 362-404: `parseJavaMapperFast`)
-- Impact: Blocks event loop during large project scans
-- Fix approach: Use streaming or chunked async processing
 
-### Regex Recompilation
-- Issue: Method parsing regex in `parseJavaMapperFast` is recompiled on each call
-- Files: `src/features/mapping/enterpriseScanner.ts` (lines 368-375, 382-385, 391-392, 414)
-- Impact: Unnecessary regex compilation overhead
-- Fix approach: Move regex patterns to module-level constants
+**Issue:** Multiple synchronous file operations in scanner hot paths block the event loop.
 
-### Large File Memory Usage
-- Issue: `openTextDocument` loads entire file into memory for parsing
-- Files: `src/features/mapping/enterpriseScanner.ts` (line 364)
-- Impact: High memory usage for large Java files
-- Fix approach: Use streaming read with size limits
+**Files:**
+- `src/features/mapping/classFileWatcher.ts` (line 127: `fs.statSync`)
+- `src/features/mapping/classParsingWorker.ts` (line 53: `fs.statSync`)
 
-### Index Cache Unbounded Growth
-- Issue: `memoryCache` in `IndexCacheManager` has no eviction policy
-- Files: `src/features/mapping/indexCache.ts` (line 36)
-- Impact: Memory growth proportional to project size
-- Fix approach: Implement LRU eviction or size limits
+**Risk:** MEDIUM - UI freezing during large scans.
 
-## Fragile Areas
+**Fix Approach:**
+- Convert to async file operations
+- Use worker threads for I/O heavy operations
 
-### File Path Case Sensitivity
-- Issue: Extensive use of `.toLowerCase()` for path normalization may cause issues on case-sensitive filesystems
-- Files: `src/features/mapping/fastMappingEngine.ts` (lines 175, 189, 244, 343, 391, 401, 453, 542, 545)
-- Impact: Potential mismatches on Linux with case-sensitive paths
-- Safe modification: Use consistent normalization strategy across all platforms
+### In-Memory State with No Persistence
 
-### Java Extension API Dependency
-- Issue: Hard dependency on `redhat.java` extension without graceful degradation
-- Files: `src/extension.ts` (lines 136-157), `src/utils/javaExtensionAPI.ts`
-- Impact: Plugin fails to initialize if Java extension unavailable
-- Safe modification: Add fallback mode with reduced functionality
+**Issue:** All mapping state is in-memory only, rebuilt on every extension activation.
 
-### Unicode Normalization Assumptions
-- Issue: Assumes NFC normalization is sufficient for all filesystems
-- Files: `src/features/mapping/fastMappingEngine.ts` (multiple locations using `.normalize('NFC')`)
-- Impact: May not handle all macOS HFS+ edge cases correctly
-- Test coverage: Limited testing on non-ASCII filenames
+**Files:**
+- `src/features/mapping/fastMappingEngine.ts` (lines 44-64)
+- `src/features/sql-interceptor/sqlInterceptorService.ts` (line 70: `sqlHistory`)
 
-### SQL Injection in Generated SQL
-- Issue: Generated SQL templates use string concatenation without parameterization
-- Files:
-  - `src/commands/createMapperXml.ts` (lines 364-379)
-  - `src/commands/generateXmlMethod.ts` (lines 248-289)
-- Impact: Generated code may be vulnerable if used as-is
-- Note: These are templates for user editing, not executed directly
+**Risk:** LOW - Slow startup on large projects; state lost on extension reload.
 
-## Dependencies at Risk
+**Current Mitigation:**
+- `IndexCacheManager` provides persistence for class file parsing results
+- No persistence for mapping engine state
 
-### fast-xml-parser
-- Risk: Major version updates may break parsing behavior
-- Impact: XML parsing is core functionality
-- Migration plan: Pin to tested version, review changelog before updates
+**Fix Approach:**
+- Consider persisting mapping engine state to disk
+- Implement incremental updates instead of full rescans
 
-### sql-formatter
-- Risk: API changes between major versions
-- Impact: SQL formatting feature
-- Migration plan: Wrap in adapter pattern to isolate changes
+### Regex Recompilation in parseJavaMapperFast
 
-### VS Code API Version
-- Risk: Uses proposed/relatively new APIs (Shell Integration)
-- Files: `src/features/sql-interceptor/sqlInterceptorService.ts` (lines 406-465)
-- Impact: May break on older VS Code versions
-- Migration plan: Add feature detection and graceful fallbacks
+**Issue:** Regex patterns are recompiled on each call instead of being cached.
+
+**Files:**
+- `src/features/mapping/fastScanner.ts` (lines 551, 556-557)
+
+**Current Code:**
+```typescript
+if (!/interface\s+\w+/.test(content)) { return null; }
+const hasMapperAnnotation = /@Mapper\b/.test(content);
+```
+
+**Fix Approach:**
+- Use `RegexUtils.getRegex()` for consistent caching
+
+## Technical Debt
+
+### TODO Comments in Production Code
+
+**Files and Locations:**
+- `src/services/language/javaMethodParser.ts` (line 869): `// TODO: 从 methodInfo 获取注解`
+- `src/services/template/templateEngine.ts` (line 306): `// TODO: 实现自定义模板注册逻辑`
+- `src/features/formatting/nestedFormattingProvider.ts` (line 169): `// TODO: 实现范围格式化逻辑`
+- `src/commands/createMapperXml.ts` (line 349): `<!-- TODO: Implement SQL for ${method.name} -->`
+- `src/commands/generateXmlMethod.ts` (line 284): `// TODO: Implement SQL`
+
+### Legacy FileMapper Class Still Present
+
+**Issue:** CLAUDE.md mentions "Legacy `FileMapper` class still present but superseded" but no evidence found in current codebase. May have been removed or may be in unused imports.
+
+**Status:** Not found in current codebase - may already be cleaned up.
+
+### Debug Logging in Production
+
+**Issue:** Debug logging statements for specific file patterns (SysJobMapper) left in production code.
+
+**Files:**
+- `src/services/language/javaMethodParser.ts` (lines 139-142, 170-172, 177-179)
+
+```typescript
+if (filePath.includes('SysJobMapper')) {
+    logger.debug(`[DEBUG] SysJobMapper cleanContent snippet:`, ...);
+}
+```
+
+**Fix Approach:**
+- Remove file-specific debug logging
+- Use configurable debug levels instead
+
+## State Management Concerns
+
+### IndexCacheManager No Eviction Policy
+
+**Issue:** While `IndexCacheManager` has LRU eviction (line 186-206), the `FastMappingEngine` has no eviction policy for its indexes.
+
+**Files:**
+- `src/features/mapping/fastMappingEngine.ts`
+
+**Risk:** LOW-MEDIUM - Memory growth on very large projects with many mappers.
+
+**Current State:**
+- `namespaceIndex`, `javaPathIndex`, `xmlPathIndex`, `classNameIndex`, `packageIndex` - all Maps with no size limits
+
+**Fix Approach:**
+- Implement LRU eviction for mapping indexes
+- Or use WeakMap for memory-sensitive caches
+
+### SQLInterceptorService In-Memory Array
+
+**Issue:** SQL history is stored in-memory with configurable max size, but no persistence.
+
+**Files:**
+- `src/features/sql-interceptor/sqlInterceptorService.ts` (line 70)
+
+**Current Mitigation:**
+- `maxHistorySize` config defaults to 500
+- Array is trimmed when exceeding limit (line 921-923)
+
+## Path Handling Issues
+
+### Case Sensitivity Assumptions
+
+**Issue:** Extensive use of `.toLowerCase()` assumes case-insensitive filesystem behavior.
+
+**Files:**
+- `src/features/mapping/fastMappingEngine.ts` (10+ occurrences)
+- `src/features/mapping/fastScanner.ts` (lines 670, 676)
+
+**Risk:** MEDIUM - Will fail on case-sensitive filesystems (Linux) if files have mixed case.
+
+**Example:**
+```typescript
+const normalizedPath = javaPath.normalize('NFC').toLowerCase();
+```
+
+### Unicode Normalization Limitations
+
+**Issue:** Uses NFC normalization but may not handle all macOS HFS+ edge cases.
+
+**Files:**
+- `src/features/mapping/fastMappingEngine.ts`
+
+**Current Code:**
+```typescript
+const normalizedPath = javaPath.normalize('NFC').toLowerCase();
+```
+
+**Risk:** LOW - Rare edge cases with composed characters on macOS.
+
+## Error Handling Concerns
+
+### Silent Failures
+
+**Issue:** Many operations silently catch and ignore errors with empty catch blocks.
+
+**Files:**
+- `src/features/mapping/fastScanner.ts` (lines 211-213, 252-254, 370-371, 400-402)
+- `src/features/mapping/enterpriseScanner.ts` (lines 341-343)
+
+**Pattern:**
+```typescript
+try {
+    // operation
+} catch (e) {
+    // ignore error
+}
+```
+
+**Risk:** MEDIUM - Errors go undetected, making debugging difficult.
+
+### No Timeout on File Operations
+
+**Issue:** File watchers and scanners don't have timeouts on individual file operations.
+
+**Risk:** LOW - Could hang on network drives or slow filesystems.
+
+## Dependency Risks
+
+### Hard Dependency on redhat.java Extension
+
+**Issue:** Extension has hard dependency on `redhat.java` extension for Java language support.
+
+**Files:**
+- `package.json` (activation events)
+
+**Risk:** LOW - Extension won't activate without Java extension installed.
+
+### Worker Thread Failure Fallback
+
+**Issue:** Worker thread failures fall back to main thread processing, which may cause UI blocking.
+
+**Files:**
+- `src/features/mapping/enterpriseConfigResolver.ts` (lines 636-639)
+
+```typescript
+} catch (error) {
+    this.logger?.debug('Worker thread error:', error);
+    // 降级到主线程
+    return this.parseConfigClassesParallel(classFiles, 5);
+}
+```
 
 ## Test Coverage Gaps
 
-### No Unit Tests for Core Parsers
-- What's not tested: Java method parser, XML parser, mapping engine
-- Files:
-  - `src/services/language/javaMethodParser.ts`
-  - `src/features/mapping/xmlParser.ts`
-  - `src/features/mapping/fastMappingEngine.ts`
-- Risk: Refactoring may break parsing without detection
-- Priority: High
+**Issue:** No unit tests for critical parsers and mapping engine.
 
-### No Integration Tests for SQL Interceptor
-- What's not tested: Debug console tracking, terminal output parsing
-- Files: `src/features/sql-interceptor/sqlInterceptorService.ts`
-- Risk: SQL interception may fail on different VS Code versions
-- Priority: Medium
+**Areas Without Tests:**
+- Java method parser (`src/services/language/javaMethodParser.ts`)
+- XML parser (`src/features/mapping/xmlParser.ts`)
+- Mapping engine (`src/features/mapping/fastMappingEngine.ts`)
+- SQL interceptor (`src/features/sql-interceptor/sqlInterceptorService.ts`)
 
-### No Tests for Worker Threads
-- What's not tested: `classParsingWorker.ts` error handling and edge cases
-- Files: `src/features/mapping/classParsingWorker.ts`
-- Risk: Worker failures not caught during development
-- Priority: Medium
+**Risk:** HIGH - Regressions likely, refactoring dangerous.
 
-## Missing Critical Features
+## Recommendations Priority
 
-### No Cancellation Support for Long Scans
-- Problem: No way to cancel ongoing project scans
-- Blocks: User experience during large project initialization
-- Files: `src/features/mapping/enterpriseScanner.ts`, `src/features/mapping/fastScanner.ts`
+### High Priority
+1. Fix command injection in `enterpriseConfigResolver.ts` (use `execFileSync` with arrays)
+2. Add comprehensive test coverage for parsers
+3. Remove file-specific debug logging
 
-### No Configurable File Size Limits
-- Problem: Large files (>1MB) are processed without size checks
-- Blocks: Potential memory issues with unusually large mapper files
-- Files: All scanner implementations
+### Medium Priority
+4. Implement consistent path safety checks
+5. Convert sync file operations to async
+6. Add error logging instead of silent failures
+7. Implement LRU eviction for `RegexUtils` cache
 
-### No Retry Logic for Failed Operations
-- Problem: File system errors fail immediately without retry
-- Blocks: Reliability on network filesystems or busy systems
-- Files: `src/features/mapping/indexCache.ts`, `src/features/mapping/classFileWatcher.ts`
-
-## Code Duplication
-
-### Method Name Parsing Logic
-- Duplicated between: `createMapperXml.ts` and `generateXmlMethod.ts`
-- Pattern: Both infer SQL type from method name prefixes
-- Impact: Inconsistent behavior if logic diverges
-- Fix: Extract to shared utility
-
-### XML Path Inference
-- Duplicated between: `createMapperXml.ts` (lines 167-209) and extension initialization
-- Pattern: Resources directory path construction
-- Impact: Maintenance overhead
-- Fix: Centralize path resolution logic
+### Low Priority
+8. Persist mapping engine state
+9. Handle all Unicode normalization edge cases
+10. Add timeouts to file operations
 
 ---
 

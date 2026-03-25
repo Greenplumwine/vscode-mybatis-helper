@@ -62,9 +62,13 @@ export class FastMappingEngine extends EventEmitter {
     javaFiles: new Map(),
     lastScanTime: 0
   };
-  
+
   private logger!: Logger;
-  
+
+  // ========== 定时清理 ==========
+  private cleanupInterval: NodeJS.Timeout | null = null;
+  private readonly DEFAULT_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
+
   // ========== 统计 ==========
   private stats = {
     totalMappings: 0,
@@ -88,6 +92,73 @@ export class FastMappingEngine extends EventEmitter {
   public async initialize(): Promise<void> {
     const { Logger } = await import('../../utils/logger.js');
     this.logger = Logger.getInstance();
+    this.startCleanupTimer();
+  }
+
+  /**
+   * Start scheduled cleanup timer
+   */
+  public startCleanupTimer(intervalMs: number = this.DEFAULT_CLEANUP_INTERVAL): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupStaleEntries();
+    }, intervalMs);
+    this.logger?.debug(`Started cleanup timer with ${intervalMs}ms interval`);
+  }
+
+  /**
+   * Stop cleanup timer
+   */
+  public stopCleanupTimer(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+      this.logger?.debug('Stopped cleanup timer');
+    }
+  }
+
+  /**
+   * Remove entries for files that no longer exist or have been modified
+   */
+  private async cleanupStaleEntries(): Promise<number> {
+    let removed = 0;
+    const fs = await import('fs/promises');
+
+    for (const [namespace, index] of this.namespaceIndex) {
+      try {
+        // Check if Java file still exists
+        if (index.javaPath) {
+          await fs.access(index.javaPath);
+        }
+        // Check if XML file still exists
+        if (index.xmlPath) {
+          await fs.access(index.xmlPath);
+        }
+      } catch {
+        // File no longer exists, remove from indexes
+        this.removeMapping(namespace);
+        removed++;
+      }
+    }
+
+    if (removed > 0) {
+      this.logger?.info(`Cleaned up ${removed} stale mappings`);
+    }
+
+    // Log current stats
+    this.logger?.debug(`Cache stats: ${this.namespaceIndex.size} namespaces, ${this.stats.totalMethods} methods`);
+
+    return removed;
+  }
+
+  /**
+   * Clean up resources when extension deactivates
+   */
+  public dispose(): void {
+    this.stopCleanupTimer();
+    this.removeAllListeners();
   }
 
   // ========== 核心操作：建立映射 ==========
@@ -558,7 +629,9 @@ export class FastMappingEngine extends EventEmitter {
       total: this.namespaceIndex.size,
       withXml,
       totalMethods,
-      uniqueClassNames: this.classNameIndex.size
+      uniqueClassNames: this.classNameIndex.size,
+      cacheHits: this.stats.cacheHits,
+      cacheMisses: this.stats.cacheMisses
     };
   }
 

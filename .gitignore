@@ -9,9 +9,7 @@ package-lock.json
 pnpm-lock.yaml
 .kimi/
 .opencode/
-docs/
-未命名.md
 .claude/
-.planning/
 openspec/
 CLAUDE.md
+skills-lock.json

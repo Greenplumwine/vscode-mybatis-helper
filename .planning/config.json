@@ -1,0 +1,22 @@
+{
+  "workflow": {
+    "autoResearch": false,
+    "autoPlan": false,
+    "autoExecute": false,
+    "requireVerification": true
+  },
+  "model": {
+    "profile": "balanced",
+    "planner": "claude-sonnet-4-6",
+    "executor": "claude-sonnet-4-6"
+  },
+  "git": {
+    "autoCommit": true,
+    "commitPrefix": "feat:",
+    "prBranchPrefix": "feature/"
+  },
+  "ui": {
+    "brandColor": "#007ACC",
+    "darkMode": true
+  }
+}

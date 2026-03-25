@@ -5,147 +5,100 @@
 ## Naming Patterns
 
 ### Files
-- **TypeScript source files:** `camelCase.ts` (e.g., `fastScanner.ts`, `xmlParser.ts`)
-- **Index barrel files:** `index.ts` for module exports
-- **Test files:** Located in `__tests__/` subdirectory with `.test.js` extension
-- **Configuration files:** `eslint.config.mjs`, `tsconfig.json`
+- **Implementation files**: camelCase (e.g., `fastMappingEngine.ts`, `javaMethodParser.ts`)
+- **Type definition files**: camelCase (e.g., `types.ts`)
+- **Index/barrel files**: `index.ts` for module exports
+- **Worker files**: descriptive name + `Worker.ts` suffix (e.g., `classParsingWorker.ts`)
 
 ### Classes
 - **PascalCase** for class names
-- Examples: `FastScanner`, `FastMappingEngine`, `Logger`, `MyBatisXmlParser`
-- Service classes often use singleton pattern with `getInstance()` method
+- Suffix pattern for specific roles:
+  - Services: `*Service` (e.g., `SQLInterceptorService`, `FastMappingEngine`)
+  - Providers: `*Provider` (e.g., `UnifiedCompletionProvider`, `TagCompletionProvider`)
+  - Commands: `*Command` (e.g., `GenerateXmlMethodCommand`)
+  - Strategies: `*Strategy` (e.g., `TypeStrategy`, `PlaceholderStrategy`)
+  - Resolvers: `*Resolver` (e.g., `TagHierarchyResolver`, `XmlLocationResolver`)
 
 ### Interfaces
 - **PascalCase** with descriptive names
-- Examples: `MethodMapping`, `MapperMapping`, `JavaMapperInfo`, `Position`
-- Located in `src/features/mapping/types.ts` and `src/types/index.ts`
+- Examples: `CompletionStrategy`, `JavaMapperInfo`, `XmlMapperInfo`, `MethodMapping`
 
-### Functions/Methods
-- **camelCase** for all functions and methods
-- Examples: `scan()`, `initialize()`, `getNavigationInfo()`, `shouldLog()`
-- Private methods use standard visibility modifiers (TypeScript `private`)
+### Variables and Properties
+- **camelCase** for variables, properties, and parameters
+- **UPPER_SNAKE_CASE** for constants (e.g., `DEBOUNCE_DELAY = 300`)
+- Private class members use `private` keyword explicitly
+- Readonly properties marked with `readonly` modifier
 
-### Variables
-- **camelCase** for variables and constants
-- Private class members prefixed with underscore not used; use `private` keyword
-- Boolean flags use descriptive names: `isScanning`, `useEnterpriseScanner`, `commandsRegistered`
+### Functions and Methods
+- **camelCase** for function and method names
+- **Verb-first naming** for actions: `getInstance()`, `buildMapping()`, `scanProjectClasses()`
+- **Boolean predicates** start with `is`, `has`, `can`: `isInAttribute()`, `hasSqlForMethod()`, `canComplete()`
 
-### Constants
-- **UPPER_SNAKE_CASE** for true constants
-- Example: `DEBOUNCE_DELAY = 300`, `DEFAULT_CONFIG`
-- Constants imported from `src/utils/constants.ts` (e.g., `SCAN_LIMITS`)
+### Enums
+- **PascalCase** for enum names
+- **UPPER_SNAKE_CASE** for enum values:
+```typescript
+export enum LogLevel {
+    DEBUG = 'DEBUG',
+    INFO = 'INFO',
+    WARN = 'WARN',
+    ERROR = 'ERROR'
+}
+```
 
 ## Code Style
 
 ### Formatting
-- **Tool:** ESLint with TypeScript plugin
-- **Config:** `eslint.config.mjs` (flat config format)
-- **Semicolons:** Required (enforced by `semi: "warn"`)
-- **Quotes:** Double quotes for strings
-- **Indentation:** 2 spaces (inferred from codebase)
+- **Tool**: ESLint with TypeScript plugin (`@typescript-eslint`)
+- **Indentation**: 2 spaces (inferred from source)
+- **Quotes**: Double quotes for strings
+- **Semicolons**: Required (enforced by ESLint rule `semi: "warn"`)
+- **Line endings**: LF (Unix-style)
 
-### Linting Rules
-Key ESLint rules from `eslint.config.mjs`:
+### ESLint Configuration
+Located in `eslint.config.mjs`:
 ```javascript
 rules: {
     "@typescript-eslint/naming-convention": ["warn", {
         selector: "import",
         format: ["camelCase", "PascalCase"],
     }],
-    curly: "warn",           // Require curly braces for all control statements
-    eqeqeq: "warn",          // Require === and !==
+    curly: "warn",
+    eqeqeq: "warn",
     "no-throw-literal": "warn",
-    semi: "warn",            // Require semicolons
+    semi: "warn",
 }
 ```
 
-### TypeScript Configuration
-From `tsconfig.json`:
-- **Target:** ES2022
-- **Module:** Node16
-- **Strict mode:** Enabled (`"strict": true`)
-- **Source maps:** Enabled
-- **Root directory:** `src`
-- **Output directory:** `out`
+### TypeScript Strictness
+- **Strict mode enabled**: `"strict": true` in `tsconfig.json`
+- **Target**: ES2022
+- **Module**: Node16
 
 ## Import Organization
 
-### Order Pattern (observed in `src/extension.ts`):
-1. **VSCode API:** `import * as vscode from "vscode";`
-2. **Node.js built-ins:** `import * as path from "path";`
-3. **Third-party dependencies:** (none in this project)
-4. **Internal features:** Relative imports from `./features/`
-5. **Internal services:** Relative imports from `./services/`
-6. **Internal utils:** Relative imports from `./utils/`
-7. **Internal commands:** Relative imports from `./commands/`
+### Order
+1. **Node.js built-ins** (e.g., `import * as path from "path"`)
+2. **VS Code API** (e.g., `import * as vscode from "vscode"`)
+3. **Third-party dependencies** (e.g., `import { XMLParser } from "fast-xml-parser"`)
+4. **Internal modules** (relative paths)
+   - Utils
+   - Types
+   - Services
+   - Features
+
+### Path Aliases
+- No custom path aliases configured
+- Use relative imports: `../../utils/logger`, `./types`
 
 ### Import Style
-- Use namespace imports for modules: `import * as vscode from "vscode";`
-- Use named imports for specific exports: `import { Logger } from "./utils/logger";`
-- Barrel exports via `index.ts` files for clean module APIs
-
-## Documentation Practices
-
-### File Headers
-All source files include JSDoc header with:
-- File purpose/description
-- Key features/optimizations (for complex files)
-- Design patterns used (for command files)
-
-Example from `src/extension.ts`:
-```typescript
-/**
- * MyBatis Helper 插件入口文件（高性能版本）
- * 负责插件的激活、初始化和功能注册
- *
- * 优化亮点：
- * 1. 使用 FastMappingEngine - O(1) 索引查找
- * 2. 使用 FastScanner - 分层扫描策略
- * 3. 使用 FastNavigationService - 高性能导航
- */
-```
-
-### Class Documentation
-Classes include JSDoc with:
-- Purpose description
-- Key characteristics or design notes
-
-Example:
-```typescript
-/**
- * 日志系统类
- * 提供分级日志输出功能
- */
-export class Logger {
-```
-
-### Method Documentation
-Public methods include JSDoc with:
-- `@param` tags with types and descriptions
-- `@returns` description where applicable
-
-Example:
-```typescript
-/**
- * 获取日志系统实例
- * @returns Logger 实例
- */
-public static getInstance(): Logger {
-```
-
-### Inline Comments
-- Use Chinese comments for business logic
-- Use English for technical/algorithmic comments
-- Section dividers for code organization: `// ========== 高性能新架构组件 ==========`
+- Prefer namespace imports for VS Code and Node.js: `import * as vscode from "vscode"`
+- Named imports for specific exports: `import { Logger } from "../../utils/logger"`
 
 ## Error Handling
 
 ### Patterns
-1. **Try-catch with logging:** All async operations wrapped in try-catch
-2. **Error propagation:** Errors logged and re-thrown or handled gracefully
-3. **User feedback:** VSCode messages for user-facing errors
-
-Example:
+1. **Try-catch with logging**:
 ```typescript
 try {
     await scanner.scan();
@@ -155,69 +108,207 @@ try {
 }
 ```
 
-## Logging
+2. **Graceful degradation**:
+```typescript
+const classes = await this.javaParser.scanProjectClasses?.() ?? [];
+```
 
-### Framework
-Custom `Logger` class in `src/utils/logger.ts`
+3. **Error type checking**:
+```typescript
+error instanceof Error ? error.message : 'Unknown error'
+```
 
-### Log Levels
-- `DEBUG` - Detailed diagnostic information
-- `INFO` - General operational information
-- `WARN` - Warning conditions
-- `ERROR` - Error conditions
+4. **Silent failure for optional operations**:
+```typescript
+try {
+    await fs.access(pomPath);
+} catch (e) {} // Intentionally empty
+```
+
+### Error Logging
+- Use `Logger` class with appropriate level:
+  - `logger.debug()` - Development diagnostics
+  - `logger.info()` - General information
+  - `logger.warn()` - Non-critical issues
+  - `logger.error()` - Critical errors with optional Error object
+
+## Async/Await Usage
 
 ### Patterns
-- Use `logger?.debug()` for optional chaining when logger may not be initialized
-- Include context in log messages using `vscode.l10n.t()` for i18n
-- Metadata objects for structured logging: `logger.debug('message', { key: value })`
+1. **Always use async/await**, never raw promises:
+```typescript
+async provideCompletionItems(
+    document: vscode.TextDocument,
+    position: vscode.Position
+): Promise<vscode.CompletionItem[]> {
+    const context = await this.contextBuilder.build(document, position);
+    // ...
+}
+```
 
-## Internationalization (i18n)
+2. **Parallel execution with Promise.all**:
+```typescript
+const [javaFiles, xmlFiles] = await Promise.all([
+    vscode.workspace.findFiles("**/*.java", null, 100),
+    vscode.workspace.findFiles("**/*.xml", null, 100)
+]);
+```
 
-### Pattern
-- All user-facing strings use `vscode.l10n.t()`
-- Translation keys in dot-notation: `"extension.activating"`, `"scan.error"`
-- Translation files in `l10n/` directory: `bundle.l10n.json`, `bundle.l10n.zh-cn.json`, etc.
+3. **Proper async initialization**:
+```typescript
+public async initialize(): Promise<void> {
+    const { Logger } = await import('../../utils/logger.js');
+    this.logger = Logger.getInstance();
+}
+```
+
+4. **Cancellation token checking**:
+```typescript
+if (token.isCancellationRequested) {
+    return [];
+}
+```
+
+## TypeScript Patterns
+
+### Type Definitions
+1. **Explicit return types** on public methods:
+```typescript
+public getByNamespace(namespace: string): MapperMapping | undefined
+public getStats(): { total: number; withXml: number; totalMethods: number }
+```
+
+2. **Readonly properties** for immutable data:
+```typescript
+readonly triggerCharacters: readonly string[];
+readonly priority: number;
+readonly name: string;
+```
+
+3. **Interface segregation**:
+```typescript
+export interface CompletionStrategy {
+    readonly triggerCharacters: readonly string[];
+    readonly priority: number;
+    readonly name: string;
+    canComplete(context: CompletionContext): boolean | Promise<boolean>;
+    provideCompletionItems(context: CompletionContext): Promise<vscode.CompletionItem[]>;
+}
+```
+
+### Access Modifiers
+- Explicitly mark `public`, `private`, `protected`
+- Private members prefixed with `private` keyword (not underscore convention)
+
+### Singleton Pattern
+```typescript
+export class Logger {
+    private static instance: Logger;
+
+    public static getInstance(): Logger {
+        if (!Logger.instance) {
+            Logger.instance = new Logger();
+        }
+        return Logger.instance;
+    }
+
+    private constructor() { }
+}
+```
+
+### Null/Undefined Handling
+- Use `undefined` rather than `null` where possible
+- Optional chaining: `mapping?.xmlPath`
+- Nullish coalescing: `paramType ?? ''`
+
+## Comments and Documentation
+
+### JSDoc/TSDoc
+- Comprehensive JSDoc for all public APIs
+- Include `@module` tags for file-level documentation
+- Use `@example` for complex usage patterns
+
+```typescript
+/**
+ * 补全策略抽象基类
+ *
+ * 设计模式：
+ * - 模板方法模式 (Template Method Pattern)
+ * - 策略模式 (Strategy Pattern)
+ *
+ * @module features/completion/strategies/baseStrategy
+ */
+```
+
+### Inline Comments
+- Chinese comments for business logic explanations
+- English for technical documentation
+- Section separators for large files:
+```typescript
+// ========== 核心索引 ==========
+// ========== 缓存 ==========
+// ========== 统计 ==========
+```
 
 ## Module Design
 
-### Exports
-- Barrel files (`index.ts`) for clean module APIs
-- Named exports preferred over default exports
-- Service classes exported as both class and singleton instance
-
-Example from `src/services/index.ts`:
+### Barrel Exports
+Each directory has an `index.ts` that re-exports public APIs:
 ```typescript
+// src/services/index.ts
 export * from './types';
 export * from './parsing';
 export * from './language';
 export * from './template';
 ```
 
-### Singleton Pattern
-Services use singleton pattern with `getInstance()`:
+### Feature Organization
+Features follow a consistent structure:
+```
+features/
+├── completion/
+│   ├── index.ts           # Public exports
+│   ├── types.ts           # Feature-specific types
+│   ├── contextBuilder.ts  # Core implementation
+│   ├── unifiedCompletionProvider.ts
+│   └── strategies/        # Strategy implementations
+│       ├── index.ts
+│       ├── baseStrategy.ts
+│       └── *Strategy.ts
+```
+
+## Constants
+
+### Time Constants
+Located in `src/utils/constants.ts`:
 ```typescript
-private static instance: FastScanner;
-public static getInstance(config?: Partial<ScanConfig>): FastScanner {
-    if (!FastScanner.instance) {
-        FastScanner.instance = new FastScanner(config);
-    }
-    return FastScanner.instance;
-}
+export const TIME = {
+    SECOND: 1000,
+    THIRTY_SECONDS: 30 * 1000,
+    MINUTE: 60 * 1000,
+    // ...
+} as const;
 ```
 
-## Git Workflow
-
-### Scripts (from `package.json`)
-```bash
-pnpm run compile      # Compile TypeScript
-pnpm run watch        # Watch mode compilation
-pnpm run lint         # Run ESLint on src/
-pnpm run pretest      # Compile + lint before tests
+### Cache Limits
+```typescript
+export const CACHE_LIMITS = {
+    DEFAULT_MAX_HISTORY: 1000,
+    DEFAULT_MAX_CACHE_SIZE: 5000,
+    DEFAULT_TTL: 5 * 60 * 1000, // 5 minutes
+} as const;
 ```
 
-### Pre-commit
-- `pretest` script runs compile and lint
-- No explicit pre-commit hooks configured
+## String Localization
+
+- Use VS Code's `l10n` API for all user-facing strings:
+```typescript
+vscode.l10n.t("extension.activating")
+vscode.l10n.t("scan.error", { error: String(error) })
+```
+
+- String keys defined in `l10n/bundle.l10n.json`
+- Supports 9 language bundles
 
 ---
 

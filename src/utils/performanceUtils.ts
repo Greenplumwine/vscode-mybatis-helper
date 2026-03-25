@@ -206,7 +206,20 @@ export class PerformanceUtils {
  */
 export class RegexUtils {
   private static instance: RegexUtils;
-  private regexCache: Map<string, RegExp> = new Map();
+
+  // Two-level cache
+  private hotCache: Map<string, RegExp> = new Map();
+  private coldCache: Map<string, RegExp> = new Map();
+
+  private readonly HOT_CACHE_SIZE = 50;
+  private readonly COLD_CACHE_SIZE = 50;
+
+  // Cache statistics
+  private stats = {
+    hotHits: 0,
+    coldHits: 0,
+    misses: 0
+  };
 
   private constructor() {}
 
@@ -221,32 +234,131 @@ export class RegexUtils {
   }
 
   /**
-   * 获取缓存的正则表达式
-   * @param pattern 正则表达式模式或对象
-   * @param flags 正则表达式标志(如果pattern是字符串)
-   * @returns 正则表达式对象
+   * Get regex from cache or create new one
+   * Uses two-level cache: hot (frequently used) and cold (previously used)
    */
   public getRegex(pattern: string | RegExp, flags: string = ''): RegExp {
     if (pattern instanceof RegExp) {
-      // 如果传入的是正则表达式对象，提取其模式和标志
-      const key = `${pattern.source}__${pattern.flags}`;
-      if (!this.regexCache.has(key)) {
-        this.regexCache.set(key, pattern);
+      // If pattern is a RegExp object, use its source and flags as key
+      const key = `${pattern.source}|${pattern.flags}`;
+      const hotEntry = this.hotCache.get(key);
+      if (hotEntry) {
+        this.stats.hotHits++;
+        return hotEntry;
       }
+
+      const coldEntry = this.coldCache.get(key);
+      if (coldEntry) {
+        this.stats.coldHits++;
+        this.promoteToHot(key, coldEntry);
+        return coldEntry;
+      }
+
+      this.stats.misses++;
+      this.addToHotCache(key, pattern);
       return pattern;
     }
-    
-    // 如果传入的是字符串，使用原有的逻辑
-    const key = `${pattern}__${flags}`;
-    if (!this.regexCache.has(key)) {
-      try {
-        this.regexCache.set(key, new RegExp(pattern, flags));
-      } catch (error) {
-        logger.error(`Invalid regex pattern: ${pattern}`, error);
-        throw error;
+
+    // If pattern is a string
+    const key = flags ? `${pattern}|${flags}` : pattern;
+
+    // Check hot cache first
+    const hotEntry = this.hotCache.get(key);
+    if (hotEntry) {
+      this.stats.hotHits++;
+      return hotEntry;
+    }
+
+    // Check cold cache (promote to hot if found)
+    const coldEntry = this.coldCache.get(key);
+    if (coldEntry) {
+      this.stats.coldHits++;
+      this.promoteToHot(key, coldEntry);
+      return coldEntry;
+    }
+
+    // Create new regex
+    this.stats.misses++;
+    try {
+      const regex = new RegExp(pattern, flags);
+      this.addToHotCache(key, regex);
+      return regex;
+    } catch (error) {
+      logger.error(`Invalid regex pattern: ${pattern}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add regex to hot cache, evicting if necessary
+   */
+  private addToHotCache(key: string, regex: RegExp): void {
+    // If hot cache is full, move oldest to cold cache
+    if (this.hotCache.size >= this.HOT_CACHE_SIZE) {
+      const firstKey = this.hotCache.keys().next().value;
+      if (firstKey !== undefined) {
+        const firstRegex = this.hotCache.get(firstKey)!;
+        this.hotCache.delete(firstKey);
+        this.addToColdCache(firstKey, firstRegex);
       }
     }
-    return this.regexCache.get(key)!;
+
+    this.hotCache.set(key, regex);
+  }
+
+  /**
+   * Add regex to cold cache, evicting if necessary
+   */
+  private addToColdCache(key: string, regex: RegExp): void {
+    // If cold cache is full, evict oldest
+    if (this.coldCache.size >= this.COLD_CACHE_SIZE) {
+      const firstKey = this.coldCache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.coldCache.delete(firstKey);
+      }
+    }
+
+    this.coldCache.set(key, regex);
+  }
+
+  /**
+   * Promote cold cache entry to hot cache
+   */
+  private promoteToHot(key: string, regex: RegExp): void {
+    this.coldCache.delete(key);
+    this.addToHotCache(key, regex);
+  }
+
+  /**
+   * Get cache statistics
+   */
+  public getCacheStats(): {
+    hotSize: number;
+    coldSize: number;
+    hotHits: number;
+    coldHits: number;
+    misses: number;
+    hitRate: number;
+  } {
+    const totalHits = this.stats.hotHits + this.stats.coldHits;
+    const total = totalHits + this.stats.misses;
+    return {
+      hotSize: this.hotCache.size,
+      coldSize: this.coldCache.size,
+      hotHits: this.stats.hotHits,
+      coldHits: this.stats.coldHits,
+      misses: this.stats.misses,
+      hitRate: total > 0 ? totalHits / total : 0
+    };
+  }
+
+  /**
+   * Clear all caches
+   */
+  public clearCache(): void {
+    this.hotCache.clear();
+    this.coldCache.clear();
+    this.stats = { hotHits: 0, coldHits: 0, misses: 0 };
   }
 
   /**
