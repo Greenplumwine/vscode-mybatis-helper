@@ -3,13 +3,47 @@
 # MyBatis Helper
 中文文档 | [English Documentation](README.md)
 
-一个功能强大的 VSCode 插件，为 MyBatis 开发者提供全方位的辅助功能，大幅提升开发效率。
+一个功能强大的 VS Code 插件，为 MyBatis 开发者提供全方位的辅助功能，大幅提升开发效率。
+
+## 快速开始
+
+3 个简单步骤开始使用 MyBatis Helper：
+
+1. **安装前置条件**
+   - 从 VS Code 市场安装 [Extension Pack for Java](https://marketplace.visualstudio.com/items?itemName=vscjava.vscode-java-pack)
+   - 打开你的 MyBatis 项目（包含 `pom.xml` 或 `build.gradle`）
+
+2. **使用功能**
+   - **导航**：按 `Ctrl+Alt+J`（Windows/Linux）或 `Ctrl+Option+J`（macOS）从 Java 跳转到 XML
+   - **SQL 拦截**：打开 MyBatis Helper 侧边栏（数据库图标）查看捕获的 SQL
+   - **代码补全**：在 XML 文件中输入 `#{` 查看参数建议
+
+3. **尝试示例**
+   - 打开 [`samples/basic-mybatis-project/`](samples/basic-mybatis-project/) 中的示例项目
+   - 运行 `mvn test` 查看 SQL 拦截效果
+
+> **初次使用 MyBatis Helper？** 查看 [功能指南](docs/FEATURES.md) 了解详细文档。
 
 ## 项目概述
 
-MyBatis Helper 是一款专为 MyBatis 开发者设计的 VSCode 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。
+MyBatis Helper 是一款专为 MyBatis 开发者设计的 VS Code 插件，旨在提升 MyBatis 项目的开发效率。该插件通过提供控制台日志拦截、SQL 转换以及文件快速跳转等功能，帮助开发者更便捷地进行 MyBatis 应用的开发和调试。
+
+## 文档
+
+- [功能指南](docs/FEATURES.md) - 详细功能文档
+- [配置说明](docs/CONFIGURATION.md) - 所有配置选项
+- [故障排除](docs/TROUBLESHOOTING.md) - 常见问题和解决方案
 
 ## 功能特点
+
+![navigation](static/images/navigation-demo.gif)
+*Java 到 XML 导航 - 按 `Ctrl+Alt+J` 跳转*
+
+![sql-interceptor](static/images/sql-interceptor-demo.gif)
+*SQL 拦截器 - 捕获和查看执行的 SQL*
+
+![completion](static/images/completion-demo.gif)
+*代码补全 - 智能参数建议*
 
 ### 1. SQL 日志拦截与转换
 
