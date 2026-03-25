@@ -1,0 +1,31 @@
+{
+    // MyBatis Helper configuration for sample project
+    "mybatis-helper.databaseType": "h2",
+    "mybatis-helper.sqlInterceptor.listenMode": "auto",
+    "mybatis-helper.sqlInterceptor.autoStart": true,
+    "mybatis-helper.customXmlDirectories": [
+        "src/main/resources/mappers"
+    ],
+    "mybatis-helper.enableCodeLens": true,
+    "mybatis-helper.nameMatchingRules": [
+        {
+            "name": "Default Mapper",
+            "enabled": true,
+            "javaPattern": "*Mapper",
+            "xmlPattern": "${javaName}",
+            "description": "Match UserMapper.java with UserMapper.xml"
+        }
+    ],
+    "mybatis-helper.pathPriority": {
+        "enabled": true,
+        "priorityDirectories": [
+            "/src/main/java/",
+            "/src/main/resources/",
+            "/src/main/resources/mappers/"
+        ],
+        "excludeDirectories": [
+            "/target/",
+            "/.git/"
+        ]
+    }
+}

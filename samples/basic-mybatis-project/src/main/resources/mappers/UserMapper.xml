@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    UserMapper XML - demonstrates MyBatis XML features
+
+    Features demonstrated:
+    1. Navigation: Ctrl+Alt+X on id attribute to jump to Java method
+    2. Code Completion: Type #{ to see parameter suggestions
+    3. SQL Interception: Run UserMapperTest to see SQL in sidebar
+-->
+<mapper namespace="com.example.mapper.UserMapper">
+
+    <!-- Result mapping for User entity -->
+    <resultMap id="userResultMap" type="com.example.model.User">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="email" column="email"/>
+    </resultMap>
+
+    <!--
+        Find user by ID
+        Try: Ctrl+Alt+X on "findById" to jump to Java method
+    -->
+    <select id="findById" resultMap="userResultMap">
+        SELECT id, name, email
+        FROM users
+        WHERE id = #{id}
+    </select>
+
+    <!--
+        Find all users
+        Try: Ctrl+Alt+X on "findAll" to jump to Java method
+    -->
+    <select id="findAll" resultMap="userResultMap">
+        SELECT id, name, email
+        FROM users
+        ORDER BY id
+    </select>
+
+    <!--
+        Insert a new user
+        Try: Type #{ after "user." to see completion suggestions
+    -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="user.id" keyColumn="id">
+        INSERT INTO users (name, email)
+        VALUES (#{user.name}, #{user.email})
+    </insert>
+
+    <!--
+        Update existing user
+        Try: Type #{ after "user." to see completion suggestions
+    -->
+    <update id="update">
+        UPDATE users
+        SET name = #{user.name},
+            email = #{user.email}
+        WHERE id = #{user.id}
+    </update>
+
+    <!--
+        Find users by name (partial match)
+        Try: Ctrl+Alt+X on "findByName" to jump to Java method
+    -->
+    <select id="findByName" resultMap="userResultMap">
+        SELECT id, name, email
+        FROM users
+        WHERE name LIKE CONCAT('%', #{name}, '%')
+    </select>
+
+</mapper>
