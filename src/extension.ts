@@ -40,8 +40,13 @@ import { NestedFormattingProvider } from "./features/formatting";
 // Phase 2: 导入命令
 import {
   generateXmlMethodCommand,
-  createMapperXmlCommand
+  createMapperXmlCommand,
+  showPerformanceStatsCommand,
+  runConfigurationWizard
 } from "./commands";
+
+// 导入欢迎页面
+import { showWelcomePage, shouldShowWelcomePage } from "./features/welcome";
 
 // 导入高性能新架构组件
 import {
@@ -660,6 +665,11 @@ async function checkIfJavaProject() {
 function activatePluginFeatures(context: vscode.ExtensionContext) {
   logger.debug(vscode.l10n.t("extension.activatePluginFeatures"));
 
+  // Show welcome page on first install
+  if (shouldShowWelcomePage(context)) {
+    showWelcomePage(context);
+  }
+
   // 初始化 SQL 拦截器
   if (!sqlInterceptorService) {
     sqlInterceptorService = SQLInterceptorService.getInstance();
@@ -990,6 +1000,30 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       }
     );
 
+    // Phase 2: 显示性能统计命令
+    const showPerformanceStatsCmd = vscode.commands.registerCommand(
+      "mybatis-helper.showPerformanceStats",
+      async () => {
+        await showPerformanceStatsCommand();
+      }
+    );
+
+    // Phase 3: 显示欢迎页面命令
+    const showWelcomePageCmd = vscode.commands.registerCommand(
+      "mybatis-helper.showWelcomePage",
+      async () => {
+        showWelcomePage(context);
+      }
+    );
+
+    // Phase 3: 配置向导命令
+    const configureWizardCmd = vscode.commands.registerCommand(
+      "mybatis-helper.configureWizard",
+      async () => {
+        await runConfigurationWizard();
+      }
+    );
+
     context.subscriptions.push(
       jumpToXmlCommand,
       jumpToMapperCommand,
@@ -1003,7 +1037,10 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       refreshSQLHistoryCommand,
       diagnoseCommand,
       generateXmlMethodCmd,
-      createMapperXmlCmd
+      createMapperXmlCmd,
+      showPerformanceStatsCmd,
+      showWelcomePageCmd,
+      configureWizardCmd
     );
 
     // 设置 SQL 拦截器运行状态上下文变量（用于控制 TreeView 按钮显示）

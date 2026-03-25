@@ -15,6 +15,9 @@
   "command.resumeSQLInterceptor.title": "Resume SQL Interceptor",
   "command.generateXmlMethod.title": "Generate XML Method",
   "command.createMapperXml.title": "Create Mapper XML",
+  "command.showPerformanceStats.title": "Show Performance Stats",
+  "command.showWelcomePage.title": "Show Welcome Page",
+  "command.configureWizard.title": "Configure MyBatis Helper",
   "configuration.title": "MyBatis Helper Configuration",
   "configuration.enableCodeLens.description": "Enable CodeLens annotations in Java Mapper interfaces and XML files for quick navigation between them",
   "configuration.fileOpenMode.description": "File open mode when jumping between files. Options: useExisting (use existing tab if available), noSplit (always open in current editor group), alwaysSplit (always open in new editor group)",
@@ -61,5 +64,6 @@
 
   "view.sqlHistory.name": "SQL History",
   "view.sqlHistory.contextualTitle": "MyBatis SQL",
-  "activitybar.mybatisHelper.title": "MyBatis Helper"
+  "activitybar.mybatisHelper.title": "MyBatis Helper",
+  "config.showWelcome.description": "Show welcome page on startup"
 }
