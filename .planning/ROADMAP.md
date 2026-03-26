@@ -139,6 +139,39 @@ This roadmap outlines the path from current state to v1.0.0 release, focusing on
 
 **Goal:** Complete remaining features for v1.0.0
 **Duration:** 2 weeks
+**Status:** 📋 Planned
+**Plans:** 4 plans in 4 waves
+
+### Plans
+
+**Wave 1:**
+- [ ] 04-01-PLAN.md - Java Type Integration
+  - @Param annotation parsing during Mapper scanning
+  - Java Language Server communication for type resolution
+  - Parameter cache: name → type → property list
+  - Files: fastMappingEngine.ts, javaMethodParser.ts
+
+**Wave 2:**
+- [ ] 04-02-PLAN.md - Property Completion Enhancement
+  - 2-level property navigation (user.address.city)
+  - JDK type filtering (String, Integer not expanded)
+  - Adaptive strategy: small(<50 files)=full, medium(50-500)=cached, large(>500)=level1
+  - Files: propertyStrategy.ts, unifiedCompletionProvider.ts
+
+**Wave 3:**
+- [ ] 04-03-PLAN.md - Formatting Improvements
+  - Add SQL Server and SQLite dialect support
+  - Implement proper range formatting (replace TODO)
+  - Keep settings.json configuration (no UI)
+  - Files: sqlFormatter.ts, nestedFormattingProvider.ts, package.json
+
+**Wave 4:**
+- [ ] 04-04-PLAN.md - Template Quality Improvements
+  - Better table name inference (strip "By" suffix properly)
+  - Smarter initial SQL structure (WHERE hints for selectByXxx)
+  - Proper resultMap reference generation
+  - Preset templates only (no custom template system)
+  - Files: templateEngine.ts, stringUtils.ts, generateXmlMethod.ts
 
 ### 4.1 Completion Enhancements
 - [ ] Improve SQL completion context awareness
@@ -219,7 +252,7 @@ Items for future consideration:
 | Phase 1: Security & Stability | Completed | 100% |
 | Phase 2: Performance Optimization | Completed | 100% |
 | Phase 3: Developer Experience | ✅ Completed | 100% |
-| Phase 4: Feature Completion | Not Started | 0% |
+| Phase 4: Feature Completion | 📋 Planned | 0% |
 | Phase 5: Release Preparation | Not Started | 0% |
 
 ---
