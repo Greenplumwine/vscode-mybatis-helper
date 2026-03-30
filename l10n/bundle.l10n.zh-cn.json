@@ -1,7 +1,6 @@
 {
   "codelens.java.findXml": "\u67e5\u627e XML: {className}.xml",
   "codelens.java.jumpToSql": "\u8df3\u8f6c\u5230 XML SQL",
-  "codelens.java.jumpToXml": "\u8df3\u8f6c\u5230 XML\uff1a{className}.xml",
   "codelens.xml.findJava": "\u67e5\u627e Java\uff1a{className}.java",
   "codelens.xml.findMethod": "\u67e5\u627e\u65b9\u6cd5\uff1a{methodName}",
   "codelens.xml.jumpToJava": "\u8df3\u8f6c\u5230 Java\uff1a{className}.java",
@@ -147,7 +146,7 @@
 
   "command.showWelcomePage.title": "\u663e\u793a\u6b22\u8fce\u9875\u9762",
   "command.configureWizard.title": "\u914d\u7f6e MyBatis Helper",
-  "config.showWelcome.description": "\u542f\u52a8\u65f6\u663e\u793a\u6b22\u8fce\u9875\u9762",
+  "config.showWelcome.description": "启动时显示欢迎页面",
 
   "welcome.title": "\u6b22\u8fce\u4f7f\u7528 MyBatis Helper",
   "welcome.subtitle": "\u901a\u8fc7\u667a\u80fd\u5bfc\u822a\u3001SQL \u62e6\u622a\u548c\u4ee3\u7801\u8865\u5168\uff0c\u7b80\u5316\u60a8\u7684 MyBatis \u5f00\u53d1\u5de5\u4f5c\u6d41\u7a0b",

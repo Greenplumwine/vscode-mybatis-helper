@@ -443,7 +443,7 @@
         "mybatis-helper.showWelcome": {
           "type": "boolean",
           "default": true,
-          "description": "%config.showWelcome.description%"
+          "description": "Show welcome page on startup"
         }
       }
     },
