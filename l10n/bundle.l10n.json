@@ -117,6 +117,8 @@
   "status.nonJavaProject": "Not a Java project",
   "warning.notMyBatisMapper": "Cannot recognize as MyBatis Mapper file",
 
+  "codelens.java.generateXmlMethod": "Generate XML Method",
+  "codelens.java.generateXmlMethod.tooltip": "Click to generate this method in XML",
   "command.generateXmlMethod.title": "Generate XML Method",
   "command.createMapperXml.title": "Create Mapper XML",
 

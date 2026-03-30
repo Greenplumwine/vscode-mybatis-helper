@@ -14,6 +14,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Logger } from '../utils/logger';
 import { FastMappingEngine } from '../features/mapping/fastMappingEngine';
+import { extractTableNameFromMethod } from '../utils/stringUtils';
 
 /**
  * 方法信息
@@ -153,12 +154,22 @@ export class GenerateXmlMethodCommand {
     const sqlTag = this.generateSqlTag(methodInfo);
     
     // 5. 插入到 XML
-    await this.insertSqlTag(xmlPath, sqlTag);
+    await this.insertSqlTag(xmlPath, sqlTag, methodName);
     
     // 6. 打开 XML 文件
     const doc = await vscode.workspace.openTextDocument(xmlPath);
-    await vscode.window.showTextDocument(doc);
-    
+    const editor = await vscode.window.showTextDocument(doc);
+
+    // 7. 立即更新映射引擎，添加新方法映射
+    this.mappingEngine.addMethodMapping(javaPath, methodName);
+
+    // 8. 定位到刚生成的 SQL 标签
+    const methodPosition = await this.findMethodPosition(doc, methodName);
+    if (methodPosition) {
+      editor.selection = new vscode.Selection(methodPosition, methodPosition);
+      editor.revealRange(new vscode.Range(methodPosition, methodPosition), vscode.TextEditorRevealType.InCenter);
+    }
+
     vscode.window.showInformationMessage(
       vscode.l10n.t('generateXmlMethod.generated', { methodName })
     );
@@ -189,6 +200,65 @@ export class GenerateXmlMethodCommand {
    */
   private escapeRegExp(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * 检查是否应该使用 resultMap
+   */
+  private shouldUseResultMap(returnType: string): boolean {
+    const primitiveTypes = ['int', 'long', 'boolean', 'string', 'integer', 'void', 'double', 'float', 'short', 'byte'];
+    const simpleName = returnType.toLowerCase().replace(/java\.lang\./g, '');
+    if (primitiveTypes.includes(simpleName)) { return false; }
+
+    const wrapperTypes = ['integer', 'long', 'boolean', 'double', 'float', 'short', 'byte', 'string'];
+    if (wrapperTypes.includes(simpleName)) { return false; }
+
+    if (returnType.includes('<')) {
+      const genericMatch = returnType.match(/<(.*?)>/);
+      if (genericMatch) {
+        const genericType = genericMatch[1].trim();
+        const genericSimpleName = genericType.toLowerCase().replace(/java\.lang\./g, '');
+        if (primitiveTypes.includes(genericSimpleName) || wrapperTypes.includes(genericSimpleName)) {
+          return false;
+        }
+        return true;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 生成 resultMap 引用
+   */
+  private generateResultMapRef(returnType: string): string {
+    if (!this.shouldUseResultMap(returnType)) {
+      return ` resultType="${this.extractSimpleName(returnType)}"`;
+    }
+    const simpleTypeName = this.extractSimpleName(returnType);
+    return ` resultMap="${simpleTypeName}ResultMap"`;
+  }
+
+  /**
+   * 检查 resultMap 是否存在
+   */
+  private async resultMapExists(xmlPath: string, resultMapId: string): Promise<boolean> {
+    try {
+      const content = await fs.readFile(xmlPath, 'utf-8');
+      const pattern = new RegExp(`<resultMap\\s+[^>]*id=["']${resultMapId}["']`, 'i');
+      return pattern.test(content);
+    } catch { return false; }
+  }
+
+  /**
+   * 生成 resultMap 提示
+   */
+  private async generateResultMapHint(xmlPath: string, returnType: string): Promise<string | null> {
+    if (!this.shouldUseResultMap(returnType)) { return null; }
+    const simpleTypeName = this.extractSimpleName(returnType);
+    const resultMapId = `${simpleTypeName}ResultMap`;
+    const exists = await this.resultMapExists(xmlPath, resultMapId);
+    if (exists) { return null; }
+    return `<!-- TODO: Add resultMap with id="${resultMapId}" for ${simpleTypeName} -->`;
   }
 
   /**
@@ -241,15 +311,12 @@ export class GenerateXmlMethodCommand {
 
   /**
    * 生成 SQL 标签
-   * 
-   * @param method - 方法信息
-   * @returns SQL 标签字符串
    */
-  private generateSqlTag(method: MethodInfo): string {
+  private generateSqlTag(method: MethodInfo, xmlPath?: string): string {
     // 根据方法名推断 SQL 类型
     const methodName = method.name.toLowerCase();
     let tagType: 'select' | 'insert' | 'update' | 'delete' = 'select';
-    
+
     if (methodName.startsWith('insert') || methodName.startsWith('add') || methodName.startsWith('create')) {
       tagType = 'insert';
     } else if (methodName.startsWith('update') || methodName.startsWith('modify') || methodName.startsWith('set')) {
@@ -257,34 +324,37 @@ export class GenerateXmlMethodCommand {
     } else if (methodName.startsWith('delete') || methodName.startsWith('remove') || methodName.startsWith('del')) {
       tagType = 'delete';
     }
-    
+
     // 构建参数类型
     const paramType = method.parameters.length > 0 ? method.parameters[0].type : '';
     const paramTypeAttr = paramType ? ` parameterType="${this.extractSimpleName(paramType)}"` : '';
-    
+
     // 构建结果类型（如果是 select）
-    let resultTypeAttr = '';
+    let resultAttr = '';
     if (tagType === 'select' && method.returnType !== 'void') {
-      const returnType = this.extractSimpleName(method.returnType);
-      if (returnType !== 'void' && !returnType.toLowerCase().includes('list') && !returnType.toLowerCase().includes('collection')) {
-        resultTypeAttr = ` resultType="${returnType}"`;
-      }
+      resultAttr = this.generateResultMapRef(method.returnType);
     }
-    
-    // 生成参数占位符
-    const paramPlaceholders = method.parameters.map(p => 
-      `    #{${p.name}}`
-    ).join(',\n');
-    
+
+    // 提取表名
+    const tableName = extractTableNameFromMethod(method.name);
+
     // 生成注释
     const comment = `  <!-- ${method.name} -->\n`;
-    
-    // 生成 SQL 标签
-    const sqlTag = `${comment}  <${tagType} id="${method.name}"${paramTypeAttr}${resultTypeAttr}>\n` +
-                   `    <!-- TODO: Implement SQL -->\n` +
-                   (paramPlaceholders ? paramPlaceholders + '\n' : '') +
-                   `  </${tagType}>`;
-    
+
+    // 生成 SQL 标签内容
+    let sqlContent = '';
+    if (tagType === 'select') {
+      sqlContent = `    SELECT * FROM ${tableName}\n    WHERE`;
+    } else if (tagType === 'insert') {
+      sqlContent = `    INSERT INTO ${tableName} (\n\n    ) VALUES (\n\n    )`;
+    } else if (tagType === 'update') {
+      sqlContent = `    UPDATE ${tableName}\n    <set>\n\n    </set>\n    WHERE`;
+    } else if (tagType === 'delete') {
+      sqlContent = `    DELETE FROM ${tableName}\n    WHERE`;
+    }
+
+    const sqlTag = `${comment}  <${tagType} id="${method.name}"${paramTypeAttr}${resultAttr}>\n${sqlContent}\n  </${tagType}>`;
+
     return sqlTag;
   }
 
@@ -302,13 +372,31 @@ export class GenerateXmlMethodCommand {
   }
 
   /**
+   * 查找方法在文档中的位置
+   *
+   * @param document - 文本文档
+   * @param methodName - 方法名
+   * @returns 方法所在位置，如果未找到返回 null
+   */
+  private async findMethodPosition(document: vscode.TextDocument, methodName: string): Promise<vscode.Position | null> {
+    const content = document.getText();
+    const pattern = new RegExp(`<(select|insert|update|delete)\\s+[^>]*id=["']${methodName}["']`, 'i');
+    const match = content.match(pattern);
+    if (match && match.index !== undefined) {
+      const line = document.positionAt(match.index).line;
+      return new vscode.Position(line, 0);
+    }
+    return null;
+  }
+
+  /**
    * 插入 SQL 标签到 XML
-   * 
+   *
    * @param xmlPath - XML 文件路径
    * @param sqlTag - SQL 标签
    * @throws 如果文件无效或插入失败
    */
-  private async insertSqlTag(xmlPath: string, sqlTag: string): Promise<void> {
+  private async insertSqlTag(xmlPath: string, sqlTag: string, _methodName?: string): Promise<void> {
     // 输入验证
     if (!xmlPath || !xmlPath.endsWith('.xml')) {
       throw new Error(`Invalid XML file path: ${xmlPath}`);

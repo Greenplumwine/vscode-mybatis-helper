@@ -68,14 +68,17 @@ export class ForeachItemPropertyStrategy extends BaseCompletionStrategy {
     if (!context.foreachContext) {
       return false;
     }
-    
+
     const { linePrefix } = context;
     const { item } = context.foreachContext;
-    
+
+    // 对 item 名称进行正则转义，避免特殊字符导致匹配失败
+    const escapedItem = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // 匹配 #{item. 或 ${item.（item 可以是任意名称）
-    const pattern = new RegExp(`#\\{${item}\\.$`);
-    const altPattern = new RegExp(`\\$\\{${item}\\.$`);
-    
+    const pattern = new RegExp(`#\\{${escapedItem}\\.$`);
+    const altPattern = new RegExp(`\\$\\{${escapedItem}\\.$`);
+
     return pattern.test(linePrefix) || altPattern.test(linePrefix);
   }
 
@@ -114,9 +117,9 @@ export class ForeachItemPropertyStrategy extends BaseCompletionStrategy {
     
     // 获取 item 类型的属性
     const properties = await this.javaParser.getObjectProperties?.(itemType) ?? [];
-    
-    return properties.map((prop, index) => 
-      this.createPropertyItem(prop, item, itemType, index)
+
+    return properties.map((prop, index) =>
+      this.createPropertyItem(prop.name, item, itemType, index)
     );
   }
 

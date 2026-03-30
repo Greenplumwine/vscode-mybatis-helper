@@ -219,8 +219,18 @@ export interface StrategyFactory {
 }
 
 /**
+ * 对象属性信息
+ */
+export interface ObjectProperty {
+  /** 属性名 */
+  readonly name: string;
+  /** 属性类型 */
+  readonly type: string;
+}
+
+/**
  * Java 方法解析器接口（简化版）
- * 
+ *
  * 实际实现参考 src/services/language/javaMethodParser.ts
  */
 export interface JavaMethodParser {
@@ -228,17 +238,18 @@ export interface JavaMethodParser {
    * 解析 Java 文件
    */
   parseJavaFile(filePath: string): Promise<any>;
-  
+
   /**
    * 解析指定方法（可选，使用 getInstance() 方式调用）
    */
   parseMethod?(filePath: string, methodName: string): Promise<JavaMethod | null>;
-  
+
   /**
    * 获取对象的属性列表（可选，用于 #{user.} 补全）
+   * 返回属性信息数组，包含名称和类型
    */
-  getObjectProperties?(className: string): Promise<string[]>;
-  
+  getObjectProperties?(className: string): Promise<ObjectProperty[]>;
+
   /**
    * 扫描项目中的所有类（可选，用于 resultType/parameterType 补全）
    */

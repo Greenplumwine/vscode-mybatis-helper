@@ -2,127 +2,88 @@
 gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
-current_phase: 4
-status: unknown
-last_updated: "2026-03-25T07:04:46.523Z"
+current_phase: 5
+status: completed
+last_updated: "2026-03-30T10:30:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 9
+  completed_phases: 5
+  total_plans: 13
+  completed_plans: 13
 ---
 
 # Project State: MyBatis Helper
 
 **Active Milestone:** v1.0.0 Release
-**Current Phase:** 4
-**Last Updated:** 2026-03-25
+**Current Phase:** 5 (Completed)
+**Last Updated:** 2026-03-30
 
 ---
 
 ## Current Status
 
-Phase 2 context gathering completed. Ready for planning.
+✅ **All Phases Completed - Ready for v1.0.0 Release**
 
-### Completed Setup
+### Completed Work Summary
 
-- [x] PROJECT.md created
-- [x] config.json created
-- [x] REQUIREMENTS.md created
-- [x] ROADMAP.md created
-- [x] Codebase map exists (.planning/codebase/)
-- [x] Phase 1 completed (security fixes, testing infrastructure)
-- [x] Phase 2 context gathered (02-CONTEXT.md, 02-DISCUSSION-LOG.md)
-
-### Completed Work (Phase 1)
-
-#### Security Fixes
-
+#### Phase 1: Security & Stability ✅
 - [x] Created `src/utils/pathSecurity.ts` with path validation utilities
 - [x] Replaced all `execSync` with `execFileSync` (array args)
 - [x] Fixed 3 command injection vulnerabilities
+- [x] Installed Jest and ts-jest, created 18 unit tests
 
-#### Testing Infrastructure
+#### Phase 2: Performance Optimization ✅
+- [x] Two-level regex cache (hot 50 + cold 50)
+- [x] Scheduled cache cleanup for FastMappingEngine (30 min)
+- [x] Async operations conversion in scanner hot paths
+- [x] Performance monitoring with stats command
 
-- [x] Installed Jest and ts-jest
-- [x] Created `jest.config.js`
-- [x] Created 18 unit tests for pathSecurity
+#### Phase 3: Developer Experience ✅
+- [x] Documentation (README, TROUBLESHOOTING, FEATURES, CONFIGURATION)
+- [x] Sample project in samples/basic-mybatis-project/
+- [x] Welcome page with feature cards and setup checklist
+- [x] 4-step configuration wizard
+- [x] Configuration validation with actionable fixes
+- [x] Enhanced diagnostics command
 
-### Phase 2 Decisions Captured
+#### Phase 4: Feature Completion ✅
+- [x] Java type information integration (@Param parsing, type resolution)
+- [x] Property completion enhancements (2-level navigation, JDK filtering)
+- [x] Formatting improvements (SQL Server/SQLite dialects, range formatting)
+- [x] Template quality improvements (table name inference, smart SQL)
 
-1. **Cache Eviction:** Scheduled cleanup (30 min interval) for FastMappingEngine
-2. **Async Conversion:** Hot paths only (fastScanner → classFileWatcher → others)
-3. **Performance Monitoring:** Simple logging + "Show Performance Stats" command
-4. **Regex Cache:** Two-level cache (hot 50 + cold 50)
-
-### Completed
-
-- [x] Phase 1: Security & Stability - **COMPLETED**
-- [x] Phase 2: Performance Optimization - **COMPLETED** (with gap fix)
-- [x] Phase 3: Developer Experience - **IN PROGRESS**
-  - [x] Plan 03-01: Documentation and Sample Project - **COMPLETED**
-  - [x] Plan 03-02: Welcome Page and Configuration Wizard - **COMPLETED**
-  - [x] Plan 03-03: Configuration Validation and Enhanced Diagnostics - **COMPLETED**
-
-### Gap Fix
-
-- [x] Plan 02-04: Fix Performance Stats Command - **COMPLETED**
-  - Added internationalization for command title
-  - Command registration verified
-
-### Recent Changes
-
-- Plan 03-01: Documentation and sample project (README, docs/, samples/)
-- Plan 02-01: Cache optimization (scheduled cleanup, two-level regex cache)
-- Plan 02-02: Async operations conversion (classFileWatcher.ts)
-- Plan 02-03: Performance monitoring (PerformanceMonitor, stats command)
+#### Phase 5: Release Preparation ✅
+- [x] Quality Assurance - regression testing, build verification
+- [x] Created CHANGELOG.md with v1.0.0 changes
+- [x] Created .planning/RELEASE_NOTES.md
+- [x] Updated package.json version to 1.0.0
+- [x] Build verification passed (compile, lint, prepublish)
 
 ---
 
-## Active Context
+## Deliverables
 
-Phase 2 context ready. Key decisions:
-
-- FastMappingEngine: scheduled cleanup instead of LRU
-- Async conversion: priority order established
-- Performance monitoring: simple logging approach
-- Regex cache: two-level hot/cold strategy
-
----
-
-## Recent Decisions
-
-1. Phase 1: Security fixes complete
-2. Phase 2: Performance optimization decisions captured
-3. Cache strategy: scheduled cleanup (not LRU)
-4. Async priority: hot paths first
-5. Monitoring: simple logging + command
-6. Regex cache: two-level (50+50)
-7. Documentation: Created comprehensive guides (TROUBLESHOOTING, FEATURES, CONFIGURATION)
-8. Sample project: Working MyBatis demo in samples/basic-mybatis-project/
-9. Welcome page: VS Code webview with feature cards, setup checklist, action buttons
-10. Configuration wizard: 4-step QuickPick wizard for initial setup
-11. Configuration validation: Two-tier validation (real-time + on-demand)
-12. Enhanced diagnostics: Comprehensive system health check with 6 sections
+- ✅ CHANGELOG.md - Complete version history
+- ✅ RELEASE_NOTES.md - v1.0.0 release highlights
+- ✅ package.json - Version 1.0.0
+- ✅ Successful build artifacts
+- ✅ All tests passing
 
 ---
 
 ## Blockers
 
-None.
+None. Ready for release.
 
 ---
 
 ## Notes
 
-- Extension is functional at v0.0.8
-- Phase 1 security fixes complete
-- Phase 2 performance optimizations complete
-- Phase 3 plan 03-01 complete: Documentation and sample project
-- Phase 3 plan 03-02 complete: Welcome page and configuration wizard
-- Phase 3 plan 03-03 complete: Configuration validation and enhanced diagnostics
+- Extension is ready for v1.0.0 release
+- All 5 phases completed successfully
+- Build passes without errors
+- Documentation is complete
 - 18 unit tests passing
-- Documentation: README updated, docs/ folder with 3 guides, sample project ready
 
 ---
 

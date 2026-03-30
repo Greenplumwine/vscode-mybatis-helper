@@ -15,14 +15,15 @@
  */
 
 import * as vscode from 'vscode';
-import { 
-  CompletionStrategy, 
+import {
+  CompletionStrategy,
   CompletionContext,
   JavaMethodParser,
   MyBatisXmlParser
 } from './types';
 import { CompletionContextBuilder } from './contextBuilder';
 import { Logger } from '../../utils/logger';
+import { FastMappingEngine } from '../mapping/fastMappingEngine';
 
 // 策略导入
 import {
@@ -301,8 +302,8 @@ export class UnifiedCompletionProvider implements vscode.CompletionItemProvider 
     // 优先级 85：Foreach collection 属性补全
     this.registerStrategy(new ForeachCollectionStrategy());
     
-    // 优先级 80：对象属性
-    this.registerStrategy(new PropertyStrategy(this.javaParser));
+    // 优先级 80：对象属性（传入最大深度）
+    this.registerStrategy(new PropertyStrategy(this.javaParser, this.getMaxPropertyDepth()));
     
     // 优先级 70：SQL 占位符
     this.registerStrategy(new PlaceholderStrategy(this.javaParser));
@@ -326,5 +327,64 @@ export class UnifiedCompletionProvider implements vscode.CompletionItemProvider 
    */
   get strategyCount(): number {
     return this.strategies.length;
+  }
+
+  /**
+   * 获取最大属性深度（基于项目大小的自适应策略）
+   *
+   * 项目大小划分：
+   * - small (<50 files): 启用 2 级属性展开
+   * - medium (50-500 files): 启用 1 级属性展开
+   * - large (>500 files): 仅根对象属性
+   *
+   * @returns 最大属性深度（0=仅根对象，1=1级属性，2=2级属性）
+   */
+  public getMaxPropertyDepth(): number {
+    const size = this.getProjectSize();
+    switch (size) {
+      case 'small': return 2;   // 全功能
+      case 'medium': return 1;  // 仅 1 级
+      case 'large': return 0;   // 仅根对象属性
+    }
+  }
+
+  /**
+   * 获取项目大小分类
+   *
+   * 基于 FastMappingEngine 中的 namespace 数量估算 Java 文件数量
+   * 每个 namespace 通常对应 1 个 Java Mapper 文件
+   *
+   * @returns 项目大小：'small' | 'medium' | 'large'
+   */
+  private getProjectSize(): 'small' | 'medium' | 'large' {
+    try {
+      const stats = FastMappingEngine.getInstance().getStats();
+      const javaFileCount = stats.total; // namespace 数量约等于 Java 文件数量
+
+      if (javaFileCount < 50) return 'small';
+      if (javaFileCount < 500) return 'medium';
+      return 'large';
+    } catch (error) {
+      // 如果无法获取统计信息，默认使用 medium 策略
+      this.logger.warn('Failed to get project size, defaulting to medium');
+      return 'medium';
+    }
+  }
+
+  /**
+   * 获取当前项目大小（用于外部查询）
+   *
+   * @returns 项目大小描述字符串
+   */
+  public getProjectSizeInfo(): { size: 'small' | 'medium' | 'large'; fileCount: number } {
+    try {
+      const stats = FastMappingEngine.getInstance().getStats();
+      return {
+        size: this.getProjectSize(),
+        fileCount: stats.total
+      };
+    } catch (error) {
+      return { size: 'medium', fileCount: 0 };
+    }
   }
 }

@@ -103,14 +103,22 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
     const isInForeachTagWithPlaceholder = /<foreach\b[^>]*#\{$/i.test(linePrefix) ||
                                           /<foreach\b[^>]*\$\{$/i.test(linePrefix);
 
-    if (!isCompletePlaceholder && !isTriggerChar && !isOpeningBrace && !isInForeachTagWithPlaceholder) {
+    // 情况5：光标在 #{...} 或 ${...} 内部（用于重新输入或编辑时触发）
+    // 检查当前是否在占位符内部且正在输入内容
+    const isInsidePlaceholder = /#\{[^}]*$/.test(linePrefix) || /\$\{[^}]*$/.test(linePrefix);
+
+    // 情况6：触发字符是任意字符，但光标在 #{...} 内部
+    const isTypingInsidePlaceholder = triggerCharacter && isInsidePlaceholder;
+
+    if (!isCompletePlaceholder && !isTriggerChar && !isOpeningBrace &&
+        !isInForeachTagWithPlaceholder && !isInsidePlaceholder && !isTypingInsidePlaceholder) {
       return false;
     }
 
     // 如果在 foreach 内且输入的是 #{，让给 ForeachVariableStrategy
     // 但只有在光标确实在 foreach 标签的 SQL 内容区域内时才让出
     // 如果 linePrefix 包含 <foreach，说明还在标签属性区域，不应该让出
-    if (context.foreachContext && /#\{?$/.test(linePrefix)) {
+    if (context.foreachContext && /#\{?$/.test(linePrefix) && !isInsidePlaceholder) {
       // 检查是否在 foreach 标签的属性区域内
       const isInForeachTagAttrs = /<foreach\b[^>]*$/i.test(linePrefix);
       if (!isInForeachTagAttrs) {
@@ -168,7 +176,7 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
         try {
           const properties = await javaParser.getObjectProperties?.(param.type) ?? [];
           for (const prop of properties) {
-            items.push(this.createPropertyPathItem(param, prop, marker, index, completionContext));
+            items.push(this.createPropertyPathItem(param, prop.name, marker, index, completionContext));
           }
         } catch (error) {
           this.logger.debug(`Failed to get properties for ${param.type}:`, error);
@@ -233,7 +241,8 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
     // 优先使用 @Param 注解指定的名称，否则使用参数名
     const paramRefName = param.paramValue || param.name;
 
-    const label = `${marker}{${paramRefName}}`;
+    // label 只显示参数名（不包含 #{ }），符合用户期望
+    const label = paramRefName;
 
     // 构建文档
     const docs = this.buildParameterDocs(param);
@@ -242,40 +251,105 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
     const sortText = param.paramValue ? `0${index.toString().padStart(2, '0')}`
                                      : `1${index.toString().padStart(2, '0')}`;
 
-    // 根据触发字符确定插入文本和范围
-    const { triggerCharacter, position, document } = completionContext;
+    // 根据上下文确定插入文本和范围
+    const { position, document } = completionContext;
     let insertText: string;
     let range: vscode.Range | undefined;
 
     // 计算行前缀和后缀
     const line = document.lineAt(position.line).text;
-    const linePrefix = line.substring(0, position.character);
+    const currentLinePrefix = line.substring(0, position.character);
     const lineSuffix = line.substring(position.character);
+
+    // 改进的自动括号检测：
+    // 1. 检查后缀是否以 } 开头（VS Code 自动插入的闭合括号）
+    // 2. 检查后缀是否以 {} 开头（VS Code 自动插入的空括号对）
     const hasAutoCloseBrace = lineSuffix.startsWith('}');
+    const hasAutoEmptyBraces = lineSuffix.startsWith('{}');
 
-    // 检查行前缀是否以 #{ 或 ${ 结尾（这是最重要的判断）
-    const endsWithPlaceholderStart = /#\{$/.test(linePrefix) || /\$\{$/.test(linePrefix);
+    // 检查行前缀是否以 #{ 或 ${ 结尾
+    const endsWithPlaceholderStart = /#\{$/.test(currentLinePrefix) || /\$\{$/.test(currentLinePrefix);
+    // 检查行前缀是否以 # 或 $ 结尾（没有 {）
+    const endsWithMarker = /#$/.test(currentLinePrefix) || /\$$/.test(currentLinePrefix);
+    // 检查是否已经在 #{...} 内部（用于重新输入或编辑时触发）
+    const isInsidePlaceholder = /#\{[^}]*$/.test(currentLinePrefix) || /\$\{[^}]*$/.test(currentLinePrefix);
 
-    if (triggerCharacter === '#' || triggerCharacter === '$') {
-      // 用户输入了 # 或 $，需要插入完整 {param}
-      insertText = `{${paramRefName}}`;
-    } else if (endsWithPlaceholderStart) {
-      // 行前缀以 #{ 或 ${ 结尾
-      // 注意：如果后面有自动插入的 }，我们只插入参数名，不插入 }
-      if (hasAutoCloseBrace) {
-        // 有自动插入的 }，设置 range 覆盖它，只插入参数名
+    // 如果在占位符内部，计算 #{ 后的起始位置
+    let placeholderContentStart = -1;
+    if (isInsidePlaceholder) {
+      const hashIndex = currentLinePrefix.lastIndexOf('#{');
+      const dollarIndex = currentLinePrefix.lastIndexOf('${');
+      const startIndex = Math.max(hashIndex, dollarIndex);
+      if (startIndex >= 0) {
+        placeholderContentStart = startIndex + 2; // +2 跳过 #{
+      }
+    }
+
+    if (hasAutoEmptyBraces) {
+      // VS Code 自动插入了 {}，需要覆盖整个 {}
+      range = new vscode.Range(
+        position,
+        new vscode.Position(position.line, position.character + 2)
+      );
+
+      if (endsWithMarker) {
+        // 前面是 # 或 $，插入 {paramName}
+        insertText = `{${paramRefName}}`;
+      } else {
+        // 其他情况，插入完整占位符
+        insertText = `${marker}{${paramRefName}}`;
+      }
+    } else if (hasAutoCloseBrace) {
+      // 有自动插入的 }
+      if (isInsidePlaceholder && placeholderContentStart >= 0) {
+        // 在 #{...} 内部：需要从 #{ 后开始替换到 } 后
+        // 例如：#{j|} -> #{job}
+        range = new vscode.Range(
+          new vscode.Position(position.line, placeholderContentStart),
+          new vscode.Position(position.line, position.character + 1) // +1 包含后面的 }
+        );
+        insertText = `${paramRefName}}`;
+      } else if (endsWithPlaceholderStart) {
+        // 刚好在 #{ 后，设置 range 覆盖 }，insertText 包含参数名和 }
         range = new vscode.Range(
           position,
           new vscode.Position(position.line, position.character + 1)
         );
-        insertText = paramRefName;
-      } else {
-        // 没有自动插入的 }，插入参数名 + }
         insertText = `${paramRefName}}`;
+      } else if (endsWithMarker) {
+        // 只有 # 或 $，设置 range 覆盖 }，insertText 包含完整内容
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1)
+        );
+        insertText = `{${paramRefName}}`;
+      } else {
+        // 其他情况
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1)
+        );
+        insertText = `${marker}{${paramRefName}}`;
       }
     } else {
-      // 默认情况：插入完整的占位符
-      insertText = `${marker}{${paramRefName}}`;
+      // 没有自动插入的 }
+      if (isInsidePlaceholder && placeholderContentStart >= 0) {
+        // 在 #{...} 内部但没有自动 }，替换从 #{ 后到光标的内容
+        range = new vscode.Range(
+          new vscode.Position(position.line, placeholderContentStart),
+          position
+        );
+        insertText = `${paramRefName}}`;
+      } else if (endsWithPlaceholderStart) {
+        // 已经有 #{ 或 ${，插入参数名 + }
+        insertText = `${paramRefName}}`;
+      } else if (endsWithMarker) {
+        // 只有 # 或 $，插入完整 {paramName}
+        insertText = `{${paramRefName}}`;
+      } else {
+        // 默认情况：插入完整的占位符
+        insertText = `${marker}{${paramRefName}}`;
+      }
     }
 
     const item = this.createItem(label, {
@@ -314,7 +388,8 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
     // 优先使用 @Param 注解指定的名称，否则使用参数名
     const paramRefName = param.paramValue || param.name;
 
-    const label = `${marker}{${paramRefName}.${property}}`;
+    // label 只显示参数名.属性名（不包含 #{ }）
+    const label = `${paramRefName}.${property}`;
 
     // 构建文档
     const docs = new vscode.MarkdownString();
@@ -324,40 +399,99 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
     // 排序文本：对象属性的排序在参数之后
     const sortText = `2${index.toString().padStart(2, '0')}${property}`;
 
-    // 根据触发字符确定插入文本和范围
-    const { triggerCharacter, position, document } = completionContext;
+    // 根据上下文确定插入文本和范围
+    const { position, document } = completionContext;
     let insertText: string;
     let range: vscode.Range | undefined;
 
     // 计算行前缀和后缀
     const line = document.lineAt(position.line).text;
-    const linePrefix = line.substring(0, position.character);
+    const currentLinePrefix = line.substring(0, position.character);
     const lineSuffix = line.substring(position.character);
+
+    // 改进的自动括号检测
     const hasAutoCloseBrace = lineSuffix.startsWith('}');
+    const hasAutoEmptyBraces = lineSuffix.startsWith('{}');
 
-    // 检查行前缀是否以 #{ 或 ${ 结尾（这是最重要的判断）
-    const endsWithPlaceholderStart = /#\{$/.test(linePrefix) || /\$\{$/.test(linePrefix);
+    // 检查行前缀是否以 #{ 或 ${ 结尾
+    const endsWithPlaceholderStart = /#\{$/.test(currentLinePrefix) || /\$\{$/.test(currentLinePrefix);
+    // 检查行前缀是否以 # 或 $ 结尾（没有 {）
+    const endsWithMarker = /#$/.test(currentLinePrefix) || /\$$/.test(currentLinePrefix);
+    // 检查是否已经在 #{...} 内部
+    const isInsidePlaceholder = /#\{[^}]*$/.test(currentLinePrefix) || /\$\{[^}]*$/.test(currentLinePrefix);
 
-    if (triggerCharacter === '#' || triggerCharacter === '$') {
-      // 用户输入了 # 或 $，需要插入完整 {param.property}
-      insertText = `{${paramRefName}.${property}}`;
-    } else if (endsWithPlaceholderStart) {
-      // 行前缀以 #{ 或 ${ 结尾
-      // 注意：如果后面有自动插入的 }，我们只插入参数名.属性，不插入 }
-      if (hasAutoCloseBrace) {
-        // 有自动插入的 }，设置 range 覆盖它，只插入参数名.属性
+    // 如果在占位符内部，计算 #{ 后的起始位置
+    let placeholderContentStart = -1;
+    if (isInsidePlaceholder) {
+      const hashIndex = currentLinePrefix.lastIndexOf('#{');
+      const dollarIndex = currentLinePrefix.lastIndexOf('${');
+      const startIndex = Math.max(hashIndex, dollarIndex);
+      if (startIndex >= 0) {
+        placeholderContentStart = startIndex + 2;
+      }
+    }
+
+    if (hasAutoEmptyBraces) {
+      // VS Code 自动插入了 {}，需要覆盖整个 {}
+      range = new vscode.Range(
+        position,
+        new vscode.Position(position.line, position.character + 2)
+      );
+
+      if (endsWithMarker) {
+        insertText = `{${paramRefName}.${property}}`;
+      } else {
+        insertText = `${marker}{${paramRefName}.${property}}`;
+      }
+    } else if (hasAutoCloseBrace) {
+      // 有自动插入的 }，替换范围需要覆盖 }，insertText 必须包含 }
+      if (isInsidePlaceholder && placeholderContentStart >= 0) {
+        // 在 #{...} 内部：从 #{ 后开始替换到 } 之后
+        range = new vscode.Range(
+          new vscode.Position(position.line, placeholderContentStart),
+          new vscode.Position(position.line, position.character + 1)
+        );
+        insertText = `${paramRefName}.${property}}`;
+      } else if (endsWithPlaceholderStart) {
+        // 刚好在 #{ 后
         range = new vscode.Range(
           position,
           new vscode.Position(position.line, position.character + 1)
         );
-        insertText = `${paramRefName}.${property}`;
-      } else {
-        // 没有自动插入的 }，插入参数名.属性 + }
         insertText = `${paramRefName}.${property}}`;
+      } else if (endsWithMarker) {
+        // 只有 # 或 $
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1)
+        );
+        insertText = `{${paramRefName}.${property}}`;
+      } else {
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1)
+        );
+        insertText = `${marker}{${paramRefName}.${property}}`;
       }
     } else {
-      // 默认情况：插入完整的占位符
-      insertText = `${marker}{${paramRefName}.${property}}`;
+      // 没有自动插入的 }
+      if (isInsidePlaceholder && placeholderContentStart >= 0) {
+        // 在 #{...} 内部但没有自动 }
+        range = new vscode.Range(
+          new vscode.Position(position.line, placeholderContentStart),
+          position
+        );
+        insertText = `${paramRefName}.${property}}`;
+      } else if (endsWithPlaceholderStart) {
+        // 已经有 #{ 或 ${，插入参数名.属性 + }
+        insertText = `${paramRefName}.${property}}`;
+      } else if (endsWithMarker) {
+        // 只有 # 或 $，插入完整 {paramName.property}
+        insertText = `{${paramRefName}.${property}}`;
+      } else {
+        // 默认情况：插入完整的占位符
+        insertText = `${marker}{${paramRefName}.${property}}`;
+      }
     }
 
     const item = this.createItem(label, {
@@ -399,7 +533,7 @@ export class PlaceholderStrategy extends BaseCompletionStrategy {
     // @Param 信息
     if (param.paramValue) {
       docs.appendMarkdown(`\n\n**@Param("${param.paramValue}")**`);
-      docs.appendMarkdown(`\n\n在 SQL 中可使用 \`#\{${param.paramValue}\}\` 引用此参数`);
+      docs.appendMarkdown(`\n\n在 SQL 中可使用 **${param.paramValue}** 引用此参数`);
     }
 
     // 注解列表

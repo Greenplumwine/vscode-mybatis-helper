@@ -7,3 +7,4 @@
 
 export { TagHierarchyResolver, tagHierarchyResolver } from './dtdResolver';
 export { MyBatisXmlParser, myBatisXmlParser } from './mybatisXmlParser';
+export { EnhancedJavaMethodParser, enhancedJavaMethodParser } from './javaMethodParser';

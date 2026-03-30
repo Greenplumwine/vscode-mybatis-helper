@@ -11,6 +11,8 @@
 import { EventEmitter } from 'events';
 import { MapperMapping, MethodMapping, JavaMapperInfo, XmlMapperInfo, Position } from './types';
 import { Logger } from '../../utils/logger';
+import { JavaParameter } from '../../services/types';
+import { EnhancedJavaMethodParser } from '../../services/parsing/javaMethodParser';
 
 /**
  * 映射索引结构
@@ -23,6 +25,7 @@ interface MappingIndex {
   simpleClassName: string;
   packageName: string;
   methods: Map<string, MethodMapping>;
+  methodParameters?: Map<string, JavaParameter[]>;  // methodName -> parameters
   lastUpdated: number;
 }
 
@@ -78,6 +81,9 @@ export class FastMappingEngine extends EventEmitter {
     cacheMisses: 0
   };
 
+  // ========== 参数解析器 ==========
+  private javaParser?: EnhancedJavaMethodParser;
+
   private constructor() {
     super();
   }
@@ -92,6 +98,7 @@ export class FastMappingEngine extends EventEmitter {
   public async initialize(): Promise<void> {
     const { Logger } = await import('../../utils/logger.js');
     this.logger = Logger.getInstance();
+    this.javaParser = EnhancedJavaMethodParser.getInstance();
     this.startCleanupTimer();
   }
 
@@ -200,11 +207,15 @@ export class FastMappingEngine extends EventEmitter {
       simpleClassName,
       packageName: javaInfo.packageName,
       methods,
+      methodParameters: new Map(),
       lastUpdated: Date.now()
     };
 
     // 更新所有索引
     this.updateIndexes(mapping);
+
+    // 异步解析方法参数（不阻塞映射构建）
+    this.parseMethodParametersAsync(mapping, javaInfo);
     
     this.emit('mappingBuilt', this.toMapperMapping(mapping));
     this.logger?.debug(`Built mapping: ${namespace} -> Java: ${javaInfo.filePath}, XML: ${xmlInfo?.filePath || 'none'}, Methods: ${methods.size}`);
@@ -331,21 +342,63 @@ export class FastMappingEngine extends EventEmitter {
   public hasSqlForMethod(namespace: string, methodName: string): boolean {
     const mapping = this.namespaceIndex.get(namespace);
     if (!mapping) return false;
-    
-    // 1. 首先尝试完全匹配
-    if (mapping.methods.has(methodName)) {
+
+    // 1. 首先尝试完全匹配（带参数）
+    const methodWithParams = mapping.methods.get(methodName);
+    if (methodWithParams && methodWithParams.xmlPosition !== undefined) {
       return true;
     }
-    
+
     // 2. 如果失败，尝试去掉参数部分匹配
     // Java 符号 API 返回："getA00s(String)" 或 "getPersonInfoByImport(List, String, String)"
     // XML 存储："getA00s" 或 "getPersonInfoByImport"
     const methodNameWithoutParams = methodName.split('(')[0];
-    if (mapping.methods.has(methodNameWithoutParams)) {
+    const methodWithoutParams = mapping.methods.get(methodNameWithoutParams);
+    if (methodWithoutParams && methodWithoutParams.xmlPosition !== undefined) {
       return true;
     }
-    
+
     return false;
+  }
+
+  /**
+   * 手动添加方法映射（用于生成 XML 方法后立即更新）
+   *
+   * @param javaPath - Java 文件路径
+   * @param methodName - 方法名
+   * @returns 是否添加成功
+   */
+  public addMethodMapping(javaPath: string, methodName: string): boolean {
+    const normalizedPath = javaPath.normalize('NFC').toLowerCase();
+    const namespace = this.javaPathIndex.get(normalizedPath);
+    if (!namespace) return false;
+
+    const mapping = this.namespaceIndex.get(namespace);
+    if (!mapping) return false;
+
+    // 如果方法已存在，不需要添加
+    if (mapping.methods.has(methodName)) {
+      return true;
+    }
+
+    // 添加新方法映射
+    const methodMapping: MethodMapping = {
+      methodName: methodName,
+      sqlId: methodName,
+      javaPosition: { line: 0, column: 0 },
+      xmlPosition: { line: 0, column: 0 }
+    };
+
+    mapping.methods.set(methodName, methodMapping);
+    mapping.lastUpdated = Date.now();
+
+    // 更新统计
+    this.stats.totalMethods++;
+
+    this.logger?.debug(`[FastMappingEngine] Added method mapping: ${namespace}.${methodName}`);
+    this.emit('mappingUpdated', this.toMapperMapping(mapping));
+
+    return true;
   }
 
   // ========== 智能匹配 ==========
@@ -434,24 +487,55 @@ export class FastMappingEngine extends EventEmitter {
   }
 
   /**
-   * 更新方法位置（用于增量更新）
+   * 同步 XML 方法列表（用于 XML 文件变更时）
+   * 会添加新方法、更新现有方法位置、删除已不存在的方法
    */
-  public updateMethodPositions(javaPath: string, xmlStatements: Map<string, Position>): boolean {
+  public syncXmlMethods(javaPath: string, xmlStatements: Map<string, Position>): boolean {
     const namespace = this.javaPathIndex.get(javaPath.normalize('NFC').toLowerCase());
     if (!namespace) return false;
 
     const mapping = this.namespaceIndex.get(namespace);
     if (!mapping) return false;
 
-    for (const [methodName, xmlPosition] of xmlStatements) {
+    // 1. 收集 XML 中存在的方法名
+    const xmlMethodNames = new Set(xmlStatements.keys());
+
+    // 2. 删除 XML 中已不存在的方法映射
+    for (const [methodName, methodMapping] of mapping.methods.entries()) {
+      if (!xmlMethodNames.has(methodName)) {
+        // 这个方法在 XML 中已不存在，清除其 xmlPosition
+        methodMapping.xmlPosition = undefined;
+      }
+    }
+
+    // 3. 更新或添加方法
+    for (const [methodName, xmlPosition] of xmlStatements.entries()) {
       const methodMapping = mapping.methods.get(methodName);
       if (methodMapping) {
+        // 更新现有方法的位置
         methodMapping.xmlPosition = xmlPosition;
+      } else {
+        // 添加新方法映射
+        mapping.methods.set(methodName, {
+          methodName: methodName,
+          sqlId: methodName,
+          javaPosition: { line: 0, column: 0 },
+          xmlPosition: xmlPosition
+        });
       }
     }
 
     mapping.lastUpdated = Date.now();
+    this.emit('mappingUpdated', this.toMapperMapping(mapping));
     return true;
+  }
+
+  /**
+   * 更新方法位置（用于增量更新）
+   * @deprecated 使用 syncXmlMethods 替代
+   */
+  public updateMethodPositions(javaPath: string, xmlStatements: Map<string, Position>): boolean {
+    return this.syncXmlMethods(javaPath, xmlStatements);
   }
 
   /**
@@ -600,6 +684,102 @@ export class FastMappingEngine extends EventEmitter {
       methods: index.methods,
       lastUpdated: index.lastUpdated
     };
+  }
+
+  // ========== 参数缓存管理 ==========
+
+  /**
+   * 异步解析方法参数
+   * 不阻塞映射构建，在后台解析参数信息
+   */
+  private async parseMethodParametersAsync(mapping: MappingIndex, javaInfo: JavaMapperInfo): Promise<void> {
+    if (!this.javaParser) {
+      return;
+    }
+
+    try {
+      // 读取 Java 文件内容
+      const fs = await import('fs/promises');
+      const content = await fs.readFile(javaInfo.filePath, 'utf-8');
+
+      // 为每个方法解析参数
+      for (const methodName of mapping.methods.keys()) {
+        try {
+          // 从文件内容中提取方法签名
+          const methodSignature = this.extractMethodSignature(content, methodName);
+          if (methodSignature) {
+            const parameters = this.javaParser!.parseMethodParameters(methodSignature);
+            if (parameters.length > 0) {
+              mapping.methodParameters?.set(methodName, parameters);
+            }
+          }
+        } catch (error) {
+          this.logger?.debug(`Failed to parse parameters for ${methodName}:`, error);
+        }
+      }
+
+      this.logger?.debug(`Parsed parameters for ${mapping.namespace}: ${mapping.methodParameters?.size || 0} methods`);
+    } catch (error) {
+      this.logger?.debug(`Failed to parse method parameters for ${javaInfo.filePath}:`, error);
+    }
+  }
+
+  /**
+   * 从文件内容中提取方法签名
+   */
+  private extractMethodSignature(content: string, methodName: string): string | null {
+    // 匹配方法签名，支持多行
+    const methodPattern = new RegExp(
+      `(?:public|private|protected)?\\s*(?:static|final|abstract)?\\s*([\\w<>,\\s\\[\\]]+?)\\s+${methodName}\\s*\\((.*?)\\)\\s*(?:throws\\s+[\\w,\\s]+)?\\s*[;{]`,
+      's'
+    );
+
+    const match = methodPattern.exec(content);
+    if (match) {
+      return `${methodName}(${match[2]})`;
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取方法参数列表
+   *
+   * @param javaPath - Java 文件路径
+   * @param methodName - 方法名
+   * @returns JavaParameter 数组，未找到返回 undefined
+   */
+  public getMethodParameters(javaPath: string, methodName: string): JavaParameter[] | undefined {
+    const namespace = this.javaPathIndex.get(javaPath.normalize('NFC').toLowerCase());
+    if (!namespace) return undefined;
+
+    const mapping = this.namespaceIndex.get(namespace);
+    return mapping?.methodParameters?.get(methodName);
+  }
+
+  /**
+   * 更新方法参数缓存（用于增量更新）
+   */
+  public updateMethodParameters(javaPath: string, methodName: string, parameters: JavaParameter[]): boolean {
+    const namespace = this.javaPathIndex.get(javaPath.normalize('NFC').toLowerCase());
+    if (!namespace) return false;
+
+    const mapping = this.namespaceIndex.get(namespace);
+    if (!mapping) return false;
+
+    if (!mapping.methodParameters) {
+      mapping.methodParameters = new Map();
+    }
+
+    mapping.methodParameters.set(methodName, parameters);
+    mapping.lastUpdated = Date.now();
+
+    // 使相关类型缓存失效
+    for (const param of parameters) {
+      this.javaParser?.invalidateCache(param.type);
+    }
+
+    return true;
   }
 
   // ========== 查询统计 ==========

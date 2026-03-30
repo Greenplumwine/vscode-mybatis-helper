@@ -2,7 +2,7 @@
   "name": "mybatis-helper-vscode",
   "displayName": "Mybatis Helper",
   "description": "%description%",
-  "version": "0.0.8",
+  "version": "1.0.0",
   "publisher": "Greenplumwine",
   "icon": "static/icon/mybatis-helper-icon.png",
   "repository": {
@@ -142,13 +142,13 @@
       {
         "command": "mybatis-helper.jumpToXml",
         "key": "ctrl+alt+j",
-        "mac": "ctrl+option+j",
+        "mac": "cmd+option+j",
         "when": "editorTextFocus && editorLangId == 'java'"
       },
       {
         "command": "mybatis-helper.jumpToMapper",
         "key": "ctrl+alt+x",
-        "mac": "ctrl+option+x",
+        "mac": "cmd+option+x",
         "when": "editorTextFocus && (editorLangId == 'xml' || editorLangId == 'mybatis-xml')"
       },
       {

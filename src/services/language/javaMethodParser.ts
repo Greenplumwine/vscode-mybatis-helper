@@ -682,20 +682,20 @@ export class JavaMethodParser {
 
     /**
      * 获取对象的属性列表
-     * 
+     *
      * 从类文件中提取字段声明，支持从项目源码中查找实体类
-     * 
+     *
      * @param className - 类名（简单名或全限定名）
-     * @returns 属性名列表
+     * @returns 属性信息数组（包含名称和类型）
      */
-    async getObjectProperties(className: string): Promise<string[]> {
+    async getObjectProperties(className: string): Promise<Array<{ name: string; type: string }>> {
         logger.debug(`Getting properties for class: ${className}`);
-        
+
         // 常见类型直接返回空数组
         if (this.isBasicType(className)) {
             return [];
         }
-        
+
         // 1. 尝试从缓存的所有 Java 文件中查找这个类
         for (const [filePath, info] of this.cache.entries()) {
             if (info.className.endsWith(className) || info.className === className) {
@@ -703,14 +703,14 @@ export class JavaMethodParser {
                 return this.extractPropertiesFromClass(filePath);
             }
         }
-        
+
         // 2. 尝试从项目源码中查找实体类文件
         const classFilePath = await this.findClassFileInProject(className);
         if (classFilePath) {
             logger.debug(`Found class ${className} in project: ${classFilePath}`);
             return this.extractPropertiesFromClass(classFilePath);
         }
-        
+
         logger.debug(`Class ${className} not found in cache or project`);
         return [];
     }
@@ -800,29 +800,38 @@ export class JavaMethodParser {
     }
 
     /**
-     * 从类文件中提取属性（简化实现）
+     * 从类文件中提取属性（包含类型信息）
+     *
+     * @param filePath - Java 文件路径
+     * @returns 属性信息数组（包含名称和类型）
      */
-    private async extractPropertiesFromClass(filePath: string): Promise<string[]> {
+    private async extractPropertiesFromClass(filePath: string): Promise<Array<{ name: string; type: string }>> {
         try {
             const content = await fs.readFile(filePath, 'utf-8');
-            const properties: string[] = [];
-            
+            const properties: Array<{ name: string; type: string }> = [];
+
             // 简单的正则匹配：private/protected/public Type fieldName;
-            const fieldPattern = /(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?(\w+(?:<[^>]+>)?)\s+(\w+)\s*;/g;
+            const fieldPattern = /(?:private|protected|public)\s+(?:static\s+)?(?:final\s+)?(\w+(?:<[^>]+>)?(?:\[\])?)\s+(\w+)\s*;/g;
             let match;
             while ((match = fieldPattern.exec(content)) !== null) {
-                properties.push(match[2]); // 字段名
+                properties.push({
+                    type: match[1], // 字段类型
+                    name: match[2]  // 字段名
+                });
             }
-            
+
             // 如果没有匹配到，尝试匹配 getter 方法名
             if (properties.length === 0) {
-                const getterPattern = /public\s+\w+\s+get(\w+)\s*\(/g;
+                const getterPattern = /public\s+(\w+(?:<[^>]+>)?(?:\[\])?)\s+get(\w+)\s*\(/g;
                 while ((match = getterPattern.exec(content)) !== null) {
-                    const propName = match[1].charAt(0).toLowerCase() + match[1].slice(1);
-                    properties.push(propName);
+                    const propName = match[2].charAt(0).toLowerCase() + match[2].slice(1);
+                    properties.push({
+                        type: match[1], // 返回类型
+                        name: propName
+                    });
                 }
             }
-            
+
             logger.debug(`Extracted ${properties.length} properties from ${filePath}`);
             return properties;
         } catch (error) {

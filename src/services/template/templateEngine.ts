@@ -7,7 +7,7 @@
  */
 
 import { logger } from '../../utils/logger';
-import { camelToSnakeCase, removePrefix } from '../../utils/stringUtils';
+import { camelToSnakeCase, removePrefix, extractTableNameFromMethod } from '../../utils/stringUtils';
 import {
     ITemplateEngine,
     TemplateType,
@@ -36,6 +36,251 @@ function escapeXml(str: string): string {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
+}
+
+/**
+ * WHERE 条件接口
+ */
+interface WhereCondition {
+    field: string;
+    operator: string;
+    logic: 'AND' | 'OR';
+}
+
+/**
+ * 操作符映射
+ */
+const OPERATOR_MAP: Record<string, string> = {
+    'like': 'LIKE',
+    'between': 'BETWEEN',
+    'in': 'IN',
+    'not': 'NOT',
+    'is': 'IS',
+    'null': 'NULL',
+    'notnull': 'IS NOT NULL',
+    'istrue': '= TRUE',
+    'isfalse': '= FALSE',
+    'greaterthan': '>',
+    'lessthan': '<',
+    'greaterthanorequalto': '>=',
+    'lessthanorequalto': '<='
+};
+
+/**
+ * 从方法名提取 WHERE 条件
+ *
+ * 示例：
+ * - findByUserIdAndStatus → [{field: 'user_id', operator: '=', logic: 'AND'}, {field: 'status', operator: '=', logic: 'AND'}]
+ * - selectByCreateTimeBetween → [{field: 'create_time', operator: 'BETWEEN', logic: 'AND'}]
+ * - getByNameLike → [{field: 'name', operator: 'LIKE', logic: 'AND'}]
+ */
+function extractWhereConditions(methodName: string): WhereCondition[] {
+    const byIndex = methodName.toLowerCase().indexOf('by');
+    if (byIndex === -1 || byIndex === methodName.length - 2) {
+        return [];
+    }
+
+    const conditionPart = methodName.substring(byIndex + 2);
+
+    // 使用正则分割：按大写字母分割，但保留逻辑连接词
+    // 匹配模式：And、Or 作为逻辑连接词，其他大写字母开头的词作为字段或操作符
+    const parts: string[] = [];
+    let current = '';
+
+    for (let i = 0; i < conditionPart.length; i++) {
+        const char = conditionPart[i];
+        const nextChar = conditionPart[i + 1];
+
+        // 检查是否是逻辑连接词的开始 (And, Or)
+        const remaining = conditionPart.substring(i);
+        if (remaining.toLowerCase().startsWith('and') && remaining.length > 3 && remaining[3] === remaining[3].toUpperCase()) {
+            if (current) {
+                parts.push(current);
+                current = '';
+            }
+            parts.push('And');
+            i += 2;
+            continue;
+        }
+        if (remaining.toLowerCase().startsWith('or') && remaining.length > 2 && remaining[2] === remaining[2].toUpperCase()) {
+            if (current) {
+                parts.push(current);
+                current = '';
+            }
+            parts.push('Or');
+            i += 1;
+            continue;
+        }
+
+        if (char === char.toUpperCase() && i > 0 && current) {
+            parts.push(current);
+            current = char;
+        } else {
+            current += char;
+        }
+    }
+
+    if (current) {
+        parts.push(current);
+    }
+
+    const conditions: WhereCondition[] = [];
+    let currentField = '';
+    let currentOperator = '=';
+    let currentLogic: 'AND' | 'OR' = 'AND';
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const lowerPart = part.toLowerCase();
+
+        if (lowerPart === 'and') {
+            if (currentField) {
+                conditions.push({
+                    field: camelToSnakeCase(currentField),
+                    operator: currentOperator,
+                    logic: currentLogic
+                });
+                currentField = '';
+                currentOperator = '=';
+            }
+            currentLogic = 'AND';
+        } else if (lowerPart === 'or') {
+            if (currentField) {
+                conditions.push({
+                    field: camelToSnakeCase(currentField),
+                    operator: currentOperator,
+                    logic: currentLogic
+                });
+                currentField = '';
+                currentOperator = '=';
+            }
+            currentLogic = 'OR';
+        } else if (OPERATOR_MAP[lowerPart]) {
+            // 操作符
+            currentOperator = OPERATOR_MAP[lowerPart];
+        } else if (lowerPart === 'not' && parts[i + 1]?.toLowerCase() === 'null') {
+            // 处理 IsNotNull 或 NotNull
+            currentOperator = 'IS NOT NULL';
+            i++; // 跳过 'Null'
+        } else if (lowerPart === 'is' && parts[i + 1]?.toLowerCase() === 'null') {
+            // 处理 IsNull
+            currentOperator = 'IS NULL';
+            i++; // 跳过 'Null'
+        } else if (lowerPart === 'is' && parts[i + 1]?.toLowerCase() === 'not' && parts[i + 2]?.toLowerCase() === 'null') {
+            // 处理 IsNotNull
+            currentOperator = 'IS NOT NULL';
+            i += 2; // 跳过 'Not' 和 'Null'
+        } else {
+            // 字段名
+            currentField += part;
+        }
+    }
+
+    // 处理最后一个字段
+    if (currentField) {
+        conditions.push({
+            field: camelToSnakeCase(currentField),
+            operator: currentOperator,
+            logic: currentLogic
+        });
+    }
+
+    return conditions;
+}
+
+/**
+ * 构建 WHERE 子句
+ */
+function buildWhereClause(conditions: WhereCondition[]): string {
+    if (conditions.length === 0) {
+        return '';
+    }
+
+    return conditions.map((c, i) => {
+        const prefix = i === 0 ? '' : ` ${c.logic} `;
+        if (c.operator === 'IS NULL' || c.operator === 'IS NOT NULL') {
+            return `${prefix}${c.field} ${c.operator}`;
+        } else if (c.operator === 'BETWEEN') {
+            return `${prefix}${c.field} BETWEEN ? AND ?`;
+        } else if (c.operator === 'IN') {
+            return `${prefix}${c.field} IN (...)`;
+        } else {
+            return `${prefix}${c.field} ${c.operator} ?`;
+        }
+    }).join('');
+}
+
+/**
+ * 检查是否应该使用 resultMap
+ */
+function shouldUseResultMap(returnType: string | undefined): boolean {
+    if (!returnType || returnType === 'void') {
+        return false;
+    }
+
+    // 基础类型：直接使用 resultType
+    const primitiveTypes = ['int', 'long', 'boolean', 'string', 'integer', 'void', 'double', 'float', 'short', 'byte'];
+    const simpleName = returnType.toLowerCase().replace(/java\.lang\./g, '');
+    if (primitiveTypes.includes(simpleName)) {
+        return false;
+    }
+
+    // 包装类
+    const wrapperTypes = ['integer', 'long', 'boolean', 'double', 'float', 'short', 'byte', 'string'];
+    if (wrapperTypes.includes(simpleName)) {
+        return false;
+    }
+
+    // 集合类型：检查泛型参数
+    if (returnType.includes('<')) {
+        const genericMatch = returnType.match(/<(.*?)>/);
+        if (genericMatch) {
+            const genericType = genericMatch[1].trim();
+            // 如果泛型参数是简单类型，不使用 resultMap
+            const genericSimpleName = genericType.toLowerCase().replace(/java\.lang\./g, '');
+            if (primitiveTypes.includes(genericSimpleName) || wrapperTypes.includes(genericSimpleName)) {
+                return false;
+            }
+            // 复杂泛型类型使用 resultMap
+            return true;
+        }
+    }
+
+    // 复杂对象类型：使用 resultMap
+    return true;
+}
+
+/**
+ * 提取简单类名
+ */
+function extractSimpleTypeName(returnType: string): string {
+    // 处理泛型
+    const withoutGeneric = returnType.replace(/<[^>]+>/g, '');
+    const lastDot = withoutGeneric.lastIndexOf('.');
+    return lastDot >= 0 ? withoutGeneric.substring(lastDot + 1) : withoutGeneric;
+}
+
+/**
+ * 生成 resultMap 引用
+ */
+function renderResultMapRef(returnType: string | undefined): string {
+    if (!returnType || returnType === 'void') {
+        return '';
+    }
+
+    if (!shouldUseResultMap(returnType)) {
+        // 对于简单类型，使用 resultType
+        const simpleName = extractSimpleTypeName(returnType);
+        return ` resultType="${escapeXml(simpleName)}"`;
+    }
+
+    // 提取简单类名
+    const simpleTypeName = extractSimpleTypeName(returnType);
+
+    // 生成 resultMap ID
+    const resultMapId = `${simpleTypeName}ResultMap`;
+
+    return ` resultMap="${resultMapId}"`;
 }
 
 /**
@@ -113,33 +358,31 @@ abstract class SqlStatementTemplateStrategy implements TemplateStrategy {
  */
 class SelectTemplateStrategy extends SqlStatementTemplateStrategy {
     readonly templateType = TemplateType.SELECT_METHOD;
-    
+
     render(context: TemplateContext): string {
         const methodName = escapeXml(context.methodName || '');
         const paramsStr = this.renderParameters(context.parameters);
-        const resultStr = this.renderResultType(context.returnType);
-        const tableName = this.convertToTableName(context.methodName || '');
-        
+        const resultStr = renderResultMapRef(context.returnType);
+        const tableName = extractTableNameFromMethod(context.methodName || '');
+
+        // 提取 WHERE 条件
+        const conditions = extractWhereConditions(context.methodName || '');
+
+        if (conditions.length > 0) {
+            // 生成带 WHERE 提示的 SQL
+            const whereClause = buildWhereClause(conditions);
+
+            return `    <select id="${methodName}"${paramsStr}${resultStr}>
+        SELECT * FROM ${tableName}
+        WHERE ${whereClause}
+    </select>`;
+        }
+
+        // 默认 SQL（无 By 后缀）
         return `    <select id="${methodName}"${paramsStr}${resultStr}>
         SELECT * FROM ${tableName}
-        WHERE 
+        WHERE
     </select>`;
-    }
-    
-    private convertToTableName(methodName: string): string {
-        const prefixes = ['select', 'find', 'get', 'query', 'search', 'list'];
-        let tableName = methodName;
-        
-        for (const prefix of prefixes) {
-            const removed = removePrefix(tableName, prefix, true);
-            if (removed !== tableName) {
-                tableName = removed;
-                break;
-            }
-        }
-        
-        const finalName = tableName || methodName;
-        return camelToSnakeCase(finalName);
     }
 }
 
@@ -152,20 +395,15 @@ class InsertTemplateStrategy extends SqlStatementTemplateStrategy {
     render(context: TemplateContext): string {
         const methodName = escapeXml(context.methodName || '');
         const paramsStr = this.renderParameters(context.parameters);
-        const tableName = this.inferTableName(context.methodName || '');
-        
+        const tableName = extractTableNameFromMethod(context.methodName || '');
+
         return `    <insert id="${methodName}"${paramsStr}>
         INSERT INTO ${tableName} (
-            
+
         ) VALUES (
-            
+
         )
     </insert>`;
-    }
-    
-    private inferTableName(methodName: string): string {
-        const tableName = removePrefix(methodName, 'insert', true);
-        return camelToSnakeCase(tableName || methodName);
     }
 }
 
@@ -178,20 +416,15 @@ class UpdateTemplateStrategy extends SqlStatementTemplateStrategy {
     render(context: TemplateContext): string {
         const methodName = escapeXml(context.methodName || '');
         const paramsStr = this.renderParameters(context.parameters);
-        const tableName = this.inferTableName(context.methodName || '');
-        
+        const tableName = extractTableNameFromMethod(context.methodName || '');
+
         return `    <update id="${methodName}"${paramsStr}>
         UPDATE ${tableName}
         <set>
-            
+
         </set>
-        WHERE 
+        WHERE
     </update>`;
-    }
-    
-    private inferTableName(methodName: string): string {
-        const tableName = removePrefix(methodName, 'update', true);
-        return camelToSnakeCase(tableName || methodName);
     }
 }
 
@@ -204,17 +437,12 @@ class DeleteTemplateStrategy extends SqlStatementTemplateStrategy {
     render(context: TemplateContext): string {
         const methodName = escapeXml(context.methodName || '');
         const paramsStr = this.renderParameters(context.parameters);
-        const tableName = this.inferTableName(context.methodName || '');
-        
+        const tableName = extractTableNameFromMethod(context.methodName || '');
+
         return `    <delete id="${methodName}"${paramsStr}>
         DELETE FROM ${tableName}
-        WHERE 
+        WHERE
     </delete>`;
-    }
-    
-    private inferTableName(methodName: string): string {
-        const tableName = removePrefix(methodName, 'delete', true);
-        return camelToSnakeCase(tableName || methodName);
     }
 }
 
