@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.0.1] - 2026-03-31
+
+### 修复
+
+- **国际化补全**：修复 zh-tw、de、ja、es、fr、ru 六个语言包中 welcome/wizard/performance 区域及部分 error 键值的英文混用问题
+
 ## [1.0.0] - 2026-03-30
 
 ### 新增功能
