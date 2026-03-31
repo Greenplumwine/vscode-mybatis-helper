@@ -4,25 +4,79 @@
 
 A VS Code extension for MyBatis development that provides SQL log interception, Java-XML bidirectional navigation, intelligent code completion, and SQL/XML formatting.
 
-**Current State:** Mature extension with established feature set
-**Version:** 0.0.8
+**Current State:** v1.0.0 Released
+**Version:** 1.0.0
 **Repository:** https://github.com/Greenplumwine/vscode-mybatis-helper
 
 ---
 
-## Goals
+## What This Is
 
-### Primary Goals
-1. **Developer Experience** - Streamline MyBatis development workflow in VS Code
-2. **Navigation** - Seamless Java ↔ XML mapper navigation
-3. **Observability** - Real-time SQL log capture and analysis
-4. **Productivity** - Intelligent code completion and code generation
+MyBatis Helper is a production-ready VS Code extension that streamlines MyBatis development workflow. It provides seamless Java ↔ XML mapper navigation, real-time SQL log capture from debug console/terminal, intelligent code completion for MyBatis XML, and SQL/XML formatting support.
 
-### Success Metrics
-- Extension activation success rate > 95%
-- Navigation response time < 500ms
-- SQL interception accuracy > 90%
-- User-reported issue resolution time < 1 week
+## Core Value
+
+**Seamless MyBatis development experience in VS Code** - reducing context switching and improving productivity for Java developers working with MyBatis.
+
+---
+
+## Requirements
+
+### Validated (Shipped in v1.0.0)
+
+- ✓ Java-XML bidirectional navigation (Ctrl+Alt+J / Ctrl+Alt+X) — v1.0.0
+- ✓ SQL log interception from debug console and terminal — v1.0.0
+- ✓ CodeLens showing XML method count on Java interfaces — v1.0.0
+- ✓ MyBatis XML tag and SQL keyword completion — v1.0.0
+- ✓ Java property completion with 2-level navigation — v1.0.0
+- ✓ SQL/XML formatting with 6 dialect support — v1.0.0
+- ✓ Code generation from Java methods — v1.0.0
+- ✓ Internationalization (9 languages) — v1.0.0
+- ✓ Security hardened (path validation, execFileSync) — v1.0.0
+- ✓ Performance optimized (caching, async operations) — v1.0.0
+
+### Active (Next Milestone)
+
+- [ ] MyBatis-Plus specific features
+- [ ] Database schema-aware completion
+- [ ] Enhanced SQL execution preview
+- [ ] Multi-root workspace support
+
+### Out of Scope
+
+- Database connection management — use dedicated database tools
+- SQL execution within VS Code — out of scope for now
+- Schema visualization — use database management tools
+- Video chat/screen sharing — use external tools
+
+---
+
+## Context
+
+**Shipped v1.0.0 with 26,541 LOC TypeScript.**
+
+Tech stack: TypeScript 5.x, VS Code Extension API, fast-xml-parser, sql-formatter
+
+Current user base: ~1000+ VS Code marketplace installs
+
+Key technical achievements:
+- Dual scanner system (FastScanner + EnterpriseScanner)
+- Worker threads for class file parsing
+- In-memory O(1) namespace lookup
+- Two-level regex cache with LRU eviction
+
+---
+
+## Key Decisions
+
+| Decision | Status | Outcome |
+|----------|--------|---------|
+| Dual Scanner System | ✓ Good | Handles both standard and large projects well |
+| Worker Threads for Parsing | ✓ Good | Prevents UI blocking during class parsing |
+| In-Memory State (no persistence) | ✓ Good | Simplicity outweighs durability needs |
+| Strategy Pattern for Completion | ✓ Good | Easy to extend with new completion types |
+| Source + javap instead of JLS | ✓ Good | Works without vscode-java internals |
+| Two-level regex cache | ✓ Good | Balances performance and memory |
 
 ---
 
@@ -84,37 +138,19 @@ A VS Code extension for MyBatis development that provides SQL log interception, 
 ## Current Status
 
 **Phase:** Maintenance & Incremental Improvements
-**Milestone:** v1.0.0 Preparation
+**Milestone:** v1.0.0 Shipped
 
 ### Recent Work (from git history)
-- Enhanced completion system with debugging logs
-- Removed unused file mapping functionality
-- XML intelligent completion system
-- Enterprise scanner optimization with worker threads
-- Internationalization support (9 languages)
-- SQL interceptor pause/resume functionality
+- v1.0.0 release with security hardening and performance optimization
+- Enhanced completion system with Java type integration
+- Documentation and sample project
+- Welcome page and configuration wizard
+- Configuration validation and diagnostics
 
 ### Technical Debt
-- Legacy FileMapper class still present
-- Synchronous file operations in scanner hot paths
-- Unbounded regex cache
-- No eviction policy in IndexCacheManager
-
----
-
-## Decisions
-
-### Architecture Decisions
-1. **Dual Scanner System** - FastScanner for standard projects, EnterpriseScanner for large/monorepo
-2. **Worker Threads** - Class file parsing in worker threads to avoid blocking
-3. **In-Memory State** - No persistence, rebuilt on activation (simplicity vs durability)
-4. **Strategy Pattern** - Completion providers use strategy pattern for extensibility
-
-### Technology Choices
-1. **fast-xml-parser** - Fast, lightweight XML parsing
-2. **sql-formatter** - SQL formatting without heavy dependencies
-3. **javap** - Class file parsing via system command
-4. **No ORM** - Direct file system operations for performance
+- Legacy FileMapper class still present (superseded, low priority)
+- Full range formatting implementation (partially done)
+- More comprehensive test coverage (18 tests currently)
 
 ---
 
@@ -126,8 +162,8 @@ A VS Code extension for MyBatis development that provides SQL log interception, 
 | 2024 Q2 | First marketplace release |
 | 2024 Q3 | Enterprise scanner, worker threads |
 | 2024 Q4 | Completion system, i18n |
-| 2025 Q1 | Current - stabilization |
-| 2025 Q2 | Target v1.0.0 release |
+| 2025 Q1 | Stabilization |
+| 2026-03-30 | **v1.0.0 Released** |
 
 ---
 
@@ -146,11 +182,11 @@ A VS Code extension for MyBatis development that provides SQL log interception, 
 - Worker threads for CPU-intensive tasks
 - O(1) namespace lookup in FastMappingEngine
 
-### Security Concerns
-- `execSync` with user-controlled paths in worker threads
-- Path traversal potential in file operations
-- Need for input sanitization review
+### Security Posture
+- All `execSync` replaced with `execFileSync`
+- Path validation for user-controlled inputs
+- Safe regex patterns (no ReDoS vulnerabilities)
 
 ---
 
-*Last updated: 2026-03-25*
+*Last updated: 2026-03-30 after v1.0.0 milestone*

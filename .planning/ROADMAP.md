@@ -1,271 +1,51 @@
-# Roadmap: MyBatis Helper v1.0.0
+# Roadmap: MyBatis Helper
 
-## Overview
+## Milestones
 
-This roadmap outlines the path from current state to v1.0.0 release, focusing on stabilization, security, and developer experience improvements.
+- ✅ **v1.0.0 MVP** — Phases 1-5 (shipped 2026-03-30)
 
-**Current Version:** 0.0.8
-**Target Version:** 1.0.0
-**Estimated Completion:** 2025 Q2
+## Phases
 
----
+<details>
+<summary>✅ v1.0.0 MVP (Phases 1-5) — SHIPPED 2026-03-30</summary>
 
-## Phase 1: Security & Stability
+### Phase 1: Security & Stability (3 plans) — completed 2026-03-25
+- [x] Security audit and command injection fixes
+- [x] Testing infrastructure setup
+- [x] Error handling improvements
 
-**Goal:** Address security concerns and critical bugs
-**Duration:** 1-2 weeks
+### Phase 2: Performance Optimization (4 plans) — completed 2026-03-25
+- [x] Cache optimization with LRU eviction
+- [x] Async operations conversion
+- [x] Performance monitoring
+- [x] Memory optimization
 
-### 1.1 Security Audit
-- [ ] Review all `execSync` usages for command injection risks
-- [ ] Add path sanitization for user-controlled inputs
-- [ ] Validate regex patterns for ReDoS vulnerabilities
-- [ ] Add security tests
+### Phase 3: Developer Experience (3 plans) — completed 2026-03-26
+- [x] Documentation and sample project
+- [x] Welcome page and configuration wizard
+- [x] Configuration validation and diagnostics
 
-### 1.2 Error Handling
-- [ ] Add comprehensive error boundaries
-- [ ] Improve error messages for users
-- [ ] Add telemetry for error tracking (optional)
+### Phase 4: Feature Completion (4 plans) — completed 2026-03-26
+- [x] Java type information integration
+- [x] Property completion enhancement
+- [x] Formatting improvements
+- [x] Template quality improvements
 
-### 1.3 Testing Foundation
-- [ ] Set up test infrastructure
-- [ ] Add unit tests for parsers
-- [ ] Add integration tests for navigation
+### Phase 5: Release Preparation (1 plan) — completed 2026-03-30
+- [x] Quality assurance and release assets
 
-**Deliverables:**
-- Security audit report
-- Error handling improvements
-- Test coverage > 30%
+</details>
 
-**Success Criteria:**
-- No high/critical security issues
-- All user-facing errors have helpful messages
-- CI passes with tests
+## Progress
 
----
-
-## Phase 2: Performance Optimization
-
-**Goal:** Improve performance for large projects
-**Duration:** 1-2 weeks
-
-### 2.1 Cache Improvements
-- [ ] Add LRU eviction to IndexCacheManager
-- [ ] Implement cache size limits
-- [ ] Add cache statistics for debugging
-
-### 2.2 Async Operations
-- [ ] Convert sync file operations to async
-- [ ] Optimize scanner hot paths
-- [ ] Add progress indicators for long operations
-
-### 2.3 Memory Optimization
-- [ ] Review memory usage patterns
-- [ ] Fix potential memory leaks
-- [ ] Add memory usage telemetry
-
-**Deliverables:**
-- Optimized caching system
-- Async file operations
-- Performance benchmarks
-
-**Success Criteria:**
-- Large project scan time < 30s
-- Memory usage stable over time
-- No UI blocking during scans
+| Phase | Milestone | Plans Complete | Status | Completed |
+| ----- | --------- | -------------- | ------ | --------- |
+| 1. Security & Stability | v1.0.0 | 3/3 | Complete | 2026-03-25 |
+| 2. Performance Optimization | v1.0.0 | 4/4 | Complete | 2026-03-25 |
+| 3. Developer Experience | v1.0.0 | 3/3 | Complete | 2026-03-26 |
+| 4. Feature Completion | v1.0.0 | 4/4 | Complete | 2026-03-26 |
+| 5. Release Preparation | v1.0.0 | 1/1 | Complete | 2026-03-30 |
 
 ---
 
-## Phase 3: Developer Experience
-
-**Goal:** Polish and improve user experience
-**Duration:** 2 weeks
-**Status:** ✅ Complete
-**Completion Date:** 2026-03-26
-
-### Plans
-
-**Wave 1:**
-- [x] 03-01-PLAN.md - Documentation and Sample Project
-  - Update README with Quick Start section and GIF placeholders
-  - Create docs/TROUBLESHOOTING.md with common issues
-  - Create docs/FEATURES.md with detailed feature docs
-  - Create docs/CONFIGURATION.md with all options
-  - Create samples/basic-mybatis-project/ with working example
-
-**Wave 2:**
-- [x] 03-02-PLAN.md - Welcome Page and Configuration Wizard
-  - Create VS Code webview welcome page (shows on first install)
-  - Feature cards, quick setup checklist, action buttons
-  - "Don't show again" checkbox with command palette reopen
-  - Multi-step configuration wizard (4 steps)
-  - Project type detection, XML directories, naming convention, SQL mode
-
-**Wave 3:**
-- [x] 03-03-PLAN.md - Configuration Validation and Enhanced Diagnostics
-  - Real-time validation on configuration changes
-  - On-demand "Validate Configuration" command
-  - Enhanced "Diagnose" command with structured output
-  - Validation for paths, regex patterns, enum values
-  - Actionable fix suggestions in output
-
-### 3.1 Documentation
-- [x] Update README with GIFs/screenshots
-- [x] Add troubleshooting guide
-- [x] Create feature documentation
-
-### 3.2 Configuration
-- [x] Review and simplify configuration options
-- [x] Add configuration validation
-- [x] Create configuration wizard
-
-### 3.3 Onboarding
-- [x] Add welcome page on first install
-- [x] Create sample project
-- [x] Add getting started guide
-
-**Deliverables:**
-- Updated documentation
-- Configuration improvements
-- Onboarding flow
-
-**Success Criteria:**
-- New user can set up in < 5 minutes
-- Configuration errors reduced by 50%
-- Documentation covers all features
-
----
-
-## Phase 4: Feature Completion
-
-**Goal:** Complete remaining features for v1.0.0
-**Duration:** 2 weeks
-**Status:** ✅ Completed
-**Completion Date:** 2026-03-26
-
-### Plans
-
-**Wave 1:**
-- [x] 04-01-PLAN.md - Java Type Integration
-  - @Param annotation parsing during Mapper scanning
-  - Java Language Server communication for type resolution
-  - Parameter cache: name → type → property list
-  - Files: fastMappingEngine.ts, javaMethodParser.ts
-
-**Wave 2:**
-- [x] 04-02-PLAN.md - Property Completion Enhancement
-  - 2-level property navigation (user.address.city)
-  - JDK type filtering (String, Integer not expanded)
-  - Adaptive strategy: small(<50 files)=full, medium(50-500)=cached, large(>500)=level1
-  - Files: propertyStrategy.ts, unifiedCompletionProvider.ts
-
-**Wave 3:**
-- [x] 04-03-PLAN.md - Formatting Improvements
-  - Add SQL Server and SQLite dialect support
-  - Implement proper range formatting (replace TODO)
-  - Keep settings.json configuration (no UI)
-  - Files: sqlFormatter.ts, nestedFormattingProvider.ts, package.json
-
-**Wave 4:**
-- [x] 04-04-PLAN.md - Template Quality Improvements
-  - Better table name inference (strip "By" suffix properly)
-  - Smarter initial SQL structure (WHERE hints for selectByXxx)
-  - Proper resultMap reference generation
-  - Preset templates only (no custom template system)
-  - Files: templateEngine.ts, stringUtils.ts, generateXmlMethod.ts
-
-### 4.1 Completion Enhancements
-- [ ] Improve SQL completion context awareness
-- [ ] Add more type handler suggestions
-- [ ] Enhance property completion accuracy
-
-### 4.2 Formatting Improvements
-- [ ] Add more SQL dialect options
-- [ ] Improve nested SQL/XML formatting
-- [ ] Add formatting configuration UI
-
-### 4.3 Code Generation
-- [ ] Add more template options
-- [ ] Support custom templates
-- [ ] Improve generated code quality
-
-**Deliverables:**
-- Enhanced completion system
-- Improved formatting
-- Better code generation
-
-**Success Criteria:**
-- Completion accuracy > 85%
-- Formatting handles 95% of cases
-- Generated code compiles without modification
-
----
-
-## Phase 5: Release Preparation
-
-**Goal:** Prepare for v1.0.0 release
-**Duration:** 1 week
-**Status:** ✅ Completed
-**Completion Date:** 2026-03-30
-
-### 5.1 Quality Assurance
-- [x] Full regression testing
-- [x] Performance benchmarking
-- [x] Security re-audit
-
-### 5.2 Release Assets
-- [x] Create changelog
-- [x] Prepare release notes
-- [x] Update marketplace listing
-
-### 5.3 Pre-Release Checklist
-- [x] Version update to 1.0.0
-- [x] Build verification
-- [x] Final documentation review
-
-**Deliverables:**
-- ✅ v1.0.0 release
-- ✅ Release notes
-- ✅ Updated marketplace listing
-
-**Success Criteria:**
-- ✅ No critical bugs
-- ✅ Build passes
-- ✅ Documentation complete
-
----
-
-## Backlog (Post-v1.0.0)
-
-Items for future consideration:
-
-1. **MyBatis-Plus Support** - Specific features for MyBatis-Plus
-2. **Database Integration** - Schema-aware completion
-3. **SQL Execution** - Execute and view results in VS Code
-4. **Multi-root Workspaces** - Full support for complex projects
-5. **AI Features** - SQL optimization suggestions
-6. **Team Features** - Shared configurations
-
----
-
-## Progress Tracking
-
-| Phase | Status | Completion |
-|-------|--------|------------|
-| Phase 1: Security & Stability | ✅ Completed | 100% |
-| Phase 2: Performance Optimization | ✅ Completed | 100% |
-| Phase 3: Developer Experience | ✅ Completed | 100% |
-| Phase 4: Feature Completion | ✅ Completed | 100% |
-| Phase 5: Release Preparation | ✅ Completed | 100% |
-
----
-
-## Notes
-
-- Phases can be worked on in parallel where dependencies allow
-- User feedback may reprioritize items
-- Security issues take precedence over features
-- Each phase requires verification before proceeding
-
----
-
-*Last updated: 2026-03-30*
+*For detailed milestone information, see .planning/MILESTONES.md*
