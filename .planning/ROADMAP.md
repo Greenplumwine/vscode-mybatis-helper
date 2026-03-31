@@ -49,3 +49,7 @@
 ---
 
 *For detailed milestone information, see .planning/MILESTONES.md*
+
+## Archived Phase Details
+
+- **v1.0.0 Phases**: See `.planning/milestones/v1.0.0-phases/` for complete phase documentation
