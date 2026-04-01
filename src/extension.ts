@@ -757,6 +757,9 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
       logger.info('[Extension] Nested formatting provider registered');
     }
 
+
+    // 注册动态语言切换器（检测 MyBatis XML 并切换语言模式）
+    registerDynamicLanguageSwitcher(context);
     providersRegistered = true;
   }
 
@@ -1088,6 +1091,143 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
  */
 
 // Note: Dynamic language switching removed - using filenamePatterns in package.json instead
+
+/**
+ * 注册动态 MyBatis XML 语言切换器
+ * 基于内容检测将符合条件的 XML 文件自动切换为 mybatis-xml 语言
+ * 
+ * 注意：由于 VS Code 1.48+ 的 bug，语言切换在标签页切换后会失效，
+ * 因此需要在 onDidChangeActiveTextEditor 事件中重新应用
+ */
+function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void {
+  const detector = LanguageDetector.getInstance();
+  
+  // 记录已确定为 MyBatis Mapper 的文档 URI，避免重复检测
+  const mybatisDocs = new Set<string>();
+  
+  // 检测并切换语言的内部函数
+  async function detectAndSwitch(document: vscode.TextDocument): Promise<void> {
+    if (!document.fileName.toLowerCase().endsWith('.xml')) {
+      return;
+    }
+    
+    const uri = document.uri.toString();
+    
+    try {
+      // 如果已经是 mybatis-xml，记录并跳过
+      if (document.languageId === 'mybatis-xml') {
+        mybatisDocs.add(uri);
+        return;
+      }
+      
+      // 如果已经是 xml 且之前检测过不是 MyBatis，跳过
+      if (document.languageId === 'xml' && !mybatisDocs.has(uri)) {
+        // 需要重新检测
+      } else if (document.languageId !== 'xml') {
+        // 其他语言模式，不处理
+        return;
+      }
+      
+      // 检测是否为 MyBatis Mapper
+      const isMyBatis = detector.isMyBatisMapper(document);
+      
+      if (isMyBatis) {
+        logger.debug(`[Language] Detected MyBatis XML: ${path.basename(document.fileName)}`);
+        
+        // 延迟执行，确保文档稳定
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // 重新获取文档（可能已变化）
+        const currentDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri);
+        if (!currentDoc || currentDoc.isClosed) {
+          return;
+        }
+        
+        // 再次检查语言模式
+        if (currentDoc.languageId === 'mybatis-xml') {
+          mybatisDocs.add(uri);
+          return;
+        }
+        
+        try {
+          await vscode.languages.setTextDocumentLanguage(currentDoc, 'mybatis-xml');
+          mybatisDocs.add(uri);
+          logger.info(`[Language] Switched to mybatis-xml: ${path.basename(document.fileName)}`);
+        } catch (err: any) {
+          // Trae IDE 可能有兼容性问题，记录但不报错
+          logger.debug(`[Language] setTextDocumentLanguage failed (may be Trae IDE issue): ${err?.message || err}`);
+        }
+      }
+    } catch (error) {
+      logger.debug(`[Language] Detection failed for ${document.fileName}:`, error);
+    }
+  }
+  
+  // 防抖函数，避免频繁切换
+  function debounceSwitch(document: vscode.TextDocument): void {
+    const uri = document.uri.toString();
+    const key = `lang_switch_${uri}`;
+    
+    // 清除之前的定时器
+    const existing = (global as any)[key];
+    if (existing) {
+      clearTimeout(existing);
+    }
+    
+    // 设置新的定时器
+    (global as any)[key] = setTimeout(() => {
+      delete (global as any)[key];
+      detectAndSwitch(document);
+    }, 100);
+  }
+
+  // 1. 处理已打开的文档
+  vscode.workspace.textDocuments.forEach(doc => {
+    if (doc.fileName.toLowerCase().endsWith('.xml')) {
+      debounceSwitch(doc);
+    }
+  });
+
+  // 2. 订阅文档打开事件
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument(doc => {
+      if (doc.fileName.toLowerCase().endsWith('.xml')) {
+        debounceSwitch(doc);
+      }
+    })
+  );
+
+  // 3. 订阅编辑器切换事件（关键：VS Code bug 导致语言在切换标签页后失效，需要重新应用）
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+      if (!editor?.document) {
+        return;
+      }
+      
+      const doc = editor.document;
+      if (!doc.fileName.toLowerCase().endsWith('.xml')) {
+        return;
+      }
+      
+      const uri = doc.uri.toString();
+      
+      // 如果之前检测为 MyBatis 但现在不是，重新切换
+      if (mybatisDocs.has(uri) && doc.languageId !== 'mybatis-xml') {
+        logger.debug(`[Language] Re-applying mybatis-xml to: ${path.basename(doc.fileName)}`);
+        try {
+          await vscode.languages.setTextDocumentLanguage(doc, 'mybatis-xml');
+        } catch (err: any) {
+          logger.debug(`[Language] Re-apply failed: ${err?.message || err}`);
+        }
+      } else if (doc.languageId === 'xml' && !mybatisDocs.has(uri)) {
+        // 新文档，需要检测
+        debounceSwitch(doc);
+      }
+    })
+  );
+  
+  logger.info('[Extension] Dynamic language switcher registered');
+}
 async function initializeBaseServices(context: vscode.ExtensionContext): Promise<void> {
   try {
     logger?.info('Phase 1: Initializing base services...');
