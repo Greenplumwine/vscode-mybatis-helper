@@ -454,13 +454,7 @@
           "MyBatis XML",
           "mybatis-xml"
         ],
-        "firstLine": "^\\s*<[\\?\\!]\\s*xml|^\\s*<mapper\\s+namespace|^\\s*<!DOCTYPE\\s+mapper",
-        "configuration": "./language-configuration.json",
-        "filenamePatterns": [
-          "**/mapper/**/*.xml",
-          "**/mappers/**/*.xml",
-          "**/mapping/**/*.xml"
-        ]
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
