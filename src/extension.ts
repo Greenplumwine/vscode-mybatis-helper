@@ -1083,6 +1083,10 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
  * 注册动态 MyBatis XML 语言切换器
  * 基于内容检测将符合条件的 XML 文件自动切换为 mybatis-xml 语言
  */
+/**
+ * 注册动态 MyBatis XML 语言切换器
+ * 基于内容检测将符合条件的 XML 文件自动切换为 mybatis-xml 语言
+ */
 function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void {
   const detector = LanguageDetector.getInstance();
 
@@ -1091,21 +1095,26 @@ function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void
       return;
     }
 
+    // 延迟执行，确保文档已完全加载
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
       const isMyBatis = detector.isMyBatisMapper(document);
+      logger.debug(`[Language] Checking ${path.basename(document.fileName)}: isMyBatis=${isMyBatis}, currentLang=${document.languageId}`);
+      
       if (isMyBatis && document.languageId !== 'mybatis-xml') {
         await vscode.languages.setTextDocumentLanguage(document, 'mybatis-xml');
-        logger.debug(`[Language] Switched to mybatis-xml: ${document.fileName}`);
+        logger.info(`[Language] Switched to mybatis-xml: ${document.fileName}`);
       } else if (!isMyBatis && document.languageId === 'mybatis-xml') {
         await vscode.languages.setTextDocumentLanguage(document, 'xml');
-        logger.debug(`[Language] Switched to xml: ${document.fileName}`);
+        logger.info(`[Language] Switched to xml: ${document.fileName}`);
       }
-    } catch (error) {
-      logger.debug('Dynamic language switch failed:', error);
+    } catch (error: any) {
+      logger.warn(`[Language] Switch failed for ${document.fileName}:`, error?.message || String(error));
     }
   }
 
-  // 插件激活时扫描已打开的 XML 文档（使用 for...of 正确处理 async）
+  // 插件激活时扫描已打开的 XML 文档
   async function processExistingDocuments(): Promise<void> {
     for (const doc of vscode.workspace.textDocuments) {
       await switchLanguage(doc);
@@ -1118,7 +1127,7 @@ function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void
     vscode.workspace.onDidOpenTextDocument(switchLanguage)
   );
 
-  // 订阅编辑器切换事件（处理已打开但未检测的文档）
+  // 订阅编辑器切换事件
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(async (editor) => {
       if (editor?.document) {
@@ -1127,10 +1136,6 @@ function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void
     })
   );
 }
-/**
- * Phase 1: 初始化基础服务层
- * 包括 LanguageDetector, JavaMethodParser, MyBatisXmlParser, TagHierarchyResolver
- */
 async function initializeBaseServices(context: vscode.ExtensionContext): Promise<void> {
   try {
     logger?.info('Phase 1: Initializing base services...');
