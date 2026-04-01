@@ -78,7 +78,7 @@ None. Milestone complete.
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
-| 260401-fjv | 修复 pom.xml 等普通 XML 文件被错误识别为 MyBatis XML 的问题 | 2026-04-01 | dc56c59 | [260401-fjv-pom-xml-xml-mybatis-xml](./quick/260401-fjv-pom-xml-xml-mybatis-xml/) |
+| 260401-fjv | 修复 pom.xml 等普通 XML 文件被错误识别为 MyBatis XML 的问题 | 2026-04-01 | be918ec | [260401-fjv-pom-xml-xml-mybatis-xml](./quick/260401-fjv-pom-xml-xml-mybatis-xml/) |
 
 ---
 
