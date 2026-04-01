@@ -1095,23 +1095,38 @@ function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void
       const isMyBatis = detector.isMyBatisMapper(document);
       if (isMyBatis && document.languageId !== 'mybatis-xml') {
         await vscode.languages.setTextDocumentLanguage(document, 'mybatis-xml');
+        logger.debug(`[Language] Switched to mybatis-xml: ${document.fileName}`);
       } else if (!isMyBatis && document.languageId === 'mybatis-xml') {
         await vscode.languages.setTextDocumentLanguage(document, 'xml');
+        logger.debug(`[Language] Switched to xml: ${document.fileName}`);
       }
     } catch (error) {
       logger.debug('Dynamic language switch failed:', error);
     }
   }
 
-  // 插件激活时扫描已打开的 XML 文档
-  vscode.workspace.textDocuments.forEach(switchLanguage);
+  // 插件激活时扫描已打开的 XML 文档（使用 for...of 正确处理 async）
+  async function processExistingDocuments(): Promise<void> {
+    for (const doc of vscode.workspace.textDocuments) {
+      await switchLanguage(doc);
+    }
+  }
+  processExistingDocuments();
 
   // 订阅新文档打开事件
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument(switchLanguage)
   );
-}
 
+  // 订阅编辑器切换事件（处理已打开但未检测的文档）
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+      if (editor?.document) {
+        await switchLanguage(editor.document);
+      }
+    })
+  );
+}
 /**
  * Phase 1: 初始化基础服务层
  * 包括 LanguageDetector, JavaMethodParser, MyBatisXmlParser, TagHierarchyResolver
