@@ -1076,7 +1076,6 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
     commandsRegistered = true;
   }
 
-  registerDynamicLanguageSwitcher(context);
 }
 
 /**
@@ -1087,55 +1086,8 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
  * 注册动态 MyBatis XML 语言切换器
  * 基于内容检测将符合条件的 XML 文件自动切换为 mybatis-xml 语言
  */
-function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void {
-  const detector = LanguageDetector.getInstance();
 
-  async function switchLanguage(document: vscode.TextDocument): Promise<void> {
-    if (!document.fileName.toLowerCase().endsWith('.xml')) {
-      return;
-    }
-
-    // 延迟执行，确保文档已完全加载
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    try {
-      const isMyBatis = detector.isMyBatisMapper(document);
-      logger.debug(`[Language] Checking ${path.basename(document.fileName)}: isMyBatis=${isMyBatis}, currentLang=${document.languageId}`);
-      
-      if (isMyBatis && document.languageId !== 'mybatis-xml') {
-        await vscode.languages.setTextDocumentLanguage(document, 'mybatis-xml');
-        logger.info(`[Language] Switched to mybatis-xml: ${document.fileName}`);
-      } else if (!isMyBatis && document.languageId === 'mybatis-xml') {
-        await vscode.languages.setTextDocumentLanguage(document, 'xml');
-        logger.info(`[Language] Switched to xml: ${document.fileName}`);
-      }
-    } catch (error: any) {
-      logger.warn(`[Language] Switch failed for ${document.fileName}:`, error?.message || String(error));
-    }
-  }
-
-  // 插件激活时扫描已打开的 XML 文档
-  async function processExistingDocuments(): Promise<void> {
-    for (const doc of vscode.workspace.textDocuments) {
-      await switchLanguage(doc);
-    }
-  }
-  processExistingDocuments();
-
-  // 订阅新文档打开事件
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument(switchLanguage)
-  );
-
-  // 订阅编辑器切换事件
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-      if (editor?.document) {
-        await switchLanguage(editor.document);
-      }
-    })
-  );
-}
+// Note: Dynamic language switching removed - using filenamePatterns in package.json instead
 async function initializeBaseServices(context: vscode.ExtensionContext): Promise<void> {
   try {
     logger?.info('Phase 1: Initializing base services...');
