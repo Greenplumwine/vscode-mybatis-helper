@@ -1075,6 +1075,41 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
 
     commandsRegistered = true;
   }
+
+  registerDynamicLanguageSwitcher(context);
+}
+
+/**
+ * 注册动态 MyBatis XML 语言切换器
+ * 基于内容检测将符合条件的 XML 文件自动切换为 mybatis-xml 语言
+ */
+function registerDynamicLanguageSwitcher(context: vscode.ExtensionContext): void {
+  const detector = LanguageDetector.getInstance();
+
+  async function switchLanguage(document: vscode.TextDocument): Promise<void> {
+    if (!document.fileName.toLowerCase().endsWith('.xml')) {
+      return;
+    }
+
+    try {
+      const isMyBatis = detector.isMyBatisMapper(document);
+      if (isMyBatis && document.languageId !== 'mybatis-xml') {
+        await vscode.languages.setTextDocumentLanguage(document, 'mybatis-xml');
+      } else if (!isMyBatis && document.languageId === 'mybatis-xml') {
+        await vscode.languages.setTextDocumentLanguage(document, 'xml');
+      }
+    } catch (error) {
+      logger.debug('Dynamic language switch failed:', error);
+    }
+  }
+
+  // 插件激活时扫描已打开的 XML 文档
+  vscode.workspace.textDocuments.forEach(switchLanguage);
+
+  // 订阅新文档打开事件
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument(switchLanguage)
+  );
 }
 
 /**
