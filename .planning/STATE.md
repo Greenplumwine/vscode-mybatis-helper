@@ -16,7 +16,7 @@ progress:
 
 **Active Milestone:** v1.0.0 (Shipped)
 **Current Phase:** None - Milestone Complete
-**Last Updated:** 2026-03-30
+**Last Updated:** 2026-04-01
 
 ---
 
@@ -71,6 +71,14 @@ All 5 phases of v1.0.0 have been completed and the extension has been released:
 ## Blockers
 
 None. Milestone complete.
+
+---
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260401-fjv | 修复 pom.xml 等普通 XML 文件被错误识别为 MyBatis XML 的问题 | 2026-04-01 | dc56c59 | [260401-fjv-pom-xml-xml-mybatis-xml](./quick/260401-fjv-pom-xml-xml-mybatis-xml/) |
 
 ---
 
