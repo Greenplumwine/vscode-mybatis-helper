@@ -1,9 +1,9 @@
-import * as vscode from 'vscode';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { safeRegexMatch } from '.';
-import { logger } from './logger';
-import { TIME, THRESHOLDS } from './constants';
+import * as vscode from "vscode";
+import * as fs from "fs/promises";
+import * as path from "path";
+import { safeRegexMatch } from ".";
+import { logger } from "./logger";
+import { TIME, THRESHOLDS } from "./constants";
 
 /**
  * 性能优化工具类
@@ -11,8 +11,14 @@ import { TIME, THRESHOLDS } from './constants';
  */
 export class PerformanceUtils {
   private static instance: PerformanceUtils;
-  private cacheStore: Map<string, { value: unknown; timestamp: number; ttl?: number }> = new Map();
-  private batchTasks: Map<string, { tasks: Array<() => void>; timer: NodeJS.Timeout | null }> = new Map();
+  private cacheStore: Map<
+    string,
+    { value: unknown; timestamp: number; ttl?: number }
+  > = new Map();
+  private batchTasks: Map<
+    string,
+    { tasks: Array<() => void>; timer: NodeJS.Timeout | null }
+  > = new Map();
 
   private constructor() {}
 
@@ -32,11 +38,15 @@ export class PerformanceUtils {
    * @param value 缓存值
    * @param ttl 缓存过期时间(毫秒)，默认为30分钟
    */
-  public setCache<T>(key: string, value: T, ttl: number = TIME.THIRTY_MINUTES): void {
+  public setCache<T>(
+    key: string,
+    value: T,
+    ttl: number = TIME.THIRTY_MINUTES,
+  ): void {
     this.cacheStore.set(key, {
       value,
       timestamp: Date.now(),
-      ttl
+      ttl,
     });
   }
 
@@ -77,11 +87,15 @@ export class PerformanceUtils {
    * @param task 要执行的任务函数
    * @param delay 批处理延迟时间(毫秒)
    */
-  public scheduleBatchTask(batchKey: string, task: () => void, delay: number = 100): void {
+  public scheduleBatchTask(
+    batchKey: string,
+    task: () => void,
+    delay: number = 100,
+  ): void {
     if (!this.batchTasks.has(batchKey)) {
       this.batchTasks.set(batchKey, {
         tasks: [],
-        timer: null
+        timer: null,
       });
     }
 
@@ -97,7 +111,7 @@ export class PerformanceUtils {
     batchInfo.timer = setTimeout(() => {
       try {
         // 执行所有任务
-        batchInfo.tasks.forEach(taskFn => {
+        batchInfo.tasks.forEach((taskFn) => {
           try {
             taskFn();
           } catch (error) {
@@ -117,7 +131,10 @@ export class PerformanceUtils {
    * @param wait 等待时间(毫秒)
    * @returns 防抖后的函数
    */
-  public debounce<T extends (...args: unknown[]) => unknown>(func: T, wait: number): (...args: Parameters<T>) => void {
+  public debounce<T extends (...args: unknown[]) => unknown>(
+    func: T,
+    wait: number,
+  ): (...args: Parameters<T>) => void {
     let timeout: NodeJS.Timeout | null = null;
 
     return (...args: Parameters<T>): void => {
@@ -138,14 +155,17 @@ export class PerformanceUtils {
    * @param limit 时间限制(毫秒)
    * @returns 节流后的函数
    */
-  public throttle<T extends (...args: unknown[]) => unknown>(func: T, limit: number): (...args: Parameters<T>) => void {
+  public throttle<T extends (...args: unknown[]) => unknown>(
+    func: T,
+    limit: number,
+  ): (...args: Parameters<T>) => void {
     let inThrottle: boolean = false;
 
     return (...args: Parameters<T>): void => {
       if (!inThrottle) {
         func(...args);
         inThrottle = true;
-        setTimeout(() => inThrottle = false, limit);
+        setTimeout(() => (inThrottle = false), limit);
       }
     };
   }
@@ -157,13 +177,17 @@ export class PerformanceUtils {
    * @param ttl 缓存过期时间(毫秒)，默认为30分钟
    * @returns 计算结果或缓存值
    */
-  public withCache<T>(cacheKey: string, computeFn: () => T, ttl: number = TIME.THIRTY_MINUTES): T {
+  public withCache<T>(
+    cacheKey: string,
+    computeFn: () => T,
+    ttl: number = TIME.THIRTY_MINUTES,
+  ): T {
     // 尝试从缓存获取结果
     const cachedValue = this.getCache<T>(cacheKey);
     if (cachedValue !== undefined) {
       return cachedValue;
     }
-    
+
     // 缓存不存在，执行计算函数并缓存结果
     const result = computeFn();
     this.setCache(cacheKey, result, ttl);
@@ -176,7 +200,11 @@ export class PerformanceUtils {
    * @param executionTime 执行时间(毫秒)
    * @param threshold 阈值(毫秒)，超过此值才记录日志
    */
-  public recordExecutionTime(operation: string, executionTime: number, threshold: number = THRESHOLDS.SLOW_OPERATION): void {
+  public recordExecutionTime(
+    operation: string,
+    executionTime: number,
+    threshold: number = THRESHOLDS.SLOW_OPERATION,
+  ): void {
     // 可以根据需要在这里添加日志记录、性能统计等功能
     // 例如，只有当执行时间超过阈值时才记录日志
     if (executionTime > threshold) {
@@ -218,7 +246,7 @@ export class RegexUtils {
   private stats = {
     hotHits: 0,
     coldHits: 0,
-    misses: 0
+    misses: 0,
   };
 
   private constructor() {}
@@ -237,7 +265,7 @@ export class RegexUtils {
    * Get regex from cache or create new one
    * Uses two-level cache: hot (frequently used) and cold (previously used)
    */
-  public getRegex(pattern: string | RegExp, flags: string = ''): RegExp {
+  public getRegex(pattern: string | RegExp, flags: string = ""): RegExp {
     if (pattern instanceof RegExp) {
       // If pattern is a RegExp object, use its source and flags as key
       const key = `${pattern.source}|${pattern.flags}`;
@@ -348,7 +376,7 @@ export class RegexUtils {
       hotHits: this.stats.hotHits,
       coldHits: this.stats.coldHits,
       misses: this.stats.misses,
-      hitRate: total > 0 ? totalHits / total : 0
+      hitRate: total > 0 ? totalHits / total : 0,
     };
   }
 
@@ -368,12 +396,17 @@ export class RegexUtils {
    * @param flags 正则表达式标志(如果pattern是字符串)
    * @returns 匹配结果数组或null
    */
-  public safeMatch(text: string, pattern: string | RegExp, flags: string = ''): RegExpExecArray | null {
+  public safeMatch(
+    text: string,
+    pattern: string | RegExp,
+    flags: string = "",
+  ): RegExpExecArray | null {
     try {
-      const regex = typeof pattern === 'string' ? this.getRegex(pattern, flags) : pattern;
+      const regex =
+        typeof pattern === "string" ? this.getRegex(pattern, flags) : pattern;
       return safeRegexMatch(text, regex);
     } catch (error) {
-      logger.error('Regular expression match failed:', error);
+      logger.error("Regular expression match failed:", error);
       return null;
     }
   }
@@ -384,6 +417,6 @@ export class RegexUtils {
    * @returns 转义后的文本
    */
   public escapeRegex(text: string): string {
-    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

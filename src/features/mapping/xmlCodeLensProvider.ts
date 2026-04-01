@@ -1,23 +1,25 @@
 /**
  * XML Mapper CodeLens 提供器
- * 
+ *
  * 设计原则：
  * 1. FastMappingEngine 只存储文件级别的映射
  * 2. CodeLens 独立工作，实时查询当前文件
  * 3. 从 XML 提取 SQL id，查询 Java 是否有对应方法
  */
 
-import * as vscode from 'vscode';
-import { FastMappingEngine } from './fastMappingEngine';
-import { MyBatisXmlParser } from './xmlParser';
-import { Logger } from '../../utils/logger';
+import * as vscode from "vscode";
+import { FastMappingEngine } from "./fastMappingEngine";
+import { MyBatisXmlParser } from "./xmlParser";
+import { Logger } from "../../utils/logger";
 
 export class XmlCodeLensProvider implements vscode.CodeLensProvider {
   private mappingEngine: FastMappingEngine;
   private xmlParser: MyBatisXmlParser;
   private logger!: Logger;
-  private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-  public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
+  private _onDidChangeCodeLenses: vscode.EventEmitter<void> =
+    new vscode.EventEmitter<void>();
+  public readonly onDidChangeCodeLenses: vscode.Event<void> =
+    this._onDidChangeCodeLenses.event;
 
   constructor() {
     this.mappingEngine = FastMappingEngine.getInstance();
@@ -26,7 +28,7 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
   }
 
   private async initialize(): Promise<void> {
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
   }
 
@@ -34,11 +36,13 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
     this._onDidChangeCodeLenses.fire();
   }
 
-  async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+  async provideCodeLenses(
+    document: vscode.TextDocument,
+  ): Promise<vscode.CodeLens[]> {
     const filePath = document.uri.fsPath;
 
     // 只处理 XML 文件
-    if (!filePath.toLowerCase().endsWith('.xml')) {
+    if (!filePath.toLowerCase().endsWith(".xml")) {
       return [];
     }
 
@@ -61,15 +65,27 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
     const codeLenses: vscode.CodeLens[] = [];
 
     // 3. 为 namespace 添加 CodeLens
-    const simpleClassName = xmlInfo.namespace.substring(xmlInfo.namespace.lastIndexOf('.') + 1);
-    const nsLens = this.createNamespaceCodeLens(simpleClassName, filePath, javaPath);
+    const simpleClassName = xmlInfo.namespace.substring(
+      xmlInfo.namespace.lastIndexOf(".") + 1,
+    );
+    const nsLens = this.createNamespaceCodeLens(
+      simpleClassName,
+      filePath,
+      javaPath,
+    );
     if (nsLens) {
       codeLenses.push(nsLens);
     }
 
     // 4. 为每个 SQL 语句添加 CodeLens
     for (const [sqlId, statement] of xmlInfo.statements) {
-      const sqlLens = this.createSqlCodeLens(sqlId, statement.line, statement.column, filePath, !!javaPath);
+      const sqlLens = this.createSqlCodeLens(
+        sqlId,
+        statement.line,
+        statement.column,
+        filePath,
+        !!javaPath,
+      );
       if (sqlLens) {
         codeLenses.push(sqlLens);
       }
@@ -84,7 +100,7 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
   private createNamespaceCodeLens(
     className: string,
     xmlPath: string,
-    javaPath: string | undefined
+    javaPath: string | undefined,
   ): vscode.CodeLens | null {
     const range = new vscode.Range(0, 0, 0, 0);
 
@@ -94,8 +110,8 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
 
     const command: vscode.Command = {
       title: `$(file-code) ${title}`,
-      command: 'mybatis-helper.jumpToMapper',
-      arguments: [xmlPath]
+      command: "mybatis-helper.jumpToMapper",
+      arguments: [xmlPath],
     };
 
     return new vscode.CodeLens(range, command);
@@ -109,7 +125,7 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
     line: number,
     column: number,
     xmlPath: string,
-    hasJava: boolean
+    hasJava: boolean,
   ): vscode.CodeLens | null {
     const range = new vscode.Range(line, column, line, column);
 
@@ -119,14 +135,16 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
 
     const command: vscode.Command = {
       title: `$(arrow-right) ${title}`,
-      command: 'mybatis-helper.jumpToMapper',
-      arguments: [xmlPath, sqlId]
+      command: "mybatis-helper.jumpToMapper",
+      arguments: [xmlPath, sqlId],
     };
 
     return new vscode.CodeLens(range, command);
   }
 
-  resolveCodeLens?(codeLens: vscode.CodeLens): vscode.ProviderResult<vscode.CodeLens> {
+  resolveCodeLens?(
+    codeLens: vscode.CodeLens,
+  ): vscode.ProviderResult<vscode.CodeLens> {
     return codeLens;
   }
 }

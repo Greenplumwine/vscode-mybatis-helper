@@ -9,10 +9,10 @@
  * @module features/completion/strategies/foreachCollectionStrategy
  */
 
-import * as vscode from 'vscode';
-import { BaseCompletionStrategy } from './baseStrategy';
-import { CompletionContext, JavaParameter } from '../types';
-import { Logger } from '../../../utils/logger';
+import * as vscode from "vscode";
+import { BaseCompletionStrategy } from "./baseStrategy";
+import { CompletionContext, JavaParameter } from "../types";
+import { Logger } from "../../../utils/logger";
 
 /**
  * Foreach Collection 补全策略
@@ -39,7 +39,36 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
   /**
    * 触发字符：双引号、单引号、字母（用于输入属性值时触发）
    */
-  readonly triggerCharacters = ['"', "'", 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'] as const;
+  readonly triggerCharacters = [
+    '"',
+    "'",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+  ] as const;
 
   /**
    * 优先级：85
@@ -49,7 +78,7 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
   readonly priority = 85;
 
   /** 策略名称 */
-  readonly name = 'ForeachCollection';
+  readonly name = "ForeachCollection";
 
   /**
    * 判断是否可以提供补全
@@ -64,20 +93,24 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
     // 检测是否在 collection 属性值中
     // 场景1: collection="xxx（光标在值中间，引号后有内容）
     // 匹配 collection=" 或 collection=' 开头，后面跟着任意字符（非贪婪），直到字符串结尾
-    const isInCollectionValue = /collection\s*=\s*["'][^"']*$/i.test(linePrefix);
+    const isInCollectionValue = /collection\s*=\s*["'][^"']*$/i.test(
+      linePrefix,
+    );
 
     // 场景2: collection=""（光标在空引号对之间）
     // 检测 linePrefix 以 collection=" 或 collection=' 结尾，且 lineSuffix 以引号开头
-    const isInEmptyQuotes = /collection\s*=\s*["']$/i.test(linePrefix) &&
-                            /^["']/.test(lineSuffix);
+    const isInEmptyQuotes =
+      /collection\s*=\s*["']$/i.test(linePrefix) && /^["']/.test(lineSuffix);
 
     // 场景3: 光标在 collection 属性值引号内，但后面还有其他属性
     // 例如: collection="ids" item="student" 中，光标在 ids 后面但还在引号内
     // 这种情况下，linePrefix 以 collection="ids 结尾，lineSuffix 以 " 开头
-    const isInCollectionWithMoreAttrs = /collection\s*=\s*["'][^"']*$/i.test(linePrefix) &&
-                                        /^["']/.test(lineSuffix);
+    const isInCollectionWithMoreAttrs =
+      /collection\s*=\s*["'][^"']*$/i.test(linePrefix) &&
+      /^["']/.test(lineSuffix);
 
-    const isInCollection = isInCollectionValue || isInEmptyQuotes || isInCollectionWithMoreAttrs;
+    const isInCollection =
+      isInCollectionValue || isInEmptyQuotes || isInCollectionWithMoreAttrs;
 
     // 如果在 collection 属性中，且满足以下任一条件：
     // 1. 行中包含 <foreach 标签
@@ -88,7 +121,9 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
     const result = isInCollection && (hasForeachTag || hasForeachCtx);
 
     // 输出调试日志
-    this.logger.debug(`[ForeachCollection] line="${linePrefix.slice(-35)}", suffix="${lineSuffix.slice(0, 10)}", isValue=${isInCollectionValue}, isEmpty=${isInEmptyQuotes}, isWithMore=${isInCollectionWithMoreAttrs}, hasForeachTag=${hasForeachTag}, hasForeachCtx=${hasForeachCtx}, result=${result}`);
+    this.logger.debug(
+      `[ForeachCollection] line="${linePrefix.slice(-35)}", suffix="${lineSuffix.slice(0, 10)}", isValue=${isInCollectionValue}, isEmpty=${isInEmptyQuotes}, isWithMore=${isInCollectionWithMoreAttrs}, hasForeachTag=${hasForeachTag}, hasForeachCtx=${hasForeachCtx}, result=${result}`,
+    );
 
     return result;
   }
@@ -99,7 +134,7 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
    * 返回所有集合类型的参数
    */
   async provideCompletionItems(
-    context: CompletionContext
+    context: CompletionContext,
   ): Promise<vscode.CompletionItem[]> {
     if (!context.javaMethod?.parameters) {
       return [];
@@ -108,14 +143,16 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
     const { parameters } = context.javaMethod;
 
     // 过滤出集合类型的参数
-    const collectionParams = parameters.filter(p => this.isCollectionType(p.type));
+    const collectionParams = parameters.filter((p) =>
+      this.isCollectionType(p.type),
+    );
 
     if (collectionParams.length === 0) {
       return [];
     }
 
     return collectionParams.map((param, index) =>
-      this.createCollectionItem(param, index)
+      this.createCollectionItem(param, index),
     );
   }
 
@@ -129,32 +166,34 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
    */
   private isCollectionType(type: string): boolean {
     const collectionTypes = [
-      '[]',              // 数组
-      'List<',
-      'Set<',
-      'Collection<',
-      'Queue<',
-      'Deque<',
-      'Map<',
-      'HashMap<',
-      'LinkedHashMap<',
-      'TreeMap<',
-      'ArrayList<',
-      'LinkedList<',
-      'HashSet<',
-      'TreeSet<',
-      'Vector<',
-      'Stack<',
+      "[]", // 数组
+      "List<",
+      "Set<",
+      "Collection<",
+      "Queue<",
+      "Deque<",
+      "Map<",
+      "HashMap<",
+      "LinkedHashMap<",
+      "TreeMap<",
+      "ArrayList<",
+      "LinkedList<",
+      "HashSet<",
+      "TreeSet<",
+      "Vector<",
+      "Stack<",
       // 全限定名
-      'java.util.List',
-      'java.util.Set',
-      'java.util.Collection',
-      'java.util.Map',
-      'java.util.Queue',
-      'java.util.Deque'
+      "java.util.List",
+      "java.util.Set",
+      "java.util.Collection",
+      "java.util.Map",
+      "java.util.Queue",
+      "java.util.Deque",
     ];
 
-    return collectionTypes.some(ct => type.includes(ct)) || type.endsWith('[]');
+    return (
+      collectionTypes.some((ct) => type.includes(ct)) || type.endsWith("[]")
+    );
   }
 
   /**
@@ -162,7 +201,7 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
    */
   private createCollectionItem(
     param: JavaParameter,
-    index: number
+    index: number,
   ): vscode.CompletionItem {
     // 使用 @Param 注解值或参数名
     const insertName = param.paramValue || param.name;
@@ -171,7 +210,7 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
 
     // 构建文档
     const docs = new vscode.MarkdownString();
-    docs.appendCodeblock(`${param.type} ${param.name}`, 'java');
+    docs.appendCodeblock(`${param.type} ${param.name}`, "java");
 
     if (param.paramValue) {
       docs.appendMarkdown(`\n\n**@Param("${param.paramValue}")**`);
@@ -184,7 +223,7 @@ export class ForeachCollectionStrategy extends BaseCompletionStrategy {
       detail: `Collection: ${param.type}`,
       documentation: docs,
       insertText: insertName,
-      sortText: index.toString().padStart(3, '0')
+      sortText: index.toString().padStart(3, "0"),
     });
   }
 }

@@ -11,9 +11,14 @@
  * @module features/completion/strategies/foreachVariableStrategy
  */
 
-import * as vscode from 'vscode';
-import { BaseCompletionStrategy } from './baseStrategy';
-import { CompletionContext, ForeachContext, JavaMethodParser, JavaParameter } from '../types';
+import * as vscode from "vscode";
+import { BaseCompletionStrategy } from "./baseStrategy";
+import {
+  CompletionContext,
+  ForeachContext,
+  JavaMethodParser,
+  JavaParameter,
+} from "../types";
 
 /**
  * Foreach 变量补全策略
@@ -43,7 +48,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
   /**
    * 触发字符：#、$、{
    */
-  readonly triggerCharacters = ['#', '$', '{'] as const;
+  readonly triggerCharacters = ["#", "$", "{"] as const;
 
   /**
    * 优先级：90
@@ -53,7 +58,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
   readonly priority = 90;
 
   /** 策略名称 */
-  readonly name = 'ForeachVariable';
+  readonly name = "ForeachVariable";
 
   /** Java 方法解析器 */
   private javaParser: JavaMethodParser | undefined;
@@ -92,9 +97,10 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
    * @returns item 和 index 变量补全项
    */
   async provideCompletionItems(
-    context: CompletionContext
+    context: CompletionContext,
   ): Promise<vscode.CompletionItem[]> {
-    const { foreachContext, linePrefix, position, document, javaMethod } = context;
+    const { foreachContext, linePrefix, position, document, javaMethod } =
+      context;
 
     if (!foreachContext) {
       return [];
@@ -103,24 +109,49 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     // 获取当前行后缀（检查是否有自动插入的 }）
     const line = document.lineAt(position.line).text;
     const lineSuffix = line.substring(position.character);
-    const hasAutoCloseBrace = lineSuffix.startsWith('}');
+    const hasAutoCloseBrace = lineSuffix.startsWith("}");
 
     // 检测用户已经输入了什么
-    const endsWithPlaceholderStart = /#\{$/.test(linePrefix) || /\$\{$/.test(linePrefix);
+    const endsWithPlaceholderStart =
+      /#\{$/.test(linePrefix) || /\$\{$/.test(linePrefix);
     const endsWithMarker = /#$/.test(linePrefix) || /\$$/.test(linePrefix);
 
     const items: vscode.CompletionItem[] = [];
 
     // 添加 item 变量（最高优先级）
-    items.push(this.createItemVariable(foreachContext, endsWithPlaceholderStart, endsWithMarker, hasAutoCloseBrace, position));
+    items.push(
+      this.createItemVariable(
+        foreachContext,
+        endsWithPlaceholderStart,
+        endsWithMarker,
+        hasAutoCloseBrace,
+        position,
+      ),
+    );
 
     // 添加 index 变量（如果定义了）
     if (foreachContext.index) {
-      items.push(this.createIndexVariable(foreachContext, endsWithPlaceholderStart, endsWithMarker, hasAutoCloseBrace, position));
+      items.push(
+        this.createIndexVariable(
+          foreachContext,
+          endsWithPlaceholderStart,
+          endsWithMarker,
+          hasAutoCloseBrace,
+          position,
+        ),
+      );
     }
 
     // 可选：添加 collection 引用（用于嵌套 foreach）
-    items.push(this.createCollectionVariable(foreachContext, endsWithPlaceholderStart, endsWithMarker, hasAutoCloseBrace, position));
+    items.push(
+      this.createCollectionVariable(
+        foreachContext,
+        endsWithPlaceholderStart,
+        endsWithMarker,
+        hasAutoCloseBrace,
+        position,
+      ),
+    );
 
     // 添加 item 的属性补全（如果 javaParser 可用）
     if (this.javaParser && javaMethod?.parameters) {
@@ -130,7 +161,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
         endsWithPlaceholderStart,
         endsWithMarker,
         hasAutoCloseBrace,
-        position
+        position,
       );
       items.push(...propertyItems);
     }
@@ -147,7 +178,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     endsWithPlaceholderStart: boolean,
     endsWithMarker: boolean,
     hasAutoCloseBrace: boolean,
-    position: vscode.Position
+    position: vscode.Position,
   ): Promise<vscode.CompletionItem[]> {
     const { collection, item } = context;
 
@@ -164,7 +195,8 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     }
 
     // 获取 item 类型的属性
-    const properties = await this.javaParser?.getObjectProperties?.(itemType) ?? [];
+    const properties =
+      (await this.javaParser?.getObjectProperties?.(itemType)) ?? [];
 
     return properties.map((prop, index) =>
       this.createPropertyItem(
@@ -175,8 +207,8 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
         endsWithPlaceholderStart,
         endsWithMarker,
         hasAutoCloseBrace,
-        position
-      )
+        position,
+      ),
     );
   }
 
@@ -185,15 +217,15 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
    */
   private findCollectionParam(
     parameters: JavaParameter[],
-    collection: string
+    collection: string,
   ): JavaParameter | undefined {
     // 优先匹配 @Param 注解指定的名称
-    const byParamValue = parameters.find(p => p.paramValue === collection);
+    const byParamValue = parameters.find((p) => p.paramValue === collection);
     if (byParamValue) {
       return byParamValue;
     }
     // 其次匹配实际参数名
-    return parameters.find(p => p.name === collection);
+    return parameters.find((p) => p.name === collection);
   }
 
   /**
@@ -201,7 +233,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
    */
   private inferItemType(collectionType: string): string | null {
     // 处理数组类型：Student[] -> Student
-    if (collectionType.endsWith('[]')) {
+    if (collectionType.endsWith("[]")) {
       return collectionType.slice(0, -2);
     }
 
@@ -211,7 +243,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
       const typeArg = genericMatch[1].trim();
 
       // 处理 Map<K, V>：返回 V（value 类型）
-      if (collectionType.includes('Map<')) {
+      if (collectionType.includes("Map<")) {
         const mapMatch = typeArg.match(/,\s*(.+)/);
         if (mapMatch) {
           return mapMatch[1].trim();
@@ -232,19 +264,40 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
    */
   private isBasicType(type: string): boolean {
     const basicTypes = [
-      'String', 'Integer', 'Long', 'Boolean', 'Double', 'Float',
-      'int', 'long', 'boolean', 'double', 'float', 'byte', 'short', 'char',
-      'BigDecimal', 'BigInteger', 'Date', 'LocalDate', 'LocalDateTime',
-      'LocalTime', 'Instant', 'UUID', 'Object'
+      "String",
+      "Integer",
+      "Long",
+      "Boolean",
+      "Double",
+      "Float",
+      "int",
+      "long",
+      "boolean",
+      "double",
+      "float",
+      "byte",
+      "short",
+      "char",
+      "BigDecimal",
+      "BigInteger",
+      "Date",
+      "LocalDate",
+      "LocalDateTime",
+      "LocalTime",
+      "Instant",
+      "UUID",
+      "Object",
     ];
 
     // 处理泛型
-    const baseType = type.replace(/<.*>$/, '');
+    const baseType = type.replace(/<.*>$/, "");
 
-    return basicTypes.includes(baseType) ||
-           type.startsWith('java.lang.') ||
-           type.startsWith('java.math.') ||
-           type.startsWith('java.time.');
+    return (
+      basicTypes.includes(baseType) ||
+      type.startsWith("java.lang.") ||
+      type.startsWith("java.math.") ||
+      type.startsWith("java.time.")
+    );
   }
 
   /**
@@ -258,7 +311,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     endsWithPlaceholderStart: boolean,
     endsWithMarker: boolean,
     hasAutoCloseBrace: boolean,
-    position: vscode.Position
+    position: vscode.Position,
   ): vscode.CompletionItem {
     const label = `${item}.${property}`;
 
@@ -270,7 +323,10 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
       // 已经有 #{，只需 item.property}
       if (hasAutoCloseBrace) {
         insertText = `${item}.${property}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `${item}.${property}}`;
       }
@@ -278,7 +334,10 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
       // 只有 #，需要 {item.property}
       if (hasAutoCloseBrace) {
         insertText = `{${item}.${property}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `{${item}.${property}}`;
       }
@@ -288,14 +347,14 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
 
     const docs = new vscode.MarkdownString();
     docs.appendMarkdown(`**Property of \`${itemType}\`**\n\n`);
-    docs.appendCodeblock(`${property}`, 'java');
+    docs.appendCodeblock(`${property}`, "java");
 
     const completionItem = this.createItem(label, {
       kind: vscode.CompletionItemKind.Field,
       detail: `Property of ${itemType}`,
       documentation: docs,
       insertText,
-      sortText: `3${index.toString().padStart(3, '0')}` // 排在 item/index/collection 之后
+      sortText: `3${index.toString().padStart(3, "0")}`, // 排在 item/index/collection 之后
     });
 
     if (range) {
@@ -313,7 +372,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     endsWithPlaceholderStart: boolean,
     endsWithMarker: boolean,
     hasAutoCloseBrace: boolean,
-    position: vscode.Position
+    position: vscode.Position,
   ): vscode.CompletionItem {
     const label = context.item;
 
@@ -326,7 +385,10 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
       if (hasAutoCloseBrace) {
         // 后面有自动插入的 }，需要覆盖它，同时 insertText 要包含 }
         insertText = `${context.item}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         // 后面没有自动 }，需要自己加
         insertText = `${context.item}}`;
@@ -336,7 +398,10 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
       if (hasAutoCloseBrace) {
         // 后面有自动插入的 }
         insertText = `{${context.item}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `{${context.item}}`;
       }
@@ -349,14 +414,16 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     const docs = new vscode.MarkdownString();
     docs.appendMarkdown(`**foreach item variable**\n\n`);
     docs.appendMarkdown(`Collection: \`${context.collection}\`\n\n`);
-    docs.appendMarkdown(`This variable represents each element in the collection.`);
+    docs.appendMarkdown(
+      `This variable represents each element in the collection.`,
+    );
 
     const item = this.createItem(label, {
       kind: vscode.CompletionItemKind.Variable,
       detail: `foreach item (${context.collection} → ${context.item})`,
       documentation: docs,
       insertText,
-      sortText: '0' // 确保排在最前面
+      sortText: "0", // 确保排在最前面
     });
 
     if (range) {
@@ -374,7 +441,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     endsWithPlaceholderStart: boolean,
     endsWithMarker: boolean,
     hasAutoCloseBrace: boolean,
-    position: vscode.Position
+    position: vscode.Position,
   ): vscode.CompletionItem {
     const label = context.index!;
 
@@ -385,14 +452,20 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     if (endsWithPlaceholderStart) {
       if (hasAutoCloseBrace) {
         insertText = `${context.index}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `${context.index}}`;
       }
     } else if (endsWithMarker) {
       if (hasAutoCloseBrace) {
         insertText = `{${context.index}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `{${context.index}}`;
       }
@@ -402,14 +475,16 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
 
     const docs = new vscode.MarkdownString();
     docs.appendMarkdown(`**foreach index variable**\n\n`);
-    docs.appendMarkdown(`This variable represents the index of the current element.`);
+    docs.appendMarkdown(
+      `This variable represents the index of the current element.`,
+    );
 
     const item = this.createItem(label, {
       kind: vscode.CompletionItemKind.Variable,
-      detail: 'foreach index',
+      detail: "foreach index",
       documentation: docs,
       insertText,
-      sortText: '1'
+      sortText: "1",
     });
 
     if (range) {
@@ -427,7 +502,7 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     endsWithPlaceholderStart: boolean,
     endsWithMarker: boolean,
     hasAutoCloseBrace: boolean,
-    position: vscode.Position
+    position: vscode.Position,
   ): vscode.CompletionItem {
     const label = context.collection;
 
@@ -438,14 +513,20 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
     if (endsWithPlaceholderStart) {
       if (hasAutoCloseBrace) {
         insertText = `${context.collection}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `${context.collection}}`;
       }
     } else if (endsWithMarker) {
       if (hasAutoCloseBrace) {
         insertText = `{${context.collection}}`;
-        range = new vscode.Range(position, new vscode.Position(position.line, position.character + 1));
+        range = new vscode.Range(
+          position,
+          new vscode.Position(position.line, position.character + 1),
+        );
       } else {
         insertText = `{${context.collection}}`;
       }
@@ -460,10 +541,10 @@ export class ForeachVariableStrategy extends BaseCompletionStrategy {
 
     const item = this.createItem(label, {
       kind: vscode.CompletionItemKind.Reference,
-      detail: 'foreach collection reference',
+      detail: "foreach collection reference",
       documentation: docs,
       insertText,
-      sortText: '2' // 排在 item/index 之后
+      sortText: "2", // 排在 item/index 之后
     });
 
     if (range) {

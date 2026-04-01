@@ -10,11 +10,11 @@
  * @module features/formatting/nestedFormattingProvider
  */
 
-import * as vscode from 'vscode';
-import { format as formatSqlLib } from 'sql-formatter';
-import { FormattingPipeline } from './pipeline';
-import { FormattingOptions } from './types';
-import { Logger } from '../../utils/logger';
+import * as vscode from "vscode";
+import { format as formatSqlLib } from "sql-formatter";
+import { FormattingPipeline } from "./pipeline";
+import { FormattingOptions } from "./types";
+import { Logger } from "../../utils/logger";
 
 /**
  * SQL 区域信息（用于范围格式化）
@@ -38,9 +38,11 @@ interface SqlRegionInfo {
  * 实现 DocumentFormattingEditProvider 和 DocumentRangeFormattingEditProvider 接口，
  * 为 MyBatis XML 文件提供格式化功能
  */
-export class NestedFormattingProvider implements
-  vscode.DocumentFormattingEditProvider,
-  vscode.DocumentRangeFormattingEditProvider {
+export class NestedFormattingProvider
+  implements
+    vscode.DocumentFormattingEditProvider,
+    vscode.DocumentRangeFormattingEditProvider
+{
   /** 格式化流水线 */
   private pipeline: FormattingPipeline;
 
@@ -65,7 +67,7 @@ export class NestedFormattingProvider implements
   async provideDocumentFormattingEdits(
     document: vscode.TextDocument,
     options: vscode.FormattingOptions,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.TextEdit[]> {
     // 检查是否取消
     if (token.isCancellationRequested) {
@@ -95,7 +97,7 @@ export class NestedFormattingProvider implements
 
       this.logger.info(
         `Formatted ${document.fileName}: ` +
-        `${result.sqlRegionCount} SQL regions in ${result.duration}ms`
+          `${result.sqlRegionCount} SQL regions in ${result.duration}ms`,
       );
 
       // 如果内容没有变化，返回空数组
@@ -106,12 +108,12 @@ export class NestedFormattingProvider implements
       // 构建全范围编辑
       const fullRange = new vscode.Range(
         document.positionAt(0),
-        document.positionAt(content.length)
+        document.positionAt(content.length),
       );
 
       return [new vscode.TextEdit(fullRange, result.content)];
     } catch (error) {
-      this.logger.error('Formatting failed:', error);
+      this.logger.error("Formatting failed:", error);
       return [];
     }
   }
@@ -131,7 +133,7 @@ export class NestedFormattingProvider implements
     document: vscode.TextDocument,
     range: vscode.Range,
     options: vscode.FormattingOptions,
-    token: vscode.CancellationToken
+    token: vscode.CancellationToken,
   ): Promise<vscode.TextEdit[]> {
     // 检查是否取消
     if (token.isCancellationRequested) {
@@ -151,7 +153,7 @@ export class NestedFormattingProvider implements
       const sqlRegions = this.extractSqlRegionsInRange(document, range);
 
       if (sqlRegions.length === 0) {
-        this.logger.debug('No SQL regions found in selected range');
+        this.logger.debug("No SQL regions found in selected range");
         return [];
       }
 
@@ -166,14 +168,17 @@ export class NestedFormattingProvider implements
           continue;
         }
 
-        const formatted = this.formatSqlContent(region.sqlContent, formattingOptions);
+        const formatted = this.formatSqlContent(
+          region.sqlContent,
+          formattingOptions,
+        );
 
         // 如果格式化后的内容不同，创建编辑
         if (formatted !== region.sqlContent) {
           // 调整缩进以匹配 XML 上下文
           const adjustedFormatted = this.adjustIndentForXml(
             formatted,
-            region.baseIndent
+            region.baseIndent,
           );
 
           edits.push(new vscode.TextEdit(region.range, adjustedFormatted));
@@ -181,12 +186,12 @@ export class NestedFormattingProvider implements
       }
 
       this.logger.info(
-        `Range formatted ${document.fileName}: ${edits.length} regions modified`
+        `Range formatted ${document.fileName}: ${edits.length} regions modified`,
       );
 
       return edits;
     } catch (error) {
-      this.logger.error('Range formatting failed:', error);
+      this.logger.error("Range formatting failed:", error);
       return [];
     }
   }
@@ -199,17 +204,14 @@ export class NestedFormattingProvider implements
    */
   private isSupportedDocument(document: vscode.TextDocument): boolean {
     // 支持的文件类型
-    const supportedLanguages = [
-      'mybatis-xml',
-      'xml'
-    ];
+    const supportedLanguages = ["mybatis-xml", "xml"];
 
     if (supportedLanguages.includes(document.languageId)) {
       return true;
     }
 
     // 检查文件扩展名
-    if (document.fileName.toLowerCase().endsWith('.xml')) {
+    if (document.fileName.toLowerCase().endsWith(".xml")) {
       return true;
     }
 
@@ -224,15 +226,22 @@ export class NestedFormattingProvider implements
    * @param vscodeOptions - VS Code 格式化选项
    * @returns 内部格式化选项
    */
-  private buildOptions(vscodeOptions: vscode.FormattingOptions): FormattingOptions {
-    const config = vscode.workspace.getConfiguration('mybatis-helper.formatting');
+  private buildOptions(
+    vscodeOptions: vscode.FormattingOptions,
+  ): FormattingOptions {
+    const config = vscode.workspace.getConfiguration(
+      "mybatis-helper.formatting",
+    );
 
     return {
       tabSize: vscodeOptions.tabSize,
       insertSpaces: vscodeOptions.insertSpaces,
-      sqlDialect: config.get<string>('sql.dialect', 'mysql'),
-      keywordCase: config.get<'upper' | 'lower' | 'preserve'>('sql.keywordCase', 'upper'),
-      maxLineLength: config.get<number>('sql.maxLineLength', 120)
+      sqlDialect: config.get<string>("sql.dialect", "mysql"),
+      keywordCase: config.get<"upper" | "lower" | "preserve">(
+        "sql.keywordCase",
+        "upper",
+      ),
+      maxLineLength: config.get<number>("sql.maxLineLength", 120),
     };
   }
 
@@ -241,7 +250,7 @@ export class NestedFormattingProvider implements
    */
   private extractSqlRegionsInRange(
     document: vscode.TextDocument,
-    range: vscode.Range
+    range: vscode.Range,
   ): SqlRegionInfo[] {
     const regions: SqlRegionInfo[] = [];
     const content = document.getText();
@@ -249,7 +258,8 @@ export class NestedFormattingProvider implements
     const rangeEndOffset = document.offsetAt(range.end);
 
     // 匹配 <select|insert|update|delete> 标签内的内容
-    const pattern = /<(select|insert|update|delete)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+    const pattern =
+      /<(select|insert|update|delete)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
     let match: RegExpExecArray | null;
 
     while ((match = pattern.exec(content)) !== null) {
@@ -257,8 +267,9 @@ export class NestedFormattingProvider implements
       const tagType = match[1].toLowerCase();
 
       // 找到标签结束位置
-      const tagEndPos = content.indexOf('>', match.index) + 1;
-      const contentEnd = match.index + fullMatch.length - (`</${tagType}>`).length;
+      const tagEndPos = content.indexOf(">", match.index) + 1;
+      const contentEnd =
+        match.index + fullMatch.length - `</${tagType}>`.length;
 
       // 检查是否与选择范围有交集
       const regionStart = tagEndPos;
@@ -289,11 +300,13 @@ export class NestedFormattingProvider implements
           tagType,
           range: new vscode.Range(
             document.positionAt(regionStart),
-            document.positionAt(regionEnd)
+            document.positionAt(regionEnd),
           ),
           sqlContent: sqlContent.trim(),
           baseIndent,
-          hasDynamicTags: /<(if|where|foreach|choose|trim|set)\b/i.test(sqlContent)
+          hasDynamicTags: /<(if|where|foreach|choose|trim|set)\b/i.test(
+            sqlContent,
+          ),
         });
       }
     }
@@ -306,14 +319,13 @@ export class NestedFormattingProvider implements
    */
   private calculateBaseIndent(content: string, position: number): string {
     const beforePos = content.substring(0, position);
-    const lastNewline = beforePos.lastIndexOf('\n');
-    const currentLine = lastNewline >= 0
-      ? beforePos.substring(lastNewline + 1)
-      : beforePos;
+    const lastNewline = beforePos.lastIndexOf("\n");
+    const currentLine =
+      lastNewline >= 0 ? beforePos.substring(lastNewline + 1) : beforePos;
 
     // 返回当前行的缩进空格
     const match = currentLine.match(/^(\s*)/);
-    return match ? match[1] : '';
+    return match ? match[1] : "";
   }
 
   /**
@@ -340,17 +352,18 @@ export class NestedFormattingProvider implements
     try {
       // 映射方言到 sql-formatter 支持的格式
       const dialectMap: Record<string, string> = {
-        'mysql': 'mysql',
-        'postgresql': 'postgresql',
-        'oracle': 'oracle',
-        'sqlite': 'sqlite',
-        'tsql': 'transactsql',
-        'db2': 'db2'
+        mysql: "mysql",
+        postgresql: "postgresql",
+        oracle: "oracle",
+        sqlite: "sqlite",
+        tsql: "transactsql",
+        db2: "db2",
       };
-      const sqlDialect = dialectMap[options.sqlDialect] || 'mysql';
+      const sqlDialect = dialectMap[options.sqlDialect] || "mysql";
 
       // 保护 MyBatis 标签占位符
-      const placeholderPattern = /<(if|where|foreach|choose|trim|set|bind)\b[^>]*>[\s\S]*?<\/\1>/gi;
+      const placeholderPattern =
+        /<(if|where|foreach|choose|trim|set|bind)\b[^>]*>[\s\S]*?<\/\1>/gi;
       const placeholders: string[] = [];
 
       let tempSql = sql;
@@ -366,7 +379,7 @@ export class NestedFormattingProvider implements
         language: sqlDialect as any,
         keywordCase: options.keywordCase,
         tabWidth: options.tabSize,
-        linesBetweenQueries: 1
+        linesBetweenQueries: 1,
       });
 
       // 恢复占位符
@@ -377,7 +390,7 @@ export class NestedFormattingProvider implements
 
       return result;
     } catch (error) {
-      this.logger.warn('SQL formatting failed for region:', error);
+      this.logger.warn("SQL formatting failed for region:", error);
       return sql;
     }
   }
@@ -386,20 +399,26 @@ export class NestedFormattingProvider implements
    * 调整 SQL 缩进以匹配 XML 上下文
    */
   private adjustIndentForXml(sql: string, baseIndent: string): string {
-    const lines = sql.split('\n');
+    const lines = sql.split("\n");
 
-    return lines.map((line, index) => {
-      if (!line.trim()) {
-        return '';
-      }
+    return (
+      lines
+        .map((line, index) => {
+          if (!line.trim()) {
+            return "";
+          }
 
-      if (index === 0) {
-        // 第一行：换行 + 基础缩进 + 内容
-        return '\n' + baseIndent + line.trim();
-      }
+          if (index === 0) {
+            // 第一行：换行 + 基础缩进 + 内容
+            return "\n" + baseIndent + line.trim();
+          }
 
-      // 其他行：基础缩进 + 内容
-      return baseIndent + line.trim();
-    }).join('\n') + '\n' + baseIndent;
+          // 其他行：基础缩进 + 内容
+          return baseIndent + line.trim();
+        })
+        .join("\n") +
+      "\n" +
+      baseIndent
+    );
   }
 }

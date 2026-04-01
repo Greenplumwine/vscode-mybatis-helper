@@ -14,14 +14,14 @@
  * @example camelToSnakeCase("UserName") -> "user_name"
  */
 export function camelToSnakeCase(str: string): string {
-    if (!str) {
-        return '';
-    }
+  if (!str) {
+    return "";
+  }
 
-    return str
-        .replace(/([a-z])([A-Z])/g, '$1_$2')
-        .toLowerCase()
-        .replace(/^_/, '');
+  return str
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/^_/, "");
 }
 
 /**
@@ -32,20 +32,23 @@ export function camelToSnakeCase(str: string): string {
  * @example snakeToCamelCase("user_name") -> "userName"
  * @example snakeToCamelCase("user_name", true) -> "UserName"
  */
-export function snakeToCamelCase(str: string, capitalizeFirst: boolean = false): string {
-    if (!str) {
-        return '';
-    }
+export function snakeToCamelCase(
+  str: string,
+  capitalizeFirst: boolean = false,
+): string {
+  if (!str) {
+    return "";
+  }
 
-    const result = str
-        .toLowerCase()
-        .replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  const result = str
+    .toLowerCase()
+    .replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
-    if (capitalizeFirst && result) {
-        return result.charAt(0).toUpperCase() + result.slice(1);
-    }
+  if (capitalizeFirst && result) {
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  }
 
-    return result;
+  return result;
 }
 
 /**
@@ -54,7 +57,7 @@ export function snakeToCamelCase(str: string, capitalizeFirst: boolean = false):
  * @returns 是否为空
  */
 export function isEmpty(str: string | null | undefined): boolean {
-    return !str || str.trim().length === 0;
+  return !str || str.trim().length === 0;
 }
 
 /**
@@ -63,8 +66,11 @@ export function isEmpty(str: string | null | undefined): boolean {
  * @param defaultValue 默认值
  * @returns 字符串或默认值
  */
-export function defaultIfEmpty(str: string | null | undefined, defaultValue: string): string {
-    return isEmpty(str) ? defaultValue : str!;
+export function defaultIfEmpty(
+  str: string | null | undefined,
+  defaultValue: string,
+): string {
+  return isEmpty(str) ? defaultValue : str!;
 }
 
 /**
@@ -76,22 +82,26 @@ export function defaultIfEmpty(str: string | null | undefined, defaultValue: str
  * @example removePrefix("insertUser", "insert") -> "User"
  * @example removePrefix("InsertUser", "insert", true) -> "User"
  */
-export function removePrefix(str: string, prefix: string, ignoreCase: boolean = true): string {
-    if (!str || !prefix) {
-        return str || '';
-    }
+export function removePrefix(
+  str: string,
+  prefix: string,
+  ignoreCase: boolean = true,
+): string {
+  if (!str || !prefix) {
+    return str || "";
+  }
 
-    if (ignoreCase) {
-        if (str.toLowerCase().startsWith(prefix.toLowerCase())) {
-            return str.substring(prefix.length);
-        }
-    } else {
-        if (str.startsWith(prefix)) {
-            return str.substring(prefix.length);
-        }
+  if (ignoreCase) {
+    if (str.toLowerCase().startsWith(prefix.toLowerCase())) {
+      return str.substring(prefix.length);
     }
+  } else {
+    if (str.startsWith(prefix)) {
+      return str.substring(prefix.length);
+    }
+  }
 
-    return str;
+  return str;
 }
 
 /**
@@ -110,8 +120,16 @@ export function removePrefix(str: string, prefix: string, ignoreCase: boolean = 
  */
 export function extractTableNameFromMethod(methodName: string): string {
   const prefixes = [
-    'select', 'find', 'get', 'query', 'search', 'list',
-    'insert', 'update', 'delete', 'count'
+    "select",
+    "find",
+    "get",
+    "query",
+    "search",
+    "list",
+    "insert",
+    "update",
+    "delete",
+    "count",
   ];
 
   let result = methodName;
@@ -126,7 +144,7 @@ export function extractTableNameFromMethod(methodName: string): string {
   }
 
   // 步骤 2: 去除 "By" 及之后的内容（不区分大小写）
-  const byIndex = result.toLowerCase().indexOf('by');
+  const byIndex = result.toLowerCase().indexOf("by");
   if (byIndex > 0) {
     // By 在中间，如 "UserById"，截取前面的部分
     result = result.substring(0, byIndex);
@@ -140,15 +158,15 @@ export function extractTableNameFromMethod(methodName: string): string {
       // 第一个部分通常是实体名（如 "User"）
       let entityName = parts[0];
       // 去除 Id/Ids 后缀
-      entityName = entityName.replace(/Ids?$/i, '');
+      entityName = entityName.replace(/Ids?$/i, "");
       result = entityName;
     } else {
-      result = '';
+      result = "";
     }
   }
 
   // 步骤 3: 处理 "List" 后缀（常见情况：getUserList → user）
-  if (result.toLowerCase().endsWith('list')) {
+  if (result.toLowerCase().endsWith("list")) {
     result = result.substring(0, result.length - 4);
   }
 
@@ -156,8 +174,8 @@ export function extractTableNameFromMethod(methodName: string): string {
   result = camelToSnakeCase(result);
 
   // 步骤 5: 清理（去除首尾下划线）
-  result = result.replace(/^_+|_+$/g, '');
+  result = result.replace(/^_+|_+$/g, "");
 
   // 如果结果为空，返回空字符串（不是原方法名）
-  return result || '';
+  return result || "";
 }

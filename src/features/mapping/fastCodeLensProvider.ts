@@ -1,19 +1,21 @@
 /**
  * Java Mapper CodeLens 提供器
- * 
+ *
  * 使用 Java 语言服务 API 获取准确的方法信息
  */
 
-import * as vscode from 'vscode';
-import * as path from 'path';
-import { FastMappingEngine } from './fastMappingEngine';
-import { Logger } from '../../utils/logger';
+import * as vscode from "vscode";
+import * as path from "path";
+import { FastMappingEngine } from "./fastMappingEngine";
+import { Logger } from "../../utils/logger";
 
 export class FastCodeLensProvider implements vscode.CodeLensProvider {
   private mappingEngine: FastMappingEngine;
   private logger!: Logger;
-  private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-  public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
+  private _onDidChangeCodeLenses: vscode.EventEmitter<void> =
+    new vscode.EventEmitter<void>();
+  public readonly onDidChangeCodeLenses: vscode.Event<void> =
+    this._onDidChangeCodeLenses.event;
 
   constructor() {
     this.mappingEngine = FastMappingEngine.getInstance();
@@ -21,7 +23,7 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
   }
 
   private async initialize(): Promise<void> {
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
   }
 
@@ -29,24 +31,30 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
     this._onDidChangeCodeLenses.fire();
   }
 
-  async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+  async provideCodeLenses(
+    document: vscode.TextDocument,
+  ): Promise<vscode.CodeLens[]> {
     const filePath = document.uri.fsPath;
 
     // 只处理 Java 文件
-    if (!filePath.toLowerCase().endsWith('.java')) {
+    if (!filePath.toLowerCase().endsWith(".java")) {
       return [];
     }
 
     // 1. 快速检查：是否是 MyBatis Mapper 接口
     const text = document.getText();
     const isMapper = this.isMyBatisMapper(text, filePath);
-    
+
     // 调试日志
-    if (filePath.includes('Mapper')) {
-      console.log(`[CodeLens] Checking ${path.basename(filePath)}: isMapper=${isMapper}`);
-      this.logger?.debug(`[CodeLens] ${path.basename(filePath)}: isMapper=${isMapper}`);
+    if (filePath.includes("Mapper")) {
+      console.log(
+        `[CodeLens] Checking ${path.basename(filePath)}: isMapper=${isMapper}`,
+      );
+      this.logger?.debug(
+        `[CodeLens] ${path.basename(filePath)}: isMapper=${isMapper}`,
+      );
     }
-    
+
     if (!isMapper) {
       return [];
     }
@@ -57,7 +65,11 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
 
     // 3. 使用 VS Code 文档符号 API 获取类和方法
     const symbols = await this.getDocumentSymbols(document);
-    const classSymbol = symbols.find(s => s.kind === vscode.SymbolKind.Interface || s.kind === vscode.SymbolKind.Class);
+    const classSymbol = symbols.find(
+      (s) =>
+        s.kind === vscode.SymbolKind.Interface ||
+        s.kind === vscode.SymbolKind.Class,
+    );
     const methods = this.extractMethodsFromSymbols(symbols);
 
     const codeLenses: vscode.CodeLens[] = [];
@@ -66,7 +78,12 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
     if (classSymbol) {
       const className = classSymbol.name;
       const classPosition = classSymbol.selectionRange || classSymbol.range;
-      const classLens = this.createClassCodeLens(className, filePath, xmlPath, classPosition.start.line);
+      const classLens = this.createClassCodeLens(
+        className,
+        filePath,
+        xmlPath,
+        classPosition.start.line,
+      );
       if (classLens) {
         codeLenses.push(classLens);
       }
@@ -75,15 +92,17 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
     // 5. 为每个方法添加 CodeLens（在方法名位置）
     for (const method of methods) {
       // 去掉参数部分，获取纯方法名
-      const methodNameWithoutParams = method.name.split('(')[0];
-      
-      const hasSql = mapping ? this.mappingEngine.hasSqlForMethod(mapping.namespace, method.name) : false;
-      
+      const methodNameWithoutParams = method.name.split("(")[0];
+
+      const hasSql = mapping
+        ? this.mappingEngine.hasSqlForMethod(mapping.namespace, method.name)
+        : false;
+
       // 传递不带参数的方法名给跳转命令
       const methodLens = this.createMethodCodeLens(
-        { ...method, name: methodNameWithoutParams }, 
-        filePath, 
-        hasSql
+        { ...method, name: methodNameWithoutParams },
+        filePath,
+        hasSql,
       );
       if (methodLens) {
         codeLenses.push(methodLens);
@@ -97,27 +116,26 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
    * 获取文档符号
    */
   private async getDocumentSymbols(
-    document: vscode.TextDocument
+    document: vscode.TextDocument,
   ): Promise<vscode.DocumentSymbol[]> {
     try {
-      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-        'vscode.executeDocumentSymbolProvider',
-        document.uri
-      );
+      const symbols = await vscode.commands.executeCommand<
+        vscode.DocumentSymbol[]
+      >("vscode.executeDocumentSymbolProvider", document.uri);
       return symbols || [];
     } catch (error) {
-      this.logger?.error('[CodeLens] Failed to get document symbols:', error);
+      this.logger?.error("[CodeLens] Failed to get document symbols:", error);
       return [];
     }
   }
 
   /**
    * 从符号树中提取方法
-   * 
+   *
    * 关键：使用 selectionRange 获取方法名的准确位置
    */
   private extractMethodsFromSymbols(
-    symbols: vscode.DocumentSymbol[]
+    symbols: vscode.DocumentSymbol[],
   ): Array<{ name: string; line: number; column: number }> {
     const methods: Array<{ name: string; line: number; column: number }> = [];
 
@@ -128,7 +146,7 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
         methods.push({
           name: symbol.name,
           line: position.start.line,
-          column: position.start.character
+          column: position.start.character,
         });
       }
       // 递归处理子符号
@@ -138,7 +156,9 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
     }
 
     this.logger?.info(`[CodeLens] Total methods found: ${methods.length}`);
-    methods.forEach(m => this.logger?.info(`[CodeLens]   - ${m.name} at line ${m.line}`));
+    methods.forEach((m) =>
+      this.logger?.info(`[CodeLens]   - ${m.name} at line ${m.line}`),
+    );
 
     return methods;
   }
@@ -153,15 +173,16 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
     }
 
     // 检查 MyBatis 标记
-    const hasMyBatisMarker = 
+    const hasMyBatisMarker =
       /@Mapper\b/.test(text) ||
       /import\s+org\.apache\.ibatis/.test(text) ||
       /import\s+org\.mybatis/.test(text) ||
       /extends\s+\w*Mapper\s*[<{]/.test(text);
 
     // 如果文件路径包含 mapper 且类名以 Mapper 结尾，也认为是 Mapper
-    const isMapperByPath = !!filePath && 
-      /[Mm]apper/.test(filePath) && 
+    const isMapperByPath =
+      !!filePath &&
+      /[Mm]apper/.test(filePath) &&
       /interface\s+\w*Mapper\b/.test(text);
 
     return hasMyBatisMarker || isMapperByPath;
@@ -182,19 +203,19 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
     className: string,
     javaPath: string,
     xmlPath: string | undefined,
-    line: number
+    line: number,
   ): vscode.CodeLens | null {
     // CodeLens 显示在类名所在行
     const range = new vscode.Range(line, 0, line, 0);
-    
+
     const title = xmlPath
       ? `$(file-code) ${vscode.l10n.t("codelens.java.jumpToXml", { className })}`
       : `$(file-code) ${vscode.l10n.t("codelens.java.findXml", { className })}`;
 
     const command: vscode.Command = {
       title,
-      command: 'mybatis-helper.jumpToXml',
-      arguments: [javaPath]
+      command: "mybatis-helper.jumpToXml",
+      arguments: [javaPath],
     };
 
     return new vscode.CodeLens(range, command);
@@ -202,7 +223,7 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
 
   /**
    * 创建方法级别的 CodeLens
-   * 
+   *
    * Phase 2 增强：互斥显示
    * - 有 SQL 映射 → 显示 "$(arrow-right) Jump to XML"
    * - 无 SQL 映射 → 显示 "$(add) Generate XML Method"
@@ -210,32 +231,39 @@ export class FastCodeLensProvider implements vscode.CodeLensProvider {
   private createMethodCodeLens(
     method: { name: string; line: number; column: number },
     javaPath: string,
-    hasSql: boolean
+    hasSql: boolean,
   ): vscode.CodeLens | null {
-    const range = new vscode.Range(method.line, method.column, method.line, method.column);
+    const range = new vscode.Range(
+      method.line,
+      method.column,
+      method.line,
+      method.column,
+    );
 
     // 根据是否有 SQL 映射决定显示哪个命令
     if (hasSql) {
       // 有 SQL 映射：显示 "Jump to XML"
       const command: vscode.Command = {
         title: `$(arrow-right) ${vscode.l10n.t("codelens.java.jumpToSql")}`,
-        command: 'mybatis-helper.jumpToXml',
-        arguments: [javaPath, method.name]
+        command: "mybatis-helper.jumpToXml",
+        arguments: [javaPath, method.name],
       };
       return new vscode.CodeLens(range, command);
     } else {
       // 无 SQL 映射：显示 "Generate XML Method"
       const command: vscode.Command = {
         title: `$(add) ${vscode.l10n.t("codelens.java.generateXmlMethod")}`,
-        command: 'mybatis-helper.generateXmlMethod',
+        command: "mybatis-helper.generateXmlMethod",
         tooltip: vscode.l10n.t("codelens.java.generateXmlMethod.tooltip"),
-        arguments: [javaPath, method.name]
+        arguments: [javaPath, method.name],
       };
       return new vscode.CodeLens(range, command);
     }
   }
 
-  resolveCodeLens?(codeLens: vscode.CodeLens): vscode.ProviderResult<vscode.CodeLens> {
+  resolveCodeLens?(
+    codeLens: vscode.CodeLens,
+  ): vscode.ProviderResult<vscode.CodeLens> {
     return codeLens;
   }
 }

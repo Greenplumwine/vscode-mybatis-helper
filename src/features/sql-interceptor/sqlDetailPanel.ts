@@ -1,13 +1,13 @@
 /**
  * SQL 详情面板
- * 
+ *
  * 显示单个 SQL 查询的详细信息
  */
 
-import * as vscode from 'vscode';
-import { SQLQueryRecord } from './types';
-import { formatSQL, highlightSQL, getPluginConfig } from '../../utils';
-import { TIME, THRESHOLDS } from '../../utils/constants';
+import * as vscode from "vscode";
+import { SQLQueryRecord } from "./types";
+import { formatSQL, highlightSQL, getPluginConfig } from "../../utils";
+import { TIME, THRESHOLDS } from "../../utils/constants";
 
 export class SQLDetailPanel {
   private static currentPanel: SQLDetailPanel | undefined;
@@ -16,7 +16,10 @@ export class SQLDetailPanel {
   private query: SQLQueryRecord;
   private extensionUri: vscode.Uri;
 
-  public static createOrShow(extensionUri: vscode.Uri, query: SQLQueryRecord): SQLDetailPanel {
+  public static createOrShow(
+    extensionUri: vscode.Uri,
+    query: SQLQueryRecord,
+  ): SQLDetailPanel {
     const column = vscode.ViewColumn.Beside;
 
     // 如果面板已存在，更新内容
@@ -28,21 +31,29 @@ export class SQLDetailPanel {
 
     // 创建新面板
     const panel = vscode.window.createWebviewPanel(
-      'sqlDetail',
-      vscode.l10n.t('sqlDetail.title', { id: query.id.substring(0, 8) }),
+      "sqlDetail",
+      vscode.l10n.t("sqlDetail.title", { id: query.id.substring(0, 8) }),
       column,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'media')]
-      }
+        localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
+      },
     );
 
-    SQLDetailPanel.currentPanel = new SQLDetailPanel(panel, extensionUri, query);
+    SQLDetailPanel.currentPanel = new SQLDetailPanel(
+      panel,
+      extensionUri,
+      query,
+    );
     return SQLDetailPanel.currentPanel;
   }
 
-  private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, query: SQLQueryRecord) {
+  private constructor(
+    panel: vscode.WebviewPanel,
+    extensionUri: vscode.Uri,
+    query: SQLQueryRecord,
+  ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.query = query;
@@ -55,9 +66,9 @@ export class SQLDetailPanel {
 
     // 监听来自 Webview 的消息
     this.panel.webview.onDidReceiveMessage(
-      message => this.handleMessage(message),
+      (message) => this.handleMessage(message),
       null,
-      this.disposables
+      this.disposables,
     );
   }
 
@@ -73,7 +84,9 @@ export class SQLDetailPanel {
    * 更新 Webview 内容
    */
   private updateWebview(): void {
-    this.panel.title = vscode.l10n.t('sqlDetail.title', { id: this.query.id.substring(0, 8) });
+    this.panel.title = vscode.l10n.t("sqlDetail.title", {
+      id: this.query.id.substring(0, 8),
+    });
     this.panel.webview.html = this.getHtmlContent();
   }
 
@@ -82,14 +95,16 @@ export class SQLDetailPanel {
    */
   private async handleMessage(message: any): Promise<void> {
     switch (message.command) {
-      case 'copy':
+      case "copy":
         await this.copyToClipboard(message.text);
         break;
-      case 'copyRaw':
-        await this.copyToClipboard(this.query.rawSQL || '');
+      case "copyRaw":
+        await this.copyToClipboard(this.query.rawSQL || "");
         break;
-      case 'copyFormatted':
-        await this.copyToClipboard(this.query.formattedSQL || this.query.fullSQL || '');
+      case "copyFormatted":
+        await this.copyToClipboard(
+          this.query.formattedSQL || this.query.fullSQL || "",
+        );
         break;
     }
   }
@@ -104,15 +119,17 @@ export class SQLDetailPanel {
       vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: vscode.l10n.t('sqlDetail.copied'),
+          title: vscode.l10n.t("sqlDetail.copied"),
           cancellable: false,
         },
         async () => {
-          await new Promise(resolve => setTimeout(resolve, TIME.NOTIFICATION_DURATION));
-        }
+          await new Promise((resolve) =>
+            setTimeout(resolve, TIME.NOTIFICATION_DURATION),
+          );
+        },
       );
     } catch (error) {
-      vscode.window.showErrorMessage(vscode.l10n.t('sqlDetail.copyFailed'));
+      vscode.window.showErrorMessage(vscode.l10n.t("sqlDetail.copyFailed"));
     }
   }
 
@@ -121,27 +138,29 @@ export class SQLDetailPanel {
    */
   private getHtmlContent(): string {
     const config = getPluginConfig();
-    const sql = this.query.formattedSQL || this.query.fullSQL || this.query.rawSQL || '';
-    const rawSQL = this.query.rawSQL || '';
+    const sql =
+      this.query.formattedSQL || this.query.fullSQL || this.query.rawSQL || "";
+    const rawSQL = this.query.rawSQL || "";
     const highlightedSQL = highlightSQL(sql, config.databaseType);
-    
+
     // 生成参数表格 HTML
     const paramsHtml = this.generateParamsTable();
-    
+
     // 生成执行时间 HTML
-    const executionTimeHtml = this.query.executionTime !== undefined
-      ? `<div class="execution-time ${this.query.executionTime > THRESHOLDS.SLOW_QUERY ? 'slow' : ''}">
-           ${vscode.l10n.t('sqlDetail.executionTime', { time: this.query.executionTime })}
-           ${this.query.executionTime > THRESHOLDS.SLOW_QUERY ? '<span class="warning">⚠️ ' + vscode.l10n.t('sqlDetail.slowWarning') + '</span>' : ''}
+    const executionTimeHtml =
+      this.query.executionTime !== undefined
+        ? `<div class="execution-time ${this.query.executionTime > THRESHOLDS.SLOW_QUERY ? "slow" : ""}">
+           ${vscode.l10n.t("sqlDetail.executionTime", { time: this.query.executionTime })}
+           ${this.query.executionTime > THRESHOLDS.SLOW_QUERY ? '<span class="warning">⚠️ ' + vscode.l10n.t("sqlDetail.slowWarning") + "</span>" : ""}
          </div>`
-      : '';
+        : "";
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${vscode.l10n.t('sqlDetail.title', { id: this.query.id.substring(0, 8) })}</title>
+    <title>${vscode.l10n.t("sqlDetail.title", { id: this.query.id.substring(0, 8) })}</title>
     <style>
         :root {
             --bg-color: var(--vscode-editor-background);
@@ -321,49 +340,57 @@ export class SQLDetailPanel {
 </head>
 <body>
     <div class="header">
-        <h1>${vscode.l10n.t('sqlDetail.sqlQuery')}</h1>
+        <h1>${vscode.l10n.t("sqlDetail.sqlQuery")}</h1>
         <div class="meta-info">
-            <span>${vscode.l10n.t('sqlDetail.time')}: ${this.query.timestamp.toLocaleString()}</span>
-            <span>${vscode.l10n.t('sqlDetail.source')}: ${this.query.source === 'debug' ? 'Debug Console' : 'Terminal'}</span>
-            <span>${vscode.l10n.t('sqlDetail.rule')}: ${this.query.matchedRule}</span>
+            <span>${vscode.l10n.t("sqlDetail.time")}: ${this.query.timestamp.toLocaleString()}</span>
+            <span>${vscode.l10n.t("sqlDetail.source")}: ${this.query.source === "debug" ? "Debug Console" : "Terminal"}</span>
+            <span>${vscode.l10n.t("sqlDetail.rule")}: ${this.query.matchedRule}</span>
         </div>
     </div>
     
     <div class="actions">
         <button onclick="copyFormatted()">
-            <span>📋</span> ${vscode.l10n.t('sqlDetail.copyFormatted')}
+            <span>📋</span> ${vscode.l10n.t("sqlDetail.copyFormatted")}
         </button>
         <button class="secondary" onclick="copyRaw()">
-            <span>📄</span> ${vscode.l10n.t('sqlDetail.copyRaw')}
+            <span>📄</span> ${vscode.l10n.t("sqlDetail.copyRaw")}
         </button>
-        ${this.query.parameters && this.query.parameters.length > 0 ? `
+        ${
+          this.query.parameters && this.query.parameters.length > 0
+            ? `
         <button class="secondary" onclick="copyWithParams()">
-            <span>🔧</span> ${vscode.l10n.t('sqlDetail.copyWithParams')}
+            <span>🔧</span> ${vscode.l10n.t("sqlDetail.copyWithParams")}
         </button>
-        ` : ''}
+        `
+            : ""
+        }
     </div>
     
     ${executionTimeHtml}
     
     <div class="sql-container">
         <div class="sql-header">
-            <h3>${vscode.l10n.t('sqlDetail.formattedSQL')}</h3>
+            <h3>${vscode.l10n.t("sqlDetail.formattedSQL")}</h3>
         </div>
         <div class="sql-content">
             <pre><code>${highlightedSQL}</code></pre>
         </div>
     </div>
     
-    ${rawSQL !== sql ? `
+    ${
+      rawSQL !== sql
+        ? `
     <div class="sql-container">
         <div class="sql-header">
-            <h3>${vscode.l10n.t('sqlDetail.rawSQL')}</h3>
+            <h3>${vscode.l10n.t("sqlDetail.rawSQL")}</h3>
         </div>
         <div class="sql-content">
             <pre><code>${this.escapeHtml(rawSQL)}</code></pre>
         </div>
     </div>
-    ` : ''}
+    `
+        : ""
+    }
     
     ${paramsHtml}
     
@@ -393,26 +420,30 @@ export class SQLDetailPanel {
    */
   private generateParamsTable(): string {
     if (!this.query.parameters || this.query.parameters.length === 0) {
-      return '';
+      return "";
     }
 
-    const rows = this.query.parameters.map((param, index) => `
+    const rows = this.query.parameters
+      .map(
+        (param, index) => `
       <tr>
         <td>${index + 1}</td>
         <td><code>${this.escapeHtml(param.value)}</code></td>
         <td>${this.escapeHtml(param.type)}</td>
       </tr>
-    `).join('');
+    `,
+      )
+      .join("");
 
     return `
       <div class="params-section">
-        <h3>${vscode.l10n.t('sqlDetail.parameters')}</h3>
+        <h3>${vscode.l10n.t("sqlDetail.parameters")}</h3>
         <table>
           <thead>
             <tr>
               <th>#</th>
-              <th>${vscode.l10n.t('sqlDetail.value')}</th>
-              <th>${vscode.l10n.t('sqlDetail.type')}</th>
+              <th>${vscode.l10n.t("sqlDetail.value")}</th>
+              <th>${vscode.l10n.t("sqlDetail.type")}</th>
             </tr>
           </thead>
           <tbody>
@@ -428,33 +459,36 @@ export class SQLDetailPanel {
    */
   private generateParamInfoText(): string {
     if (!this.query.parameters || this.query.parameters.length === 0) {
-      return '';
+      return "";
     }
 
-    const lines = this.query.parameters.map((param, index) => 
-      `-- Parameter ${index + 1}: ${param.value} (${param.type})`
+    const lines = this.query.parameters.map(
+      (param, index) =>
+        `-- Parameter ${index + 1}: ${param.value} (${param.type})`,
     );
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   /**
    * 生成带参数注释的完整SQL
    */
   private generateSQLWithParamComments(): string {
-    const sql = this.query.fullSQL || this.query.formattedSQL || this.query.rawSQL || '';
-    
+    const sql =
+      this.query.fullSQL || this.query.formattedSQL || this.query.rawSQL || "";
+
     if (!this.query.parameters || this.query.parameters.length === 0) {
       return sql;
     }
 
     // 生成参数注释
-    const paramComments = this.query.parameters.map((param, index) => 
-      `-- Parameter ${index + 1}: ${param.value} (${param.type})`
+    const paramComments = this.query.parameters.map(
+      (param, index) =>
+        `-- Parameter ${index + 1}: ${param.value} (${param.type})`,
     );
 
     // 返回：参数注释 + 空行 + 完整SQL
-    return paramComments.join('\n') + '\n\n' + sql;
+    return paramComments.join("\n") + "\n\n" + sql;
   }
 
   /**
@@ -463,11 +497,11 @@ export class SQLDetailPanel {
   private escapeHtml(text: string): string {
     const div = { toString: () => text };
     return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   /**
@@ -476,6 +510,6 @@ export class SQLDetailPanel {
   public dispose(): void {
     SQLDetailPanel.currentPanel = undefined;
     this.panel.dispose();
-    this.disposables.forEach(d => d.dispose());
+    this.disposables.forEach((d) => d.dispose());
   }
 }

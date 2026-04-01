@@ -1,16 +1,16 @@
 /**
  * MyBatis Helper 索引缓存系统
- * 
+ *
  * 功能：
  * 1. 持久化缓存解析结果到磁盘 (.mybatis/index.json)
  * 2. 基于文件修改时间的增量更新
  * 3. 跨会话保持（VS Code 重启后仍有效）
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { MapperScanConfig } from './types';
-import { Logger } from '../../utils/logger';
+import * as fs from "fs/promises";
+import * as path from "path";
+import { MapperScanConfig } from "./types";
+import { Logger } from "../../utils/logger";
 
 interface IndexEntry {
   path: string;
@@ -26,17 +26,17 @@ interface IndexData {
   entries: IndexEntry[];
 }
 
-const INDEX_VERSION = '1.0';
-const INDEX_DIR = '.mybatis';
-const INDEX_FILE = 'index.json';
+const INDEX_VERSION = "1.0";
+const INDEX_DIR = ".mybatis";
+const INDEX_FILE = "index.json";
 const MAX_CACHE_ENTRIES = 1000; // 最大缓存条目数
 
 export class IndexCacheManager {
   private static instance: IndexCacheManager;
   private logger!: Logger;
   private memoryCache: Map<string, IndexEntry> = new Map(); // Map 保持插入顺序，用于 LRU
-  private projectRoot: string = '';
-  private indexPath: string = '';
+  private projectRoot: string = "";
+  private indexPath: string = "";
   private isInitialized: boolean = false;
   private maxEntries: number = MAX_CACHE_ENTRIES;
 
@@ -57,15 +57,15 @@ export class IndexCacheManager {
       return;
     }
 
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
-    
+
     this.projectRoot = projectRoot;
     this.indexPath = path.join(projectRoot, INDEX_DIR, INDEX_FILE);
-    
+
     await this.loadIndex();
     this.isInitialized = true;
-    
+
     this.logger?.debug(`Index cache initialized at ${this.indexPath}`);
   }
 
@@ -74,19 +74,21 @@ export class IndexCacheManager {
    */
   private async loadIndex(): Promise<void> {
     try {
-      const data = await fs.readFile(this.indexPath, 'utf-8');
+      const data = await fs.readFile(this.indexPath, "utf-8");
       const index: IndexData = JSON.parse(data);
-      
+
       // 版本检查
       if (index.version !== INDEX_VERSION) {
-        this.logger?.info(`Index version mismatch (${index.version} vs ${INDEX_VERSION}), rebuilding...`);
+        this.logger?.info(
+          `Index version mismatch (${index.version} vs ${INDEX_VERSION}), rebuilding...`,
+        );
         await this.clearCache();
         return;
       }
 
       // 项目路径检查
       if (index.projectRoot !== this.projectRoot) {
-        this.logger?.info('Project root changed, rebuilding index...');
+        this.logger?.info("Project root changed, rebuilding index...");
         await this.clearCache();
         return;
       }
@@ -100,7 +102,9 @@ export class IndexCacheManager {
       this.logger?.info(`Loaded index with ${this.memoryCache.size} entries`);
     } catch (error) {
       // 索引不存在或损坏，创建新的
-      this.logger?.debug('No existing index found or index corrupted, creating new...');
+      this.logger?.debug(
+        "No existing index found or index corrupted, creating new...",
+      );
       await this.createIndexDir();
     }
   }
@@ -109,20 +113,22 @@ export class IndexCacheManager {
    * 保存索引到磁盘
    */
   public async saveIndex(): Promise<void> {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized) {
+      return;
+    }
 
     try {
       const index: IndexData = {
         version: INDEX_VERSION,
         timestamp: Date.now(),
         projectRoot: this.projectRoot,
-        entries: Array.from(this.memoryCache.values())
+        entries: Array.from(this.memoryCache.values()),
       };
 
       await fs.writeFile(this.indexPath, JSON.stringify(index, null, 2));
       this.logger?.debug(`Saved index with ${this.memoryCache.size} entries`);
     } catch (error) {
-      this.logger?.debug('Failed to save index:', error);
+      this.logger?.debug("Failed to save index:", error);
     }
   }
 
@@ -134,17 +140,19 @@ export class IndexCacheManager {
       const dir = path.dirname(this.indexPath);
       await fs.mkdir(dir, { recursive: true });
     } catch (error) {
-      this.logger?.debug('Failed to create index directory:', error);
+      this.logger?.debug("Failed to create index directory:", error);
     }
   }
 
   /**
    * 检查文件是否已缓存且未变更
    */
-  public async isCached(filePath: string): Promise<{ cached: boolean; entry?: IndexEntry }> {
+  public async isCached(
+    filePath: string,
+  ): Promise<{ cached: boolean; entry?: IndexEntry }> {
     const relativePath = path.relative(this.projectRoot, filePath);
     const cached = this.memoryCache.get(relativePath);
-    
+
     if (!cached) {
       return { cached: false };
     }
@@ -165,7 +173,10 @@ export class IndexCacheManager {
   /**
    * 更新缓存条目（带 LRU 淘汰）
    */
-  public async updateEntry(filePath: string, mapperScan?: MapperScanConfig): Promise<void> {
+  public async updateEntry(
+    filePath: string,
+    mapperScan?: MapperScanConfig,
+  ): Promise<void> {
     const relativePath = path.relative(this.projectRoot, filePath);
 
     try {
@@ -174,7 +185,7 @@ export class IndexCacheManager {
         path: relativePath,
         mtime: stats.mtimeMs,
         size: stats.size,
-        mapperScan
+        mapperScan,
       };
 
       // 如果已存在，先删除再添加（更新到最新位置）
@@ -220,7 +231,9 @@ export class IndexCacheManager {
   /**
    * 批量更新缓存
    */
-  public async updateEntries(entries: { path: string; mapperScan?: MapperScanConfig }[]): Promise<void> {
+  public async updateEntries(
+    entries: { path: string; mapperScan?: MapperScanConfig }[],
+  ): Promise<void> {
     for (const entry of entries) {
       await this.updateEntry(entry.path, entry.mapperScan);
     }
@@ -265,7 +278,7 @@ export class IndexCacheManager {
     }
     return {
       total: this.memoryCache.size,
-      withMapperScan
+      withMapperScan,
     };
   }
 
@@ -283,11 +296,11 @@ export class IndexCacheManager {
         removed++;
       }
     }
-    
+
     if (removed > 0) {
       await this.saveIndex();
     }
-    
+
     return removed;
   }
 }

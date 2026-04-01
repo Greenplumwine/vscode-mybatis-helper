@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
-import { MapperScanConfig } from './types';
-import { MyBatisXmlParser } from './xmlParser';
-import { Logger } from '../../utils/logger';
+import * as vscode from "vscode";
+import { MapperScanConfig } from "./types";
+import { MyBatisXmlParser } from "./xmlParser";
+import { Logger } from "../../utils/logger";
 
 /**
  * XML 位置解析器
@@ -28,7 +28,7 @@ export class XmlLocationResolver {
   }
 
   public async initialize(): Promise<void> {
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
     await this.xmlParser.initialize();
   }
@@ -38,23 +38,27 @@ export class XmlLocationResolver {
    * 按照优先级：mybatis-config.xml → Spring Boot 配置 → 默认路径
    */
   async resolveXmlLocations(): Promise<string[]> {
-    this.logger?.info('Resolving XML locations...');
+    this.logger?.info("Resolving XML locations...");
     const startTime = Date.now();
     const locations: string[] = [];
 
     // 并行解析所有来源
     const [mybatisConfigLocations, springBootLocations] = await Promise.all([
       this.resolveFromMyBatisConfig(),
-      this.resolveFromSpringBootConfig()
+      this.resolveFromSpringBootConfig(),
     ]);
 
     if (mybatisConfigLocations.length > 0) {
-      this.logger?.info(`Found ${mybatisConfigLocations.length} locations from mybatis-config.xml`);
+      this.logger?.info(
+        `Found ${mybatisConfigLocations.length} locations from mybatis-config.xml`,
+      );
       locations.push(...mybatisConfigLocations);
     }
 
     if (springBootLocations.length > 0) {
-      this.logger?.info(`Found ${springBootLocations.length} locations from Spring Boot config`);
+      this.logger?.info(
+        `Found ${springBootLocations.length} locations from Spring Boot config`,
+      );
       locations.push(...springBootLocations);
     }
 
@@ -63,7 +67,9 @@ export class XmlLocationResolver {
     const globPatterns = this.convertToGlobPatterns(this.resolvedLocations);
 
     const duration = Date.now() - startTime;
-    this.logger?.info(`Resolved ${globPatterns.length} XML location patterns in ${duration}ms`);
+    this.logger?.info(
+      `Resolved ${globPatterns.length} XML location patterns in ${duration}ms`,
+    );
     return globPatterns;
   }
 
@@ -73,9 +79,9 @@ export class XmlLocationResolver {
   private async resolveFromMyBatisConfig(): Promise<string[]> {
     try {
       const configFiles = await vscode.workspace.findFiles(
-        '**/mybatis-config.xml',
-        '**/{node_modules,.git,target,build,out}/**',
-        5 // 限制数量
+        "**/mybatis-config.xml",
+        "**/{node_modules,.git,target,build,out}/**",
+        5, // 限制数量
       );
 
       if (configFiles.length === 0) {
@@ -84,14 +90,16 @@ export class XmlLocationResolver {
 
       const locations: string[] = [];
       for (const file of configFiles) {
-        const configLocations = await this.xmlParser.parseMyBatisConfig(file.fsPath);
+        const configLocations = await this.xmlParser.parseMyBatisConfig(
+          file.fsPath,
+        );
         if (configLocations) {
           locations.push(...configLocations);
         }
       }
       return locations;
     } catch (error) {
-      this.logger?.debug('Failed to resolve from mybatis-config.xml:', error);
+      this.logger?.debug("Failed to resolve from mybatis-config.xml:", error);
       return [];
     }
   }
@@ -104,15 +112,15 @@ export class XmlLocationResolver {
       // 并行查找 YAML 和 Properties 文件
       const [yamlFiles, propertiesFiles] = await Promise.all([
         vscode.workspace.findFiles(
-          '**/application{,-*}.yml',
-          '**/{node_modules,.git,target,build,out}/**',
-          5
+          "**/application{,-*}.yml",
+          "**/{node_modules,.git,target,build,out}/**",
+          5,
         ),
         vscode.workspace.findFiles(
-          '**/application{,-*}.properties',
-          '**/{node_modules,.git,target,build,out}/**',
-          5
-        )
+          "**/application{,-*}.properties",
+          "**/{node_modules,.git,target,build,out}/**",
+          5,
+        ),
       ]);
 
       const locations: string[] = [];
@@ -141,7 +149,7 @@ export class XmlLocationResolver {
 
       const [yamlResults, propResults] = await Promise.all([
         Promise.all(yamlPromises),
-        Promise.all(propPromises)
+        Promise.all(propPromises),
       ]);
 
       for (const result of yamlResults) {
@@ -153,7 +161,7 @@ export class XmlLocationResolver {
 
       return locations;
     } catch (error) {
-      this.logger?.debug('Failed to resolve from Spring Boot config:', error);
+      this.logger?.debug("Failed to resolve from Spring Boot config:", error);
       return [];
     }
   }
@@ -166,12 +174,12 @@ export class XmlLocationResolver {
 
     for (const location of locations) {
       // 处理 classpath*: 前缀
-      let pattern = location.replace(/^classpath\*?:/, '');
+      let pattern = location.replace(/^classpath\*?:/, "");
 
       // 处理 /**/*.xml 模式
-      if (pattern.includes('**/*.xml')) {
+      if (pattern.includes("**/*.xml")) {
         patterns.push(pattern);
-      } else if (pattern.endsWith('.xml')) {
+      } else if (pattern.endsWith(".xml")) {
         // 具体文件路径
         patterns.push(`**/${pattern}`);
       } else {

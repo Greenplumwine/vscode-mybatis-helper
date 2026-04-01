@@ -1,7 +1,7 @@
-import { XMLParser } from 'fast-xml-parser';
-import { XmlMapperInfo, SqlStatementInfo } from './types';
-import * as vscode from 'vscode';
-import { Logger } from '../../utils/logger';
+import { XMLParser } from "fast-xml-parser";
+import { XmlMapperInfo, SqlStatementInfo } from "./types";
+import * as vscode from "vscode";
+import { Logger } from "../../utils/logger";
 
 /**
  * MyBatis XML 解析器
@@ -15,12 +15,12 @@ export class MyBatisXmlParser {
   private constructor() {
     this.parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNamePrefix: '',
+      attributeNamePrefix: "",
       parseAttributeValue: false,
       trimValues: true,
       parseTagValue: false,
       processEntities: false,
-      htmlEntities: false
+      htmlEntities: false,
     });
   }
 
@@ -32,7 +32,7 @@ export class MyBatisXmlParser {
   }
 
   public async initialize(): Promise<void> {
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
   }
 
@@ -50,14 +50,14 @@ export class MyBatisXmlParser {
       }
 
       const mapper = parsed.mapper;
-      const namespace = mapper.namespace || '';
+      const namespace = mapper.namespace || "";
 
       if (!namespace) {
         this.logger?.debug(`No namespace found in ${filePath}`);
       }
 
       const statements = new Map<string, SqlStatementInfo>();
-      const statementTypes = ['select', 'insert', 'update', 'delete'] as const;
+      const statementTypes = ["select", "insert", "update", "delete"] as const;
 
       for (const type of statementTypes) {
         const elements = mapper[type];
@@ -68,13 +68,17 @@ export class MyBatisXmlParser {
         const elementsArray = Array.isArray(elements) ? elements : [elements];
 
         for (const element of elementsArray) {
-          if (typeof element === 'object' && element.id) {
-            const position = this.findStatementPosition(content, type, element.id);
+          if (typeof element === "object" && element.id) {
+            const position = this.findStatementPosition(
+              content,
+              type,
+              element.id,
+            );
             statements.set(element.id, {
               id: element.id,
               type: type,
               line: position.line,
-              column: position.column
+              column: position.column,
             });
           }
         }
@@ -83,7 +87,7 @@ export class MyBatisXmlParser {
       return {
         filePath,
         namespace,
-        statements
+        statements,
       };
     } catch (error) {
       this.logger?.debug(`Failed to parse XML file ${filePath}: ${error}`);
@@ -94,16 +98,20 @@ export class MyBatisXmlParser {
   /**
    * 查找 SQL 语句在文件中的位置
    */
-  private findStatementPosition(content: string, type: string, id: string): { line: number; column: number } {
-    const lines = content.split('\n');
-    const tagRegex = new RegExp(`<${type}\\s+[^>]*id=["']${id}["']`, 'i');
+  private findStatementPosition(
+    content: string,
+    type: string,
+    id: string,
+  ): { line: number; column: number } {
+    const lines = content.split("\n");
+    const tagRegex = new RegExp(`<${type}\\s+[^>]*id=["']${id}["']`, "i");
 
     for (let i = 0; i < lines.length; i++) {
       const match = tagRegex.exec(lines[i]);
       if (match) {
         return {
           line: i,
-          column: match.index
+          column: match.index,
         };
       }
     }
@@ -132,10 +140,12 @@ export class MyBatisXmlParser {
 
       const locations: string[] = [];
       const mapperElements = mappers.mapper || [];
-      const elementsArray = Array.isArray(mapperElements) ? mapperElements : [mapperElements];
+      const elementsArray = Array.isArray(mapperElements)
+        ? mapperElements
+        : [mapperElements];
 
       for (const element of elementsArray) {
-        if (typeof element === 'object') {
+        if (typeof element === "object") {
           if (element.resource) {
             locations.push(element.resource);
           }
@@ -150,7 +160,9 @@ export class MyBatisXmlParser {
 
       return locations;
     } catch (error) {
-      this.logger?.debug(`Failed to parse mybatis-config.xml ${filePath}: ${error}`);
+      this.logger?.debug(
+        `Failed to parse mybatis-config.xml ${filePath}: ${error}`,
+      );
       return null;
     }
   }
@@ -161,28 +173,32 @@ export class MyBatisXmlParser {
   parseMapperLocationsFromYaml(content: string): string[] {
     const locations: string[] = [];
 
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     let inMybatisSection = false;
 
     for (const line of lines) {
       const trimmed = line.trim();
 
-      if (trimmed.startsWith('mybatis:')) {
+      if (trimmed.startsWith("mybatis:")) {
         inMybatisSection = true;
         continue;
       }
 
       if (inMybatisSection) {
-        if (trimmed.startsWith('mapper-locations:')) {
-          const value = trimmed.split(':')[1]?.trim();
+        if (trimmed.startsWith("mapper-locations:")) {
+          const value = trimmed.split(":")[1]?.trim();
           if (value) {
-            locations.push(value.replace(/["']/g, ''));
+            locations.push(value.replace(/["']/g, ""));
           }
-        } else if (trimmed.startsWith('- ') && locations.length > 0) {
+        } else if (trimmed.startsWith("- ") && locations.length > 0) {
           const value = trimmed.substring(2).trim();
-          locations.push(value.replace(/["']/g, ''));
-        } else if (!trimmed.startsWith('#') && trimmed.length > 0 && !trimmed.startsWith('mybatis')) {
-          if (!line.startsWith(' ') && !line.startsWith('\t')) {
+          locations.push(value.replace(/["']/g, ""));
+        } else if (
+          !trimmed.startsWith("#") &&
+          trimmed.length > 0 &&
+          !trimmed.startsWith("mybatis")
+        ) {
+          if (!line.startsWith(" ") && !line.startsWith("\t")) {
             inMybatisSection = false;
           }
         }
@@ -198,11 +214,11 @@ export class MyBatisXmlParser {
   parseMapperLocationsFromProperties(content: string): string[] {
     const locations: string[] = [];
 
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('mybatis.mapper-locations=')) {
-        const value = trimmed.split('=')[1];
+      if (trimmed.startsWith("mybatis.mapper-locations=")) {
+        const value = trimmed.split("=")[1];
         if (value) {
           locations.push(value.trim());
         }

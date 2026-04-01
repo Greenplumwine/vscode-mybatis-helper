@@ -3,14 +3,14 @@
  */
 
 export interface ValidationIssue {
-    configPath: string;
-    severity: 'error' | 'warning' | 'info';
-    message: string;
-    suggestion: string;
+  configPath: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  suggestion: string;
 }
 
 export interface ValidationResult {
-    valid: boolean;
-    issues: ValidationIssue[];
-    timestamp: number;
+  valid: boolean;
+  issues: ValidationIssue[];
+  timestamp: number;
 }

@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
 /**
  * 位置信息接口
@@ -51,7 +51,7 @@ export interface JavaMapperInfo {
  */
 export interface SqlStatementInfo {
   id: string;
-  type: 'select' | 'insert' | 'update' | 'delete';
+  type: "select" | "insert" | "update" | "delete";
   line: number;
   column: number;
 }
@@ -82,5 +82,3 @@ export interface ScanProgressEvent {
   processed: number;
   currentFile?: string;
 }
-
-

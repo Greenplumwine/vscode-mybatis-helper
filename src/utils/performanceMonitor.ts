@@ -1,5 +1,5 @@
-import { logger } from './logger';
-import type { FastMappingEngine } from '../features/mapping/fastMappingEngine';
+import { logger } from "./logger";
+import type { FastMappingEngine } from "../features/mapping/fastMappingEngine";
 
 interface ScanMetrics {
   startTime: number;
@@ -50,7 +50,7 @@ export class PerformanceMonitor {
     startTime: number,
     xmlFiles: number,
     javaFiles: number,
-    mappings: number
+    mappings: number,
   ): ScanMetrics {
     const metrics: ScanMetrics = {
       startTime,
@@ -58,7 +58,7 @@ export class PerformanceMonitor {
       xmlFilesFound: xmlFiles,
       javaFilesFound: javaFiles,
       mappingsBuilt: mappings,
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     };
 
     this.scanHistory.push(metrics);
@@ -69,7 +69,7 @@ export class PerformanceMonitor {
     // Log at info level for visibility
     logger.info(
       `Scan completed in ${metrics.duration}ms: ` +
-      `${xmlFiles} XML, ${javaFiles} Java, ${mappings} mappings`
+        `${xmlFiles} XML, ${javaFiles} Java, ${mappings} mappings`,
     );
 
     return metrics;
@@ -86,7 +86,7 @@ export class PerformanceMonitor {
       methodCount: stats.totalMethods,
       cacheHits: stats.cacheHits,
       cacheMisses: stats.cacheMisses,
-      hitRate: total > 0 ? stats.cacheHits / total : 0
+      hitRate: total > 0 ? stats.cacheHits / total : 0,
     };
   }
 
@@ -94,8 +94,8 @@ export class PerformanceMonitor {
     const metrics = this.getCacheMetrics(engine);
     logger.debug(
       `Cache metrics: ${metrics.namespaceCount} namespaces, ` +
-      `${metrics.methodCount} methods, ` +
-      `hit rate: ${(metrics.hitRate * 100).toFixed(1)}%`
+        `${metrics.methodCount} methods, ` +
+        `hit rate: ${(metrics.hitRate * 100).toFixed(1)}%`,
     );
   }
 
@@ -104,10 +104,10 @@ export class PerformanceMonitor {
   public getMemoryMetrics(): MemoryMetrics {
     const usage = process.memoryUsage();
     return {
-      heapUsed: Math.round(usage.heapUsed / 1024 / 1024 * 100) / 100, // MB
-      heapTotal: Math.round(usage.heapTotal / 1024 / 1024 * 100) / 100, // MB
-      external: Math.round(usage.external / 1024 / 1024 * 100) / 100, // MB
-      rss: Math.round(usage.rss / 1024 / 1024 * 100) / 100 // MB
+      heapUsed: Math.round((usage.heapUsed / 1024 / 1024) * 100) / 100, // MB
+      heapTotal: Math.round((usage.heapTotal / 1024 / 1024) * 100) / 100, // MB
+      external: Math.round((usage.external / 1024 / 1024) * 100) / 100, // MB
+      rss: Math.round((usage.rss / 1024 / 1024) * 100) / 100, // MB
     };
   }
 
@@ -115,7 +115,7 @@ export class PerformanceMonitor {
     const mem = this.getMemoryMetrics();
     logger.debug(
       `Memory: ${mem.heapUsed}MB / ${mem.heapTotal}MB heap, ` +
-      `${mem.rss}MB RSS`
+        `${mem.rss}MB RSS`,
     );
   }
 
@@ -144,35 +144,35 @@ export class PerformanceMonitor {
     const lastScan = this.scanHistory[this.scanHistory.length - 1];
 
     const lines = [
-      '=== MyBatis Helper Performance Stats ===',
-      '',
-      'Cache:',
+      "=== MyBatis Helper Performance Stats ===",
+      "",
+      "Cache:",
       `  Namespaces: ${cache.namespaceCount}`,
       `  Methods: ${cache.methodCount}`,
       `  Cache hits: ${cache.cacheHits}`,
       `  Cache misses: ${cache.cacheMisses}`,
       `  Hit rate: ${(cache.hitRate * 100).toFixed(1)}%`,
-      '',
-      'Memory:',
+      "",
+      "Memory:",
       `  Heap used: ${memory.heapUsed} MB`,
       `  Heap total: ${memory.heapTotal} MB`,
       `  RSS: ${memory.rss} MB`,
-      ''
+      "",
     ];
 
     if (lastScan) {
       lines.push(
-        'Last Scan:',
+        "Last Scan:",
         `  Duration: ${lastScan.duration}ms`,
         `  XML files: ${lastScan.xmlFilesFound}`,
         `  Java files: ${lastScan.javaFilesFound}`,
-        `  Mappings: ${lastScan.mappingsBuilt}`
+        `  Mappings: ${lastScan.mappingsBuilt}`,
       );
     } else {
-      lines.push('No scan history');
+      lines.push("No scan history");
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   public getScanHistory(): ScanMetrics[] {

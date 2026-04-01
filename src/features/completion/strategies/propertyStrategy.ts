@@ -10,32 +10,67 @@
  * @module features/completion/strategies/propertyStrategy
  */
 
-import * as vscode from 'vscode';
-import { BaseCompletionStrategy } from './baseStrategy';
-import { CompletionContext, JavaMethodParser, JavaParameter } from '../types';
-import { logger } from '../../../utils/logger';
+import * as vscode from "vscode";
+import { BaseCompletionStrategy } from "./baseStrategy";
+import { CompletionContext, JavaMethodParser, JavaParameter } from "../types";
+import { logger } from "../../../utils/logger";
 
 /**
  * JDK 类型集合 - 这些类型不应该被展开
  */
 const JDK_TYPES = new Set([
   // Wrapper types
-  'java.lang.String', 'java.lang.Integer', 'java.lang.Long',
-  'java.lang.Boolean', 'java.lang.Double', 'java.lang.Float',
-  'java.lang.Short', 'java.lang.Byte', 'java.lang.Character',
-  'java.math.BigDecimal', 'java.math.BigInteger',
+  "java.lang.String",
+  "java.lang.Integer",
+  "java.lang.Long",
+  "java.lang.Boolean",
+  "java.lang.Double",
+  "java.lang.Float",
+  "java.lang.Short",
+  "java.lang.Byte",
+  "java.lang.Character",
+  "java.math.BigDecimal",
+  "java.math.BigInteger",
   // Date/Time types
-  'java.util.Date', 'java.time.LocalDate', 'java.time.LocalDateTime',
-  'java.time.LocalTime', 'java.time.Instant', 'java.time.ZonedDateTime',
+  "java.util.Date",
+  "java.time.LocalDate",
+  "java.time.LocalDateTime",
+  "java.time.LocalTime",
+  "java.time.Instant",
+  "java.time.ZonedDateTime",
   // Collection interfaces (we want the generic type, not these)
-  'java.util.List', 'java.util.Set', 'java.util.Map',
-  'java.util.Collection', 'java.util.Iterable',
+  "java.util.List",
+  "java.util.Set",
+  "java.util.Map",
+  "java.util.Collection",
+  "java.util.Iterable",
   // Primitives
-  'int', 'long', 'boolean', 'double', 'float', 'short', 'byte', 'char',
+  "int",
+  "long",
+  "boolean",
+  "double",
+  "float",
+  "short",
+  "byte",
+  "char",
   // Common simple names
-  'String', 'Integer', 'Long', 'Boolean', 'Double', 'Float',
-  'Short', 'Byte', 'Character', 'BigDecimal', 'BigInteger',
-  'Date', 'LocalDate', 'LocalDateTime', 'LocalTime', 'Instant', 'ZonedDateTime'
+  "String",
+  "Integer",
+  "Long",
+  "Boolean",
+  "Double",
+  "Float",
+  "Short",
+  "Byte",
+  "Character",
+  "BigDecimal",
+  "BigInteger",
+  "Date",
+  "LocalDate",
+  "LocalDateTime",
+  "LocalTime",
+  "Instant",
+  "ZonedDateTime",
 ]);
 
 /**
@@ -52,19 +87,19 @@ interface PropertyPathResult {
 
 /**
  * 对象属性补全策略
- * 
+ *
  * 触发条件：
  * - 输入 `#{obj.` 或 `${obj.`（obj 是一个参数名）
- * 
+ *
  * 提供内容：
  * - 对象类型的属性列表
- * 
+ *
  * @example
  * ```java
  * // Java 方法
  * User findByCondition(@Param("user") User user);
  * ```
- * 
+ *
  * ```xml
  * <!-- 输入 #{user. 后提供的补全 -->
  * #{user.id}
@@ -73,21 +108,21 @@ interface PropertyPathResult {
  * ```
  */
 export class PropertyStrategy extends BaseCompletionStrategy {
-  /** 
+  /**
    * 触发字符：.
    */
-  readonly triggerCharacters = ['.'] as const;
-  
+  readonly triggerCharacters = ["."] as const;
+
   /**
    * 优先级：80
-   * 
+   *
    * 高于 PlaceholderStrategy (70)，低于 ForeachVariableStrategy (90)
    */
   readonly priority = 80;
-  
+
   /** 策略名称 */
-  readonly name = 'Property';
-  
+  readonly name = "Property";
+
   /** Java 方法解析器 */
   private javaParser: JavaMethodParser;
 
@@ -96,7 +131,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
 
   /**
    * 构造函数
-   * 
+   *
    * @param javaParser - Java 方法解析器，用于获取对象属性
    */
   constructor(javaParser: JavaMethodParser, maxDepth = 2) {
@@ -122,7 +157,9 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     const pattern = /#\{([\w.\[\]]+)\.[\w]*$/;
     const altPattern = /\$\{([\w.\[\]]+)\.[\w]*$/;
 
-    return pattern.test(context.linePrefix) || altPattern.test(context.linePrefix);
+    return (
+      pattern.test(context.linePrefix) || altPattern.test(context.linePrefix)
+    );
   }
 
   /**
@@ -132,35 +169,57 @@ export class PropertyStrategy extends BaseCompletionStrategy {
    * @returns 属性补全项列表
    */
   async provideCompletionItems(
-    context: CompletionContext
+    context: CompletionContext,
   ): Promise<vscode.CompletionItem[]> {
     // 解析属性路径
     const pathResult = this.parsePropertyPath(context.linePrefix);
 
-    logger.debug(`PropertyStrategy: parsing property path from "${context.linePrefix}" ->`, pathResult);
+    logger.debug(
+      `PropertyStrategy: parsing property path from "${context.linePrefix}" ->`,
+      pathResult,
+    );
 
     if (!pathResult || !context.javaMethod) {
-      logger.debug(`PropertyStrategy: no path result or java method. pathResult=${!!pathResult}, hasMethod=${!!context.javaMethod}`);
+      logger.debug(
+        `PropertyStrategy: no path result or java method. pathResult=${!!pathResult}, hasMethod=${!!context.javaMethod}`,
+      );
       return [];
     }
 
     const { rootObject, propertyPath } = pathResult;
 
     // 在参数列表中查找根对象
-    const param = this.findParameterByName(context.javaMethod.parameters, rootObject);
+    const param = this.findParameterByName(
+      context.javaMethod.parameters,
+      rootObject,
+    );
 
     logger.debug(`PropertyStrategy: found param for "${rootObject}":`, param);
 
     if (!param) {
-      logger.debug(`PropertyStrategy: parameter "${rootObject}" not found in method parameters`);
+      logger.debug(
+        `PropertyStrategy: parameter "${rootObject}" not found in method parameters`,
+      );
       return [];
     }
 
     // 获取嵌套属性（支持多级）
-    logger.debug(`PropertyStrategy: getting nested properties for type "${param.type}", path:`, propertyPath);
-    const properties = await this.getNestedProperties(param.type, propertyPath, new Set(), 0, this.maxDepth);
+    logger.debug(
+      `PropertyStrategy: getting nested properties for type "${param.type}", path:`,
+      propertyPath,
+    );
+    const properties = await this.getNestedProperties(
+      param.type,
+      propertyPath,
+      new Set(),
+      0,
+      this.maxDepth,
+    );
 
-    logger.debug(`PropertyStrategy: got ${properties.length} properties:`, properties);
+    logger.debug(
+      `PropertyStrategy: got ${properties.length} properties:`,
+      properties,
+    );
 
     // 创建补全项
     return this.createPropertyItems(properties, param, propertyPath);
@@ -180,19 +239,20 @@ export class PropertyStrategy extends BaseCompletionStrategy {
   private parsePropertyPath(linePrefix: string): PropertyPathResult | null {
     // 匹配多级属性模式：#{xxx.yyy.zzz. 或 #{user.roles[0].
     // [\w.\[\]]+ 支持数组索引语法如 roles[0]
-    const match = linePrefix.match(/#\{([\w.\[\]]+)\.([\w]*)$/) ||
-                  linePrefix.match(/\$\{([\w.\[\]]+)\.([\w]*)$/);
+    const match =
+      linePrefix.match(/#\{([\w.\[\]]+)\.([\w]*)$/) ||
+      linePrefix.match(/\$\{([\w.\[\]]+)\.([\w]*)$/);
 
     if (!match) {
       return null;
     }
 
     const fullPath = match[1];
-    const partial = match[2] || '';
+    const partial = match[2] || "";
 
     // 分割路径，处理数组索引语法如 roles[0]
     // 将 roles[0] 分割为 roles 和 [0] 两部分
-    const parts = fullPath.split('.').flatMap(part => {
+    const parts = fullPath.split(".").flatMap((part) => {
       // 处理数组索引语法：roles[0] → ['roles', '[0]']
       const arrayMatch = part.match(/^(\w+)(\[\d+\])$/);
       if (arrayMatch) {
@@ -207,7 +267,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     return {
       rootObject,
       propertyPath,
-      partial
+      partial,
     };
   }
 
@@ -228,7 +288,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     propertyPath: string[],
     visitedTypes = new Set<string>(),
     currentDepth = 0,
-    maxDepth = 2
+    maxDepth = 2,
   ): Promise<Array<{ name: string; type: string }>> {
     // 深度限制
     if (currentDepth >= maxDepth) {
@@ -238,7 +298,9 @@ export class PropertyStrategy extends BaseCompletionStrategy {
 
     // 循环引用检测
     if (visitedTypes.has(rootType)) {
-      logger.debug(`PropertyStrategy: circular reference detected for type ${rootType}`);
+      logger.debug(
+        `PropertyStrategy: circular reference detected for type ${rootType}`,
+      );
       return [];
     }
 
@@ -250,29 +312,36 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     // 逐级解析属性路径
     for (const propName of propertyPath) {
       // 处理数组索引语法如 [0]、[1]
-      if (propName.startsWith('[') && propName.endsWith(']')) {
+      if (propName.startsWith("[") && propName.endsWith("]")) {
         // 数组索引，提取集合的泛型参数
         const elementType = this.extractCollectionElementType(currentType);
         if (elementType) {
           currentType = elementType;
           // 检查元素类型是否是 JDK 类型
           if (this.isJdkType(currentType)) {
-            logger.debug(`PropertyStrategy: JDK element type ${currentType} reached, stopping navigation`);
+            logger.debug(
+              `PropertyStrategy: JDK element type ${currentType} reached, stopping navigation`,
+            );
             return [];
           }
           continue;
         }
-        logger.debug(`PropertyStrategy: cannot extract element type from ${currentType}`);
+        logger.debug(
+          `PropertyStrategy: cannot extract element type from ${currentType}`,
+        );
         return [];
       }
 
       // 获取当前类型的属性
-      const properties = await this.javaParser.getObjectProperties?.(currentType) ?? [];
+      const properties =
+        (await this.javaParser.getObjectProperties?.(currentType)) ?? [];
 
       // 查找当前属性
-      const prop = properties.find(p => p.name === propName);
+      const prop = properties.find((p) => p.name === propName);
       if (!prop) {
-        logger.debug(`PropertyStrategy: property "${propName}" not found in type ${currentType}`);
+        logger.debug(
+          `PropertyStrategy: property "${propName}" not found in type ${currentType}`,
+        );
         return [];
       }
 
@@ -281,18 +350,21 @@ export class PropertyStrategy extends BaseCompletionStrategy {
 
       // 检查是否是 JDK 类型
       if (this.isJdkType(currentType)) {
-        logger.debug(`PropertyStrategy: JDK type ${currentType} reached, stopping navigation`);
+        logger.debug(
+          `PropertyStrategy: JDK type ${currentType} reached, stopping navigation`,
+        );
         return [];
       }
     }
 
     // 获取最终类型的属性列表
-    const finalProperties = await this.javaParser.getObjectProperties?.(currentType) ?? [];
+    const finalProperties =
+      (await this.javaParser.getObjectProperties?.(currentType)) ?? [];
 
     // 过滤掉 JDK 类型，但保留类型信息用于后续判断
-    return finalProperties.map(prop => ({
+    return finalProperties.map((prop) => ({
       name: prop.name,
-      type: prop.type || 'Object'
+      type: prop.type || "Object",
     }));
   }
 
@@ -314,7 +386,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     }
 
     // 处理数组类型：User[] → User
-    if (typeName.endsWith('[]')) {
+    if (typeName.endsWith("[]")) {
       return typeName.slice(0, -2);
     }
 
@@ -327,7 +399,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     const genericContent = genericMatch[1].trim();
 
     // 处理 Map<K, V>：返回 value 类型 V
-    if (typeName.startsWith('java.util.Map') || typeName.startsWith('Map<')) {
+    if (typeName.startsWith("java.util.Map") || typeName.startsWith("Map<")) {
       const mapMatch = genericContent.match(/^([^,]+),\s*(.+)$/);
       if (mapMatch) {
         return mapMatch[2].trim(); // 返回 value 类型
@@ -337,7 +409,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
 
     // 处理单泛型参数集合：List<User>, Set<User> 等
     // 取第一个（也是唯一一个）泛型参数
-    const elementType = genericContent.split(',')[0].trim();
+    const elementType = genericContent.split(",")[0].trim();
     return elementType || null;
   }
 
@@ -353,7 +425,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     }
 
     // 处理泛型：List<String> → List
-    const baseType = typeName.split('<')[0].trim();
+    const baseType = typeName.split("<")[0].trim();
 
     // 检查是否是 JDK 类型
     if (JDK_TYPES.has(baseType)) {
@@ -361,12 +433,12 @@ export class PropertyStrategy extends BaseCompletionStrategy {
     }
 
     // 检查是否以 java. 或 javax. 开头
-    if (baseType.startsWith('java.') || baseType.startsWith('javax.')) {
+    if (baseType.startsWith("java.") || baseType.startsWith("javax.")) {
       return true;
     }
 
     // 检查是否是数组类型（基本类型数组）
-    if (baseType.endsWith('[]')) {
+    if (baseType.endsWith("[]")) {
       const elementType = baseType.slice(0, -2);
       return JDK_TYPES.has(elementType) || this.isPrimitiveType(elementType);
     }
@@ -381,32 +453,41 @@ export class PropertyStrategy extends BaseCompletionStrategy {
    * @returns 是否是基本类型
    */
   private isPrimitiveType(typeName: string): boolean {
-    const primitives = ['int', 'long', 'boolean', 'double', 'float', 'short', 'byte', 'char'];
+    const primitives = [
+      "int",
+      "long",
+      "boolean",
+      "double",
+      "float",
+      "short",
+      "byte",
+      "char",
+    ];
     return primitives.includes(typeName);
   }
 
   /**
    * 在参数列表中查找指定名称的参数
-   * 
+   *
    * 优先匹配 @Param 注解指定的名称，其次匹配参数名
-   * 
+   *
    * 算法复杂度：O(n)，n 通常为 1-5
-   * 
+   *
    * @param parameters - 参数列表
    * @param name - 要查找的参数名（可能是 @Param 值或实际参数名）
    * @returns 参数信息，未找到返回 undefined
    */
   private findParameterByName(
-    parameters: readonly JavaParameter[], 
-    name: string
+    parameters: readonly JavaParameter[],
+    name: string,
   ): JavaParameter | undefined {
     // 优先匹配 @Param 注解指定的名称
-    const byParamName = parameters.find(p => p.paramValue === name);
+    const byParamName = parameters.find((p) => p.paramValue === name);
     if (byParamName) {
       return byParamName;
     }
     // 其次匹配实际参数名
-    return parameters.find(p => p.name === name);
+    return parameters.find((p) => p.name === name);
   }
 
   /**
@@ -420,10 +501,11 @@ export class PropertyStrategy extends BaseCompletionStrategy {
   private createPropertyItems(
     properties: Array<{ name: string; type: string }>,
     param: JavaParameter,
-    propertyPath: string[] = []
+    propertyPath: string[] = [],
   ): vscode.CompletionItem[] {
     // 构建完整路径前缀
-    const pathPrefix = propertyPath.length > 0 ? propertyPath.join('.') + '.' : '';
+    const pathPrefix =
+      propertyPath.length > 0 ? propertyPath.join(".") + "." : "";
 
     return properties.map((prop, index) => {
       const fullPropName = pathPrefix + prop.name;
@@ -449,7 +531,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
         detail: `${this.extractSimpleTypeName(prop.type)} ${prop.name}`,
         documentation: docs,
         insertText,
-        sortText: index.toString().padStart(3, '0')
+        sortText: index.toString().padStart(3, "0"),
       });
     });
   }
@@ -461,7 +543,7 @@ export class PropertyStrategy extends BaseCompletionStrategy {
    * @returns 简单类型名
    */
   private extractSimpleTypeName(typeName: string): string {
-    const lastDot = typeName.lastIndexOf('.');
+    const lastDot = typeName.lastIndexOf(".");
     return lastDot >= 0 ? typeName.substring(lastDot + 1) : typeName;
   }
 }

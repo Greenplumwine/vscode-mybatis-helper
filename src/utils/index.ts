@@ -1,30 +1,23 @@
 import * as vscode from "vscode";
-import { DatabaseType, PluginConfig, FileOpenMode, NameMatchingRule, PathPriorityConfig } from "../types";
+import {
+  DatabaseType,
+  PluginConfig,
+  FileOpenMode,
+  NameMatchingRule,
+  PathPriorityConfig,
+} from "../types";
 import { RegexUtils, PerformanceUtils } from "./performanceUtils";
 import { JavaExtensionAPI } from "./javaExtensionAPI";
 import { logger, Logger } from "./logger";
 import { TIME, CACHE_LIMITS } from "./constants";
 
 // 导出工具类
-export { 
-  RegexUtils, 
-  PerformanceUtils,
-  JavaExtensionAPI,
-  Logger,
-  logger
-};
+export { RegexUtils, PerformanceUtils, JavaExtensionAPI, Logger, logger };
 
 // 导出基础设施组件
-export { 
-  TextProcessor, 
-  createTextProcessor
-} from './textProcessor';
+export { TextProcessor, createTextProcessor } from "./textProcessor";
 
-export { 
-  HttpClient, 
-  httpClient,
-  HttpClientConfig 
-} from './httpClient';
+export { HttpClient, httpClient, HttpClientConfig } from "./httpClient";
 
 // 导出字符串工具函数
 export {
@@ -32,19 +25,19 @@ export {
   snakeToCamelCase,
   isEmpty,
   defaultIfEmpty,
-  removePrefix
-} from './stringUtils';
+  removePrefix,
+} from "./stringUtils";
 
 // 导出路径安全工具
 export {
   sanitizeClassPath,
   sanitizeJarPath,
   isValidClassName,
-  sanitizeFilePath
-} from './pathSecurity';
+  sanitizeFilePath,
+} from "./pathSecurity";
 
 // 导出性能监控
-export { PerformanceMonitor } from './performanceMonitor';
+export { PerformanceMonitor } from "./performanceMonitor";
 
 /**
  * 获取插件配置
@@ -52,26 +45,32 @@ export { PerformanceMonitor } from './performanceMonitor';
  * @returns 合并后的插件配置对象
  */
 export function getPluginConfig(): PluginConfig {
-	const config = vscode.workspace.getConfiguration('mybatis-helper');
-	const nameMatchingRules = config.get<NameMatchingRule[]>('nameMatchingRules') || [];
-	const ignoreSuffixes = config.get<string[]>('ignoreSuffixes') || [];
-	const pathPriority = config.get<PathPriorityConfig>('pathPriority') || {
-		enabled: true,
-		priorityDirectories: ['/src/', '/main/', '/resources/'],
-		excludeDirectories: ['/build/', '/target/', '/out/', '/.git/']
-	};
-	
-	return {
-		databaseType: (config.get<string>('databaseType') || 'mysql') as DatabaseType,
-		customXmlDirectories: config.get<string[]>('customXmlDirectories') || [],
-		fileOpenMode: (config.get<string>('fileOpenMode') || 'useExisting') as FileOpenMode,
-		logOutputLevel: config.get<'debug' | 'info' | 'warn' | 'error'>('logOutputLevel') || 'info',
-		maxHistorySize: config.get<number>('maxHistorySize') || CACHE_LIMITS.DEFAULT_MAX_HISTORY,
-		showExecutionTime: config.get<boolean>('showExecutionTime') || false,
-		nameMatchingRules,
-		ignoreSuffixes,
-		pathPriority
-	};
+  const config = vscode.workspace.getConfiguration("mybatis-helper");
+  const nameMatchingRules =
+    config.get<NameMatchingRule[]>("nameMatchingRules") || [];
+  const ignoreSuffixes = config.get<string[]>("ignoreSuffixes") || [];
+  const pathPriority = config.get<PathPriorityConfig>("pathPriority") || {
+    enabled: true,
+    priorityDirectories: ["/src/", "/main/", "/resources/"],
+    excludeDirectories: ["/build/", "/target/", "/out/", "/.git/"],
+  };
+
+  return {
+    databaseType: (config.get<string>("databaseType") ||
+      "mysql") as DatabaseType,
+    customXmlDirectories: config.get<string[]>("customXmlDirectories") || [],
+    fileOpenMode: (config.get<string>("fileOpenMode") ||
+      "useExisting") as FileOpenMode,
+    logOutputLevel:
+      config.get<"debug" | "info" | "warn" | "error">("logOutputLevel") ||
+      "info",
+    maxHistorySize:
+      config.get<number>("maxHistorySize") || CACHE_LIMITS.DEFAULT_MAX_HISTORY,
+    showExecutionTime: config.get<boolean>("showExecutionTime") || false,
+    nameMatchingRules,
+    ignoreSuffixes,
+    pathPriority,
+  };
 }
 
 /**
@@ -92,7 +91,7 @@ export function delay(ms: number): Promise<void> {
  */
 export function safeRegexMatch(
   text: string,
-  regex: RegExp
+  regex: RegExp,
 ): RegExpExecArray | null {
   try {
     return regex.exec(text);
@@ -173,7 +172,7 @@ export function formatSQL(sql: string, databaseType?: DatabaseType): string {
       // Basic indentation rules
       if (
         ["SELECT", "INSERT", "UPDATE", "DELETE"].some((keyword) =>
-          line.toUpperCase().startsWith(keyword)
+          line.toUpperCase().startsWith(keyword),
         )
       ) {
         indentedLines.push(line);
@@ -215,13 +214,13 @@ export function highlightSQL(sql: string, databaseType: DatabaseType): string {
 
     // Use cached regular expressions for performance improvement
     const keywordRegex = regexUtils.getRegex(
-      /\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|IN|LIKE|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|CREATE|DROP|ALTER|INDEX|VIEW|TABLE|DATABASE)\b/gi
+      /\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|IN|LIKE|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|CREATE|DROP|ALTER|INDEX|VIEW|TABLE|DATABASE)\b/gi,
     );
     const stringRegex = regexUtils.getRegex(/'([^']|'')*'/g);
     const numberRegex = regexUtils.getRegex(/\b\d+(\.\d+)?\b/g);
     const commentRegex = regexUtils.getRegex(/--.*$/gm);
     const functionRegex = regexUtils.getRegex(
-      /\b(COUNT|SUM|AVG|MAX|MIN|CONCAT|SUBSTRING|DATE_FORMAT)\b\s*\(/gi
+      /\b(COUNT|SUM|AVG|MAX|MIN|CONCAT|SUBSTRING|DATE_FORMAT)\b\s*\(/gi,
     );
     const placeholderRegex = regexUtils.getRegex(/\?/g);
 
@@ -229,37 +228,37 @@ export function highlightSQL(sql: string, databaseType: DatabaseType): string {
     // 1. Comments (to prevent them from being highlighted by other patterns)
     highlightedSQL = highlightedSQL.replace(
       commentRegex,
-      '<span class="sql-comment">$&</span>'
+      '<span class="sql-comment">$&</span>',
     );
 
     // 2. Strings
     highlightedSQL = highlightedSQL.replace(
       stringRegex,
-      '<span class="sql-string">$&</span>'
+      '<span class="sql-string">$&</span>',
     );
 
     // 3. Numbers
     highlightedSQL = highlightedSQL.replace(
       numberRegex,
-      '<span class="sql-number">$&</span>'
+      '<span class="sql-number">$&</span>',
     );
 
     // 4. Functions
     highlightedSQL = highlightedSQL.replace(
       functionRegex,
-      '<span class="sql-function">$1</span> ('
+      '<span class="sql-function">$1</span> (',
     );
 
     // 5. Keywords
     highlightedSQL = highlightedSQL.replace(
       keywordRegex,
-      '<span class="sql-keyword">$1</span>'
+      '<span class="sql-keyword">$1</span>',
     );
 
     // 6. Placeholders
     highlightedSQL = highlightedSQL.replace(
       placeholderRegex,
-      '<span class="sql-placeholder">?</span>'
+      '<span class="sql-placeholder">?</span>',
     );
 
     // 缓存结果

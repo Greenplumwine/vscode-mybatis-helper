@@ -1,6 +1,6 @@
 /**
  * 高性能导航服务
- * 
+ *
  * 核心优化：
  * 1. O(1) 索引查找，避免线性搜索
  * 2. 快速路径优先，避免不必要的文件I/O
@@ -8,12 +8,12 @@
  * 4. 智能回退策略
  */
 
-import * as vscode from 'vscode';
-import { FastMappingEngine } from './fastMappingEngine';
-import { FastScanner } from './fastScanner';
-import { MapperMapping, MethodMapping } from './types';
-import { Logger } from '../../utils/logger';
-import { THRESHOLDS } from '../../utils/constants';
+import * as vscode from "vscode";
+import { FastMappingEngine } from "./fastMappingEngine";
+import { FastScanner } from "./fastScanner";
+import { MapperMapping, MethodMapping } from "./types";
+import { Logger } from "../../utils/logger";
+import { THRESHOLDS } from "../../utils/constants";
 
 interface NavigationOptions {
   openSideBySide?: boolean;
@@ -21,7 +21,7 @@ interface NavigationOptions {
 }
 
 const DEFAULT_OPTIONS: NavigationOptions = {
-  revealType: vscode.TextEditorRevealType.InCenter
+  revealType: vscode.TextEditorRevealType.InCenter,
 };
 
 export class FastNavigationService {
@@ -47,7 +47,7 @@ export class FastNavigationService {
   }
 
   public async initialize(): Promise<void> {
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
   }
 
@@ -55,7 +55,7 @@ export class FastNavigationService {
 
   /**
    * 从 Java Mapper 跳转到 XML
-   * 
+   *
    * 优化路径：
    * 1. 检查缓存 - O(1)
    * 2. 索引查找 - O(1)
@@ -63,12 +63,14 @@ export class FastNavigationService {
    * 4. 按需扫描单个文件
    */
   public async navigateJavaToXml(
-    javaPath: string, 
+    javaPath: string,
     methodName?: string,
-    options: NavigationOptions = DEFAULT_OPTIONS
+    options: NavigationOptions = DEFAULT_OPTIONS,
   ): Promise<boolean> {
     const startTime = Date.now();
-    this.logger?.debug(`Navigating Java→XML: ${javaPath}, method: ${methodName}`);
+    this.logger?.debug(
+      `Navigating Java→XML: ${javaPath}, method: ${methodName}`,
+    );
 
     try {
       // 1. 索引查找 - O(1)
@@ -76,13 +78,15 @@ export class FastNavigationService {
 
       // 2. 如果未找到，尝试快速扫描该文件
       if (!mapping) {
-        this.logger?.debug('Mapping not found, rescanning Java file...');
+        this.logger?.debug("Mapping not found, rescanning Java file...");
         await this.scanner.rescanJavaFile(javaPath);
         mapping = this.mappingEngine.getByJavaPath(javaPath);
       }
 
       if (!mapping) {
-        vscode.window.showWarningMessage(vscode.l10n.t("warning.notMyBatisMapper"));
+        vscode.window.showWarningMessage(
+          vscode.l10n.t("warning.notMyBatisMapper"),
+        );
         return false;
       }
 
@@ -93,13 +97,15 @@ export class FastNavigationService {
           this.mappingEngine.updateXmlPath(javaPath, xmlPath);
           mapping = this.mappingEngine.getByJavaPath(javaPath)!;
         } else {
-          vscode.window.showWarningMessage(vscode.l10n.t("fileMapper.noXmlFile"));
+          vscode.window.showWarningMessage(
+            vscode.l10n.t("fileMapper.noXmlFile"),
+          );
           return false;
         }
       }
 
       // 3. 执行跳转
-      const targetPosition = methodName 
+      const targetPosition = methodName
         ? this.findMethodPositionInXml(mapping, methodName)
         : undefined;
 
@@ -110,9 +116,8 @@ export class FastNavigationService {
 
       this.logger?.debug(`Navigation completed in ${Date.now() - startTime}ms`);
       return true;
-
     } catch (error) {
-      this.logger?.error('Java→XML navigation failed:', error as Error);
+      this.logger?.error("Java→XML navigation failed:", error as Error);
       vscode.window.showErrorMessage(vscode.l10n.t("error.navigationFailed"));
       return false;
     }
@@ -122,7 +127,7 @@ export class FastNavigationService {
 
   /**
    * 从 XML 跳转到 Java Mapper
-   * 
+   *
    * 优化路径：
    * 1. 索引查找 - O(1)
    * 2. namespace 查找 - O(1)
@@ -131,7 +136,7 @@ export class FastNavigationService {
   public async navigateXmlToJava(
     xmlPath: string,
     sqlId?: string,
-    options: NavigationOptions = DEFAULT_OPTIONS
+    options: NavigationOptions = DEFAULT_OPTIONS,
   ): Promise<boolean> {
     const startTime = Date.now();
     this.logger?.debug(`Navigating XML→Java: ${xmlPath}, sqlId: ${sqlId}`);
@@ -142,13 +147,15 @@ export class FastNavigationService {
 
       // 2. 如果未找到，解析 XML 获取 namespace
       if (!mapping) {
-        this.logger?.debug('Mapping not found, parsing XML...');
-        const { MyBatisXmlParser } = await import('./xmlParser.js');
+        this.logger?.debug("Mapping not found, parsing XML...");
+        const { MyBatisXmlParser } = await import("./xmlParser.js");
         const parser = MyBatisXmlParser.getInstance();
         const xmlInfo = await parser.parseXmlMapper(xmlPath);
 
         if (!xmlInfo?.namespace) {
-          vscode.window.showWarningMessage(vscode.l10n.t("fileMapper.noNamespace"));
+          vscode.window.showWarningMessage(
+            vscode.l10n.t("fileMapper.noNamespace"),
+          );
           return false;
         }
 
@@ -163,7 +170,9 @@ export class FastNavigationService {
       }
 
       if (!mapping) {
-        vscode.window.showWarningMessage(vscode.l10n.t("fileMapper.noMapperInterface"));
+        vscode.window.showWarningMessage(
+          vscode.l10n.t("fileMapper.noMapperInterface"),
+        );
         return false;
       }
 
@@ -176,9 +185,8 @@ export class FastNavigationService {
 
       this.logger?.debug(`Navigation completed in ${Date.now() - startTime}ms`);
       return true;
-
     } catch (error) {
-      this.logger?.error('XML→Java navigation failed:', error as Error);
+      this.logger?.error("XML→Java navigation failed:", error as Error);
       vscode.window.showErrorMessage(vscode.l10n.t("error.navigationFailed"));
       return false;
     }
@@ -191,15 +199,15 @@ export class FastNavigationService {
    */
   public async getNavigationInfo(
     document: vscode.TextDocument,
-    position: vscode.Position
+    position: vscode.Position,
   ): Promise<{
     canNavigate: boolean;
-    direction: 'java-to-xml' | 'xml-to-java' | null;
+    direction: "java-to-xml" | "xml-to-java" | null;
     targetPath?: string;
     methodName?: string;
   }> {
     const filePath = document.uri.fsPath;
-    const isJava = filePath.endsWith('.java');
+    const isJava = filePath.endsWith(".java");
 
     if (isJava) {
       const mapping = this.mappingEngine.getByJavaPath(filePath);
@@ -207,12 +215,15 @@ export class FastNavigationService {
         return { canNavigate: false, direction: null };
       }
 
-      const methodName = await this.extractCurrentMethodName(document, position);
+      const methodName = await this.extractCurrentMethodName(
+        document,
+        position,
+      );
       return {
         canNavigate: !!mapping.xmlPath,
-        direction: 'java-to-xml',
+        direction: "java-to-xml",
         targetPath: mapping.xmlPath,
-        methodName
+        methodName,
       };
     } else {
       const mapping = this.mappingEngine.getByXmlPath(filePath);
@@ -223,9 +234,9 @@ export class FastNavigationService {
       const sqlId = await this.extractCurrentSqlId(document, position);
       return {
         canNavigate: true,
-        direction: 'xml-to-java',
+        direction: "xml-to-java",
         targetPath: mapping.javaPath,
-        methodName: sqlId
+        methodName: sqlId,
       };
     }
   }
@@ -234,10 +245,10 @@ export class FastNavigationService {
    * 检查是否可以导航
    */
   public canNavigate(filePath: string): boolean {
-    if (filePath.endsWith('.java')) {
+    if (filePath.endsWith(".java")) {
       const mapping = this.mappingEngine.getByJavaPath(filePath);
       return !!mapping?.xmlPath;
-    } else if (filePath.endsWith('.xml')) {
+    } else if (filePath.endsWith(".xml")) {
       return this.mappingEngine.hasXmlMapping(filePath);
     }
     return false;
@@ -247,10 +258,12 @@ export class FastNavigationService {
 
   /**
    * 通过 namespace 查找 XML 文件（用于恢复映射）
-   * 
+   *
    * 优化：先检查索引，再搜索文件系统
    */
-  private async findXmlByNamespace(namespace: string): Promise<string | undefined> {
+  private async findXmlByNamespace(
+    namespace: string,
+  ): Promise<string | undefined> {
     // 1. 检查是否已有其他 XML 使用此 namespace
     const existingMapping = this.mappingEngine.getByNamespace(namespace);
     if (existingMapping?.xmlPath) {
@@ -258,9 +271,11 @@ export class FastNavigationService {
     }
 
     // 2. 快速路径：基于类名猜测路径
-    const className = namespace.substring(namespace.lastIndexOf('.') + 1);
+    const className = namespace.substring(namespace.lastIndexOf(".") + 1);
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) return undefined;
+    if (!workspaceFolders) {
+      return undefined;
+    }
 
     for (const folder of workspaceFolders) {
       // 常见路径模式
@@ -268,22 +283,22 @@ export class FastNavigationService {
         `**/mapper/**/${className}.xml`,
         `**/mappers/**/${className}.xml`,
         `**/resources/**/${className}.xml`,
-        `**/${className}.xml`
+        `**/${className}.xml`,
       ];
 
       for (const pattern of possiblePaths) {
         const files = await vscode.workspace.findFiles(
           pattern,
-          '**/{node_modules,.git,target,build,out}/**',
-          5
+          "**/{node_modules,.git,target,build,out}/**",
+          5,
         );
 
         for (const file of files) {
           // 验证 namespace
-          const { MyBatisXmlParser } = await import('./xmlParser.js');
+          const { MyBatisXmlParser } = await import("./xmlParser.js");
           const parser = MyBatisXmlParser.getInstance();
           const xmlInfo = await parser.parseXmlMapper(file.fsPath);
-          
+
           if (xmlInfo?.namespace === namespace) {
             return file.fsPath;
           }
@@ -299,7 +314,7 @@ export class FastNavigationService {
    */
   private findMethodPositionInXml(
     mapping: MapperMapping,
-    methodName: string
+    methodName: string,
   ): { line: number; column: number } | undefined {
     const methodMapping = mapping.methods.get(methodName);
     return methodMapping?.xmlPosition;
@@ -310,7 +325,7 @@ export class FastNavigationService {
    */
   private findSqlIdPositionInJava(
     mapping: MapperMapping,
-    sqlId: string
+    sqlId: string,
   ): { line: number; column: number } | undefined {
     const methodMapping = mapping.methods.get(sqlId);
     return methodMapping?.javaPosition;
@@ -322,13 +337,13 @@ export class FastNavigationService {
   private async openAndReveal(
     filePath: string,
     position?: { line: number; column: number },
-    options?: NavigationOptions
+    options?: NavigationOptions,
   ): Promise<void> {
     const uri = vscode.Uri.file(filePath);
-    
+
     // 确定视图列
-    const viewColumn = options?.openSideBySide 
-      ? vscode.ViewColumn.Beside 
+    const viewColumn = options?.openSideBySide
+      ? vscode.ViewColumn.Beside
       : vscode.ViewColumn.One;
 
     // 打开文档
@@ -336,16 +351,19 @@ export class FastNavigationService {
     const editor = await vscode.window.showTextDocument(document, {
       viewColumn,
       preserveFocus: false,
-      preview: false
+      preview: false,
     });
 
     // 定位到指定位置
     if (position) {
-      const vscodePosition = new vscode.Position(position.line, position.column);
+      const vscodePosition = new vscode.Position(
+        position.line,
+        position.column,
+      );
       editor.selection = new vscode.Selection(vscodePosition, vscodePosition);
       editor.revealRange(
         new vscode.Range(vscodePosition, vscodePosition),
-        options?.revealType || vscode.TextEditorRevealType.InCenter
+        options?.revealType || vscode.TextEditorRevealType.InCenter,
       );
     }
   }
@@ -355,32 +373,35 @@ export class FastNavigationService {
    */
   private async extractCurrentMethodName(
     document: vscode.TextDocument,
-    position: vscode.Position
+    position: vscode.Position,
   ): Promise<string | undefined> {
     // 尝试使用文档符号（最准确）
     try {
-      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-        'vscode.executeDocumentSymbolProvider',
-        document.uri
-      );
+      const symbols = await vscode.commands.executeCommand<
+        vscode.DocumentSymbol[]
+      >("vscode.executeDocumentSymbolProvider", document.uri);
 
       if (symbols) {
         for (const symbol of symbols) {
-          if (symbol.kind === vscode.SymbolKind.Method &&
-              symbol.range.contains(position)) {
+          if (
+            symbol.kind === vscode.SymbolKind.Method &&
+            symbol.range.contains(position)
+          ) {
             return symbol.name;
           }
           // 检查子符号
           for (const child of symbol.children || []) {
-            if (child.kind === vscode.SymbolKind.Method &&
-                child.range.contains(position)) {
+            if (
+              child.kind === vscode.SymbolKind.Method &&
+              child.range.contains(position)
+            ) {
               return child.name;
             }
           }
         }
       }
     } catch (error) {
-      this.logger?.debug('Failed to get document symbols:', error);
+      this.logger?.debug("Failed to get document symbols:", error);
     }
 
     // 降级：正则匹配当前行
@@ -399,11 +420,12 @@ export class FastNavigationService {
    */
   private async extractCurrentSqlId(
     document: vscode.TextDocument,
-    position: vscode.Position
+    position: vscode.Position,
   ): Promise<string | undefined> {
     // 从当前行向上查找
-    const sqlIdRegex = /<(select|insert|update|delete)\s+[^>]*id\s*=\s*["']([^"']+)["']/;
-    
+    const sqlIdRegex =
+      /<(select|insert|update|delete)\s+[^>]*id\s*=\s*["']([^"']+)["']/;
+
     for (let i = position.line; i >= 0; i--) {
       const line = document.lineAt(i).text;
       const match = sqlIdRegex.exec(line);
@@ -420,7 +442,7 @@ export class FastNavigationService {
    */
   private updateRecentCache(javaPath: string, xmlPath: string): void {
     this.recentMappings.set(javaPath, xmlPath);
-    
+
     // 限制缓存大小
     if (this.recentMappings.size > this.MAX_RECENT) {
       const firstKey = this.recentMappings.keys().next().value;
@@ -435,7 +457,7 @@ export class FastNavigationService {
   public getDiagnostics(): object {
     return {
       recentCacheSize: this.recentMappings.size,
-      engineDiagnostics: this.mappingEngine.getDiagnostics()
+      engineDiagnostics: this.mappingEngine.getDiagnostics(),
     };
   }
 }

@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import { JavaMapperInfo, MapperScanConfig, Position } from './types';
-import { Logger } from '../../utils/logger';
+import * as vscode from "vscode";
+import { JavaMapperInfo, MapperScanConfig, Position } from "./types";
+import { Logger } from "../../utils/logger";
 
 /**
  * 增强的 Java API 封装
@@ -20,7 +20,7 @@ export class EnhancedJavaAPI {
   }
 
   public async initialize(): Promise<void> {
-    const { Logger } = await import('../../utils/logger.js');
+    const { Logger } = await import("../../utils/logger.js");
     this.logger = Logger.getInstance();
   }
 
@@ -33,12 +33,15 @@ export class EnhancedJavaAPI {
     const processedFiles = new Set<string>();
 
     try {
-      this.logger?.info('Searching for @MapperScan configurations...');
+      this.logger?.info("Searching for @MapperScan configurations...");
       const startTime = Date.now();
 
       // 策略 1: 使用工作区符号搜索（最快）
-      const symbolSearchFiles = await this.findCandidateFilesWithWorkspaceSymbols();
-      this.logger?.debug(`Found ${symbolSearchFiles.length} candidate files via workspace symbols`);
+      const symbolSearchFiles =
+        await this.findCandidateFilesWithWorkspaceSymbols();
+      this.logger?.debug(
+        `Found ${symbolSearchFiles.length} candidate files via workspace symbols`,
+      );
 
       // 解析符号搜索找到的文件
       for (const filePath of symbolSearchFiles) {
@@ -51,7 +54,9 @@ export class EnhancedJavaAPI {
           const config = await this.parseMapperScanFromFile(filePath);
           if (config) {
             configs.push(config);
-            this.logger?.debug(`Found @MapperScan in ${filePath}: ${config.basePackages.join(', ')}`);
+            this.logger?.debug(
+              `Found @MapperScan in ${filePath}: ${config.basePackages.join(", ")}`,
+            );
           }
         } catch (error) {
           this.logger?.debug(`Failed to parse ${filePath}: ${error}`);
@@ -61,14 +66,20 @@ export class EnhancedJavaAPI {
       // 如果通过符号搜索找到了配置，直接返回（性能最优路径）
       if (configs.length > 0) {
         const duration = Date.now() - startTime;
-        this.logger?.info(`Found ${configs.length} @MapperScan configurations in ${duration}ms via workspace symbols`);
+        this.logger?.info(
+          `Found ${configs.length} @MapperScan configurations in ${duration}ms via workspace symbols`,
+        );
         return configs;
       }
 
       // 策略 2: 快速文本搜索（限制搜索范围）
-      this.logger?.debug('No @MapperScan found via symbols, trying targeted file search...');
+      this.logger?.debug(
+        "No @MapperScan found via symbols, trying targeted file search...",
+      );
       const targetedFiles = await this.findFilesWithTargetedSearch();
-      this.logger?.debug(`Found ${targetedFiles.length} candidate files via targeted search`);
+      this.logger?.debug(
+        `Found ${targetedFiles.length} candidate files via targeted search`,
+      );
 
       for (const filePath of targetedFiles) {
         if (processedFiles.has(filePath)) {
@@ -80,7 +91,9 @@ export class EnhancedJavaAPI {
           const config = await this.parseMapperScanFromFile(filePath);
           if (config) {
             configs.push(config);
-            this.logger?.debug(`Found @MapperScan in ${filePath}: ${config.basePackages.join(', ')}`);
+            this.logger?.debug(
+              `Found @MapperScan in ${filePath}: ${config.basePackages.join(", ")}`,
+            );
           }
         } catch (error) {
           this.logger?.debug(`Failed to parse ${filePath}: ${error}`);
@@ -88,10 +101,12 @@ export class EnhancedJavaAPI {
       }
 
       const duration = Date.now() - startTime;
-      this.logger?.info(`Found ${configs.length} @MapperScan configurations in ${duration}ms`);
+      this.logger?.info(
+        `Found ${configs.length} @MapperScan configurations in ${duration}ms`,
+      );
       return configs;
     } catch (error) {
-      this.logger?.error('Failed to find @MapperScan configs:', error as Error);
+      this.logger?.error("Failed to find @MapperScan configs:", error as Error);
       return [];
     }
   }
@@ -107,29 +122,30 @@ export class EnhancedJavaAPI {
     try {
       // 搜索常见的类名模式，限制结果数量以提高性能
       const searchPatterns = [
-        'Application',
-        'Config',
-        'Mybatis',
-        'Mapper',
-        'Boot',
+        "Application",
+        "Config",
+        "Mybatis",
+        "Mapper",
+        "Boot",
       ];
 
       for (const pattern of searchPatterns) {
         try {
-          const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-            'vscode.executeWorkspaceSymbolProvider',
-            pattern
-          );
+          const symbols = await vscode.commands.executeCommand<
+            vscode.SymbolInformation[]
+          >("vscode.executeWorkspaceSymbolProvider", pattern);
 
           if (symbols && symbols.length > 0) {
             // 限制每个模式的结果数量
             const limitedSymbols = symbols.slice(0, 20);
 
             for (const symbol of limitedSymbols) {
-              if (symbol.kind === vscode.SymbolKind.Class ||
-                  symbol.kind === vscode.SymbolKind.Interface) {
+              if (
+                symbol.kind === vscode.SymbolKind.Class ||
+                symbol.kind === vscode.SymbolKind.Interface
+              ) {
                 const uri = symbol.location.uri.toString();
-                if (!processedUris.has(uri) && uri.endsWith('.java')) {
+                if (!processedUris.has(uri) && uri.endsWith(".java")) {
                   processedUris.add(uri);
                   candidateFiles.push(symbol.location.uri.fsPath);
                 }
@@ -137,13 +153,15 @@ export class EnhancedJavaAPI {
             }
           }
         } catch (error) {
-          this.logger?.debug(`Workspace symbol search failed for pattern ${pattern}: ${error}`);
+          this.logger?.debug(
+            `Workspace symbol search failed for pattern ${pattern}: ${error}`,
+          );
         }
       }
 
       return candidateFiles;
     } catch (error) {
-      this.logger?.debug('Failed to search workspace symbols:', error);
+      this.logger?.debug("Failed to search workspace symbols:", error);
       return [];
     }
   }
@@ -159,11 +177,11 @@ export class EnhancedJavaAPI {
     try {
       // 策略：只搜索常见的配置目录
       const targetPatterns = [
-        '**/config/**/*.java',
-        '**/configuration/**/*.java',
-        '**/*Application*.java',
-        '**/*Config*.java',
-        '**/src/main/java/**/*.java',
+        "**/config/**/*.java",
+        "**/configuration/**/*.java",
+        "**/*Application*.java",
+        "**/*Config*.java",
+        "**/src/main/java/**/*.java",
       ];
 
       const allFiles: vscode.Uri[] = [];
@@ -173,8 +191,8 @@ export class EnhancedJavaAPI {
         try {
           const files = await vscode.workspace.findFiles(
             pattern,
-            '**/{node_modules,.git,target,build,out}/**',
-            50 // 限制每个模式的结果数量
+            "**/{node_modules,.git,target,build,out}/**",
+            50, // 限制每个模式的结果数量
           );
           return files;
         } catch (error) {
@@ -194,7 +212,9 @@ export class EnhancedJavaAPI {
         }
       }
 
-      this.logger?.debug(`Targeted search found ${allFiles.length} candidate files`);
+      this.logger?.debug(
+        `Targeted search found ${allFiles.length} candidate files`,
+      );
 
       // 批量检查文件内容
       const batchSize = 50;
@@ -207,14 +227,17 @@ export class EnhancedJavaAPI {
               // 快速检查：只读取文件前 30 行
               const document = await vscode.workspace.openTextDocument(file);
               const lineCount = Math.min(30, document.lineCount);
-              let content = '';
+              let content = "";
               for (let j = 0; j < lineCount; j++) {
-                content += document.lineAt(j).text + '\n';
+                content += document.lineAt(j).text + "\n";
               }
 
               // 快速排除：检查是否包含 mybatis 或 MapperScan 相关 import
-              if (content.includes('mybatis') || content.includes('MapperScan')) {
-                if (content.includes('@MapperScan')) {
+              if (
+                content.includes("mybatis") ||
+                content.includes("MapperScan")
+              ) {
+                if (content.includes("@MapperScan")) {
                   return file.fsPath;
                 }
               }
@@ -222,7 +245,7 @@ export class EnhancedJavaAPI {
             } catch (error) {
               return null;
             }
-          })
+          }),
         );
 
         for (const result of batchResults) {
@@ -234,7 +257,7 @@ export class EnhancedJavaAPI {
 
       return filesWithAnnotation;
     } catch (error) {
-      this.logger?.debug('Failed to search files with targeted search:', error);
+      this.logger?.debug("Failed to search files with targeted search:", error);
       return [];
     }
   }
@@ -242,7 +265,9 @@ export class EnhancedJavaAPI {
   /**
    * 从文件解析 @MapperScan 配置
    */
-  private async parseMapperScanFromFile(filePath: string): Promise<MapperScanConfig | null> {
+  private async parseMapperScanFromFile(
+    filePath: string,
+  ): Promise<MapperScanConfig | null> {
     try {
       const document = await vscode.workspace.openTextDocument(filePath);
       const content = document.getText();
@@ -257,59 +282,68 @@ export class EnhancedJavaAPI {
   /**
    * 从文件内容解析 @MapperScan 配置
    */
-  private parseMapperScanFromContent(content: string, filePath: string): MapperScanConfig | null {
+  private parseMapperScanFromContent(
+    content: string,
+    filePath: string,
+  ): MapperScanConfig | null {
     // 匹配 @MapperScan 注解，支持多种格式
-    const mapperScanRegex = /@MapperScan\s*\(\s*(?:(?:value|basePackages)\s*=\s*)?(\{[^}]*\}|["'][^"']+["'])\s*(?:,\s*\w+\s*=\s*[^)]+)?\s*\)/;
+    const mapperScanRegex =
+      /@MapperScan\s*\(\s*(?:(?:value|basePackages)\s*=\s*)?(\{[^}]*\}|["'][^"']+["'])\s*(?:,\s*\w+\s*=\s*[^)]+)?\s*\)/;
     const mapperScanMatch = content.match(mapperScanRegex);
 
     if (mapperScanMatch) {
       const value = mapperScanMatch[1].trim();
 
       // 如果是数组格式 { "pkg1", "pkg2" }
-      if (value.startsWith('{') && value.endsWith('}')) {
+      if (value.startsWith("{") && value.endsWith("}")) {
         const packages = value
           .slice(1, -1)
-          .split(',')
-          .map(p => p.trim().replace(/["']/g, ''))
-          .filter(p => p.length > 0);
+          .split(",")
+          .map((p) => p.trim().replace(/["']/g, ""))
+          .filter((p) => p.length > 0);
 
         if (packages.length > 0) {
           return {
             basePackages: packages,
-            sourceFile: filePath
+            sourceFile: filePath,
           };
         }
       } else {
         // 单个字符串值
-        const packageName = value.replace(/["']/g, '');
+        const packageName = value.replace(/["']/g, "");
         if (packageName) {
           return {
             basePackages: [packageName],
-            sourceFile: filePath
+            sourceFile: filePath,
           };
         }
       }
     }
 
     // 尝试匹配 basePackageClasses
-    const basePackageClassesRegex = /@MapperScan\s*\(\s*basePackageClasses\s*=\s*\{([^}]+)\}\s*\)/;
+    const basePackageClassesRegex =
+      /@MapperScan\s*\(\s*basePackageClasses\s*=\s*\{([^}]+)\}\s*\)/;
     const basePackageClassesMatch = content.match(basePackageClassesRegex);
 
     if (basePackageClassesMatch) {
       const classRefs = basePackageClassesMatch[1]
-        .split(',')
-        .map(c => c.trim().replace(/\.class/g, ''))
-        .filter(c => c.length > 0);
+        .split(",")
+        .map((c) => c.trim().replace(/\.class/g, ""))
+        .filter((c) => c.length > 0);
 
-      const packages = classRefs.map(classRef => {
-        const lastDotIndex = classRef.lastIndexOf('.');
-        return lastDotIndex > 0 ? classRef.substring(0, lastDotIndex) : classRef;
-      }).filter(p => p.length > 0);
+      const packages = classRefs
+        .map((classRef) => {
+          const lastDotIndex = classRef.lastIndexOf(".");
+          return lastDotIndex > 0
+            ? classRef.substring(0, lastDotIndex)
+            : classRef;
+        })
+        .filter((p) => p.length > 0);
 
       if (packages.length > 0) {
         return {
           basePackages: packages,
-          sourceFile: filePath
+          sourceFile: filePath,
         };
       }
     }
@@ -328,11 +362,11 @@ export class EnhancedJavaAPI {
       if (packages && packages.length > 0) {
         // 并行收集所有包路径下的文件
         const filePromises = packages.map(async (pkg) => {
-          const pkgPath = pkg.replace(/\./g, '/');
+          const pkgPath = pkg.replace(/\./g, "/");
           const pattern = `**/${pkgPath}/**/*.java`;
           return vscode.workspace.findFiles(
             pattern,
-            '**/{node_modules,.git,target,build,out}/**'
+            "**/{node_modules,.git,target,build,out}/**",
           );
         });
 
@@ -340,7 +374,7 @@ export class EnhancedJavaAPI {
         const allFiles = fileArrays.flat();
 
         // 去重
-        const uniqueFiles = allFiles.filter(file => {
+        const uniqueFiles = allFiles.filter((file) => {
           if (scannedFiles.has(file.fsPath)) {
             return false;
           }
@@ -348,25 +382,29 @@ export class EnhancedJavaAPI {
           return true;
         });
 
-        this.logger?.debug(`Found ${uniqueFiles.length} unique Java files in packages`);
+        this.logger?.debug(
+          `Found ${uniqueFiles.length} unique Java files in packages`,
+        );
 
         // 批量并行解析
         const batchSize = 20;
         for (let i = 0; i < uniqueFiles.length; i += batchSize) {
           const batch = uniqueFiles.slice(i, i + batchSize);
           const batchResults = await Promise.all(
-            batch.map(file => this.parseJavaMapperFile(file.fsPath))
+            batch.map((file) => this.parseJavaMapperFile(file.fsPath)),
           );
-          mappers.push(...batchResults.filter((m): m is JavaMapperInfo => m !== null));
+          mappers.push(
+            ...batchResults.filter((m): m is JavaMapperInfo => m !== null),
+          );
 
           if (i + batchSize < uniqueFiles.length) {
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise((resolve) => setTimeout(resolve, 0));
           }
         }
       } else {
         const allJavaFiles = await vscode.workspace.findFiles(
-          '**/*.java',
-          '**/{node_modules,.git,target,build,out}/**'
+          "**/*.java",
+          "**/{node_modules,.git,target,build,out}/**",
         );
 
         this.logger?.debug(`Found ${allJavaFiles.length} Java files to scan`);
@@ -375,12 +413,14 @@ export class EnhancedJavaAPI {
         for (let i = 0; i < allJavaFiles.length; i += batchSize) {
           const batch = allJavaFiles.slice(i, i + batchSize);
           const batchResults = await Promise.all(
-            batch.map(file => this.parseJavaMapperFile(file.fsPath))
+            batch.map((file) => this.parseJavaMapperFile(file.fsPath)),
           );
-          mappers.push(...batchResults.filter((m): m is JavaMapperInfo => m !== null));
+          mappers.push(
+            ...batchResults.filter((m): m is JavaMapperInfo => m !== null),
+          );
 
           if (i + batchSize < allJavaFiles.length) {
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise((resolve) => setTimeout(resolve, 0));
           }
         }
       }
@@ -388,7 +428,7 @@ export class EnhancedJavaAPI {
       this.logger?.info(`Scanned ${mappers.length} Java mappers`);
       return mappers;
     } catch (error) {
-      this.logger?.error('Failed to scan Java mappers:', error as Error);
+      this.logger?.error("Failed to scan Java mappers:", error as Error);
       return [];
     }
   }
@@ -407,21 +447,24 @@ export class EnhancedJavaAPI {
       }
 
       const hasMapperAnnotation = /@Mapper\b/.test(content);
-      const hasMyBatisImport = /import\s+org\.apache\.ibatis|import\s+org\.mybatis/.test(content);
+      const hasMyBatisImport =
+        /import\s+org\.apache\.ibatis|import\s+org\.mybatis/.test(content);
 
       if (!hasMapperAnnotation && !hasMyBatisImport) {
         return null;
       }
 
       const packageMatch = content.match(/package\s+([^;]+);/);
-      const packageName = packageMatch ? packageMatch[1] : '';
+      const packageName = packageMatch ? packageMatch[1] : "";
 
       const classNameMatch = content.match(/interface\s+(\w+)/);
       if (!classNameMatch) {
         return null;
       }
       const simpleClassName = classNameMatch[1];
-      const className = packageName ? `${packageName}.${simpleClassName}` : simpleClassName;
+      const className = packageName
+        ? `${packageName}.${simpleClassName}`
+        : simpleClassName;
 
       const symbols = await this.getDocumentSymbols(filePath);
       const methods: Array<{ name: string; position: Position }> = [];
@@ -432,8 +475,8 @@ export class EnhancedJavaAPI {
             name: symbol.name,
             position: {
               line: symbol.range.start.line,
-              column: symbol.range.start.character
-            }
+              column: symbol.range.start.character,
+            },
           });
         }
       }
@@ -442,7 +485,7 @@ export class EnhancedJavaAPI {
         filePath,
         className,
         packageName,
-        methods
+        methods,
       };
     } catch (error) {
       this.logger?.debug(`Failed to parse Java file ${filePath}: ${error}`);
@@ -458,10 +501,9 @@ export class EnhancedJavaAPI {
       const uri = vscode.Uri.file(filePath);
       const document = await vscode.workspace.openTextDocument(uri);
 
-      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-        'vscode.executeDocumentSymbolProvider',
-        uri
-      );
+      const symbols = await vscode.commands.executeCommand<
+        vscode.DocumentSymbol[]
+      >("vscode.executeDocumentSymbolProvider", uri);
 
       if (symbols && symbols.length > 0) {
         return symbols;
@@ -469,7 +511,9 @@ export class EnhancedJavaAPI {
 
       return this.fallbackSymbolParsing(document);
     } catch (error) {
-      this.logger?.debug(`Failed to get document symbols for ${filePath}: ${error}`);
+      this.logger?.debug(
+        `Failed to get document symbols for ${filePath}: ${error}`,
+      );
       return [];
     }
   }
@@ -477,12 +521,15 @@ export class EnhancedJavaAPI {
   /**
    * 降级方案
    */
-  private fallbackSymbolParsing(document: vscode.TextDocument): vscode.DocumentSymbol[] {
+  private fallbackSymbolParsing(
+    document: vscode.TextDocument,
+  ): vscode.DocumentSymbol[] {
     const symbols: vscode.DocumentSymbol[] = [];
     const content = document.getText();
-    const lines = content.split('\n');
+    const lines = content.split("\n");
 
-    const methodRegex = /^(?:\s*)(?:public|private|protected|default)?\s*(?:static|final|abstract)?\s*(?:<[^>]+>\s*)?[\w<>,\s]+\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/;
+    const methodRegex =
+      /^(?:\s*)(?:public|private|protected|default)?\s*(?:static|final|abstract)?\s*(?:<[^>]+>\s*)?[\w<>,\s]+\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{/;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -492,10 +539,10 @@ export class EnhancedJavaAPI {
         const range = new vscode.Range(i, 0, i, line.length);
         const symbol = new vscode.DocumentSymbol(
           methodName,
-          '',
+          "",
           vscode.SymbolKind.Method,
           range,
-          range
+          range,
         );
         symbols.push(symbol);
       }
