@@ -456,9 +456,6 @@
         ],
         "firstLine": "^\\s*<[\\?\\!]\\s*xml|^\\s*<mapper\\s+namespace|^\\s*<!DOCTYPE\\s+mapper",
         "configuration": "./language-configuration.json",
-        "extensions": [
-          ".xml"
-        ],
         "filenamePatterns": [
           "**/mapper/**/*.xml",
           "**/mappers/**/*.xml",
