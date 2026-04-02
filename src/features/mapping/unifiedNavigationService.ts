@@ -174,8 +174,8 @@ export class UnifiedNavigationService {
 
         this.logger?.info(`[Navigate] XML namespace: ${xmlInfo.namespace}`);
 
-        // 3. 通过 namespace 查找映射
-        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace);
+        // 3. 通过 namespace 查找映射（传入 xmlPath 以支持路径相似度匹配）
+        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, xmlPath);
         this.logger?.debug(
           `[Navigate] Mapping found by namespace: ${mapping ? "yes" : "no"}`,
         );
@@ -700,7 +700,7 @@ export class UnifiedNavigationService {
       if (!mapping) {
         const xmlInfo = await this.xmlParser.parseXmlMapper(filePath);
         if (xmlInfo?.namespace) {
-          mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace);
+          mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, filePath);
         }
       }
 
