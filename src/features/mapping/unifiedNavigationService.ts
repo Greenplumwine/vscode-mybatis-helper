@@ -84,7 +84,10 @@ export class UnifiedNavigationService {
         this.logger?.info(
           `[Navigate] No XML path in mapping, searching by namespace: ${mapping.namespace}`,
         );
-        const xmlPath = await this.findXmlByNamespace(mapping.namespace);
+        const xmlPath = await this.findXmlByNamespace(
+          mapping.namespace,
+          javaPath,
+        );
 
         if (xmlPath) {
           this.logger?.info(`[Navigate] Found XML: ${xmlPath}`);
@@ -107,7 +110,7 @@ export class UnifiedNavigationService {
       } catch (e) {
         this.logger?.warn(`[Navigate] XML file not found: ${mapping.xmlPath}`);
         // 尝试重新查找
-        const xmlPath = await this.findXmlByNamespace(mapping.namespace);
+        const xmlPath = await this.findXmlByNamespace(mapping.namespace, javaPath);
         if (xmlPath && xmlPath !== mapping.xmlPath) {
           this.mappingEngine.updateXmlPath(javaPath, xmlPath);
           mapping.xmlPath = xmlPath;
@@ -298,8 +301,8 @@ export class UnifiedNavigationService {
         methods,
       };
 
-      // 尝试查找对应的 XML
-      const xmlPath = await this.findXmlByNamespace(className);
+      // 尝试查找对应的 XML（传入 Java 路径以支持路径相似度匹配）
+      const xmlPath = await this.findXmlByNamespace(className, javaPath);
       let xmlInfo = undefined;
 
       if (xmlPath) {
@@ -374,9 +377,12 @@ export class UnifiedNavigationService {
 
   /**
    * 通过 namespace 查找 XML 文件
+   * @param namespace - XML namespace（通常是全限定类名）
+   * @param javaPath - 可选的 Java 文件路径，用于路径相似度匹配
    */
   private async findXmlByNamespace(
     namespace: string,
+    javaPath?: string,
   ): Promise<string | undefined> {
     // 1. 检查索引
     const existingMapping = this.mappingEngine.getByNamespace(namespace);
@@ -403,13 +409,16 @@ export class UnifiedNavigationService {
       `**/resources/mapper/**/*.xml`,
     ];
 
+    // 收集所有候选文件
+    const candidates: Array<{ path: string; score: number }> = [];
+
     for (const folder of workspaceFolders) {
       for (const pattern of possiblePatterns) {
         try {
           const files = await vscode.workspace.findFiles(
             new vscode.RelativePattern(folder, pattern),
             "**/{node_modules,.git,target,build,out}/**",
-            5,
+            10, // 增加限制以收集更多候选
           );
 
           for (const file of files) {
@@ -418,18 +427,17 @@ export class UnifiedNavigationService {
               const xmlInfo = await this.xmlParser.parseXmlMapper(file.fsPath);
 
               if (xmlInfo?.namespace === namespace) {
-                this.logger?.info(
-                  `[FindXml] Found by namespace match: ${file.fsPath}`,
-                );
-                return file.fsPath;
-              }
-
-              // 如果没有 namespace 或 namespace 匹配简单类名，也接受
-              if (!xmlInfo?.namespace || xmlInfo.namespace === className) {
-                this.logger?.info(
-                  `[FindXml] Found by filename match: ${file.fsPath}`,
-                );
-                return file.fsPath;
+                // 计算路径相似度得分
+                const score = javaPath
+                  ? this.calculatePathSimilarity(javaPath, file.fsPath)
+                  : 0;
+                candidates.push({ path: file.fsPath, score });
+              } else if (!xmlInfo?.namespace || xmlInfo.namespace === className) {
+                // namespace 为空或匹配简单类名，降低权重
+                const score = javaPath
+                  ? this.calculatePathSimilarity(javaPath, file.fsPath) - 10
+                  : -10;
+                candidates.push({ path: file.fsPath, score });
               }
             } catch (e) {
               // 解析失败，跳过
@@ -441,7 +449,72 @@ export class UnifiedNavigationService {
       }
     }
 
+    // 如果有候选文件，选择得分最高的
+    if (candidates.length > 0) {
+      // 按得分降序排序
+      candidates.sort((a, b) => b.score - a.score);
+      const bestMatch = candidates[0];
+      this.logger?.info(
+        `[FindXml] Found ${candidates.length} candidates, best match: ${bestMatch.path} (score: ${bestMatch.score})`,
+      );
+      return bestMatch.path;
+    }
+
     return undefined;
+  }
+
+  /**
+   * 计算两个文件路径的相似度得分
+   * 用于多模块项目中选择最匹配的 XML 文件
+   */
+  private calculatePathSimilarity(javaPath: string, xmlPath: string): number {
+    // 规范化路径
+    const normalizedJavaPath = javaPath.replace(/\\/g, "/").toLowerCase();
+    const normalizedXmlPath = xmlPath.replace(/\\/g, "/").toLowerCase();
+
+    // 分割路径
+    const javaParts = normalizedJavaPath.split("/");
+    const xmlParts = normalizedXmlPath.split("/");
+
+    let score = 0;
+
+    // 1. 检查模块/服务名匹配（通常是 src 或项目根目录的父目录）
+    const javaModuleIndex = javaParts.findIndex(
+      (p) => p === "src" || p === "main" || p === "java",
+    );
+    const xmlModuleIndex = xmlParts.findIndex(
+      (p) => p === "src" || p === "main" || p === "resources",
+    );
+
+    if (javaModuleIndex > 0 && xmlModuleIndex > 0) {
+      // 比较模块/服务名
+      const javaModule = javaParts[javaModuleIndex - 1];
+      const xmlModule = xmlParts[xmlModuleIndex - 1];
+      if (javaModule === xmlModule) {
+        score += 100; // 同模块匹配，高分奖励
+      }
+    }
+
+    // 2. 查找共同路径段
+    const minLen = Math.min(javaParts.length, xmlParts.length);
+    for (let i = 0; i < minLen; i++) {
+      if (javaParts[i] === xmlParts[i]) {
+        score += 5;
+      }
+    }
+
+    // 3. 检查文件名相似度
+    const javaFileName = javaParts[javaParts.length - 1].replace(".java", "");
+    const xmlFileName = xmlParts[xmlParts.length - 1].replace(".xml", "");
+    if (javaFileName === xmlFileName) {
+      score += 20;
+    }
+
+    // 4. 距离惩罚：路径差异越大，得分越低
+    const pathDiff = Math.abs(javaParts.length - xmlParts.length);
+    score -= pathDiff * 2;
+
+    return score;
   }
 
   // ========== 辅助方法 ==========

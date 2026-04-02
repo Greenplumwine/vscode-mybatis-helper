@@ -726,7 +726,8 @@ export class FastScanner extends EventEmitter {
   }
 
   /**
-   * 通过文件名相似度找到最佳匹配
+   * 通过文件名和路径相似度找到最佳匹配
+   * 支持多模块/多服务项目中的同名 Mapper 匹配
    */
   private findBestMatchByFileName(
     javaInfo: JavaMapperInfo,
@@ -736,6 +737,10 @@ export class FastScanner extends EventEmitter {
       .substring(javaInfo.filePath.lastIndexOf("/") + 1)
       .toLowerCase();
 
+    // 规范化并分割 Java 路径
+    const normalizedJavaPath = javaInfo.filePath.replace(/\\/g, "/").toLowerCase();
+    const javaParts = normalizedJavaPath.split("/");
+
     let bestMatch: XmlMapperInfo | undefined;
     let bestScore = -1;
 
@@ -744,25 +749,68 @@ export class FastScanner extends EventEmitter {
         .substring(xml.filePath.lastIndexOf("/") + 1)
         .toLowerCase();
 
-      // 简单相似度计算：共同子串长度
-      let score = 0;
+      // 规范化并分割 XML 路径
+      const normalizedXmlPath = xml.filePath.replace(/\\/g, "/").toLowerCase();
+      const xmlParts = normalizedXmlPath.split("/");
+
+      // 计算文件名相似度
+      let fileNameScore = 0;
       for (
         let i = 0;
         i < Math.min(javaFileName.length, xmlFileName.length);
         i++
       ) {
         if (javaFileName[i] === xmlFileName[i]) {
-          score++;
+          fileNameScore++;
         } else {
           break;
         }
       }
 
-      if (score > bestScore) {
-        bestScore = score;
+      // 计算路径相似度
+      let pathScore = 0;
+
+      // 1. 检查模块/服务名匹配
+      const javaModuleIndex = javaParts.findIndex(
+        (p) => p === "src" || p === "main" || p === "java",
+      );
+      const xmlModuleIndex = xmlParts.findIndex(
+        (p) => p === "src" || p === "main" || p === "resources",
+      );
+
+      if (javaModuleIndex > 0 && xmlModuleIndex > 0) {
+        // 比较模块/服务名
+        const javaModule = javaParts[javaModuleIndex - 1];
+        const xmlModule = xmlParts[xmlModuleIndex - 1];
+        if (javaModule === xmlModule) {
+          pathScore += 100; // 同模块匹配，高分奖励
+        }
+      }
+
+      // 2. 查找共同路径段
+      const minLen = Math.min(javaParts.length, xmlParts.length);
+      for (let i = 0; i < minLen; i++) {
+        if (javaParts[i] === xmlParts[i]) {
+          pathScore += 5;
+        }
+      }
+
+      // 3. 距离惩罚
+      const pathDiff = Math.abs(javaParts.length - xmlParts.length);
+      pathScore -= pathDiff * 2;
+
+      // 总得分 = 文件名相似度 + 路径相似度
+      const totalScore = fileNameScore + pathScore;
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
         bestMatch = xml;
       }
     }
+
+    this.logger?.debug(
+      `Best match for ${javaInfo.filePath}: ${bestMatch?.filePath || "none"} (score: ${bestScore})`,
+    );
 
     return bestMatch;
   }

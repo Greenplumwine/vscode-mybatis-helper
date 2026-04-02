@@ -303,8 +303,14 @@ export class FastMappingEngine extends EventEmitter {
   /**
    * 通过类名获取映射
    * 支持全限定类名和简单类名
+   *
+   * @param className - 类名（全限定或简单类名）
+   * @param referencePath - 可选的参考路径，用于路径相似度匹配
    */
-  public getByClassName(className: string): MapperMapping | undefined {
+  public getByClassName(
+    className: string,
+    referencePath?: string,
+  ): MapperMapping | undefined {
     // 1. 尝试作为全限定类名直接匹配 namespace - O(1)
     const byNamespace = this.namespaceIndex.get(className);
     if (byNamespace) {
@@ -314,7 +320,29 @@ export class FastMappingEngine extends EventEmitter {
     // 2. 尝试作为简单类名查找 - O(1) 索引 + O(k) k为同名类数量
     const namespaces = this.classNameIndex.get(className);
     if (namespaces && namespaces.size > 0) {
-      // 如果有多个，返回第一个（通常用户会通过 Java 文件路径精确定位）
+      // 如果只有一个，直接返回
+      if (namespaces.size === 1) {
+        const firstNamespace = namespaces.values().next().value;
+        if (firstNamespace) {
+          const mapping = this.namespaceIndex.get(firstNamespace);
+          if (mapping) {
+            return this.toMapperMapping(mapping);
+          }
+        }
+      }
+
+      // 如果有多个，且有参考路径，使用路径相似度选择最佳匹配
+      if (referencePath && namespaces.size > 1) {
+        const bestMatch = this.findBestMatchByPath(
+          Array.from(namespaces),
+          referencePath,
+        );
+        if (bestMatch) {
+          return this.toMapperMapping(bestMatch);
+        }
+      }
+
+      // 有多个但没有参考路径，返回第一个
       const firstNamespace = namespaces.values().next().value;
       if (firstNamespace) {
         const mapping = this.namespaceIndex.get(firstNamespace);
@@ -325,6 +353,97 @@ export class FastMappingEngine extends EventEmitter {
     }
 
     return undefined;
+  }
+
+  /**
+   * 通过路径相似度找到最佳匹配的映射
+   * 用于多模块项目中同名 Mapper 的区分
+   */
+  private findBestMatchByPath(
+    namespaces: string[],
+    referencePath: string,
+  ): MappingIndex | undefined {
+    const normalizedRefPath = referencePath
+      .normalize("NFC")
+      .toLowerCase()
+      .replace(/\\/g, "/");
+    const refParts = normalizedRefPath.split("/");
+
+    let bestMatch: MappingIndex | undefined;
+    let bestScore = -1;
+
+    for (const namespace of namespaces) {
+      const mapping = this.namespaceIndex.get(namespace);
+      if (!mapping) {
+        continue;
+      }
+
+      // 计算 Java 路径相似度
+      const javaPathScore = this.calculatePathScore(
+        mapping.javaPath,
+        refParts,
+      );
+
+      // 如果存在 XML 路径，也计算 XML 路径相似度
+      let xmlPathScore = 0;
+      if (mapping.xmlPath) {
+        xmlPathScore = this.calculatePathScore(mapping.xmlPath, refParts);
+      }
+
+      // 总得分 = Java 路径得分 + XML 路径得分（如果有）
+      const totalScore = javaPathScore + xmlPathScore * 0.5;
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMatch = mapping;
+      }
+    }
+
+    this.logger?.debug(
+      `Best match by path for ${referencePath}: ${bestMatch?.className || "none"} (score: ${bestScore})`,
+    );
+
+    return bestMatch;
+  }
+
+  /**
+   * 计算路径相似度得分
+   */
+  private calculatePathScore(path: string, refParts: string[]): number {
+    const normalizedPath = path.normalize("NFC").toLowerCase().replace(/\\/g, "/");
+    const pathParts = normalizedPath.split("/");
+
+    let score = 0;
+
+    // 1. 检查模块/服务名匹配
+    const refModuleIndex = refParts.findIndex(
+      (p) => p === "src" || p === "main" || p === "java" || p === "resources",
+    );
+    const pathModuleIndex = pathParts.findIndex(
+      (p) => p === "src" || p === "main" || p === "java" || p === "resources",
+    );
+
+    if (refModuleIndex > 0 && pathModuleIndex > 0) {
+      const refModule = refParts[refModuleIndex - 1];
+      const pathModule = pathParts[pathModuleIndex - 1];
+      if (refModule === pathModule) {
+        score += 100; // 同模块匹配，高分奖励
+      }
+    }
+
+    // 2. 查找共同路径段
+    const minLen = Math.min(pathParts.length, refParts.length);
+    for (let i = 0; i < minLen; i++) {
+      if (pathParts[i] === refParts[i]) {
+        score += 5;
+      }
+    }
+
+    // 3. 距离惩罚
+    const pathDiff = Math.abs(pathParts.length - refParts.length);
+    score -= pathDiff * 2;
+
+    return score;
   }
 
   /**
@@ -448,6 +567,10 @@ export class FastMappingEngine extends EventEmitter {
   /**
    * 智能查找 XML 对应的 Java Mapper
    * 用于当 XML 变更时，快速找到对应的 Java 文件
+   *
+   * @param xmlPath - XML 文件路径
+   * @param namespace - XML namespace
+   * @returns MapperMapping | undefined
    */
   public findJavaForXml(
     xmlPath: string,
@@ -467,16 +590,29 @@ export class FastMappingEngine extends EventEmitter {
       return this.getByJavaPath(byNamespace.javaPath);
     }
 
-    // 3. 尝试通过简单类名匹配
+    // 3. 尝试通过简单类名匹配（使用路径相似度选择最佳匹配）
     const simpleClassName = namespace.substring(namespace.lastIndexOf(".") + 1);
     const candidates = this.classNameIndex.get(simpleClassName);
-    if (candidates && candidates.size === 1) {
-      const candidateNamespace = candidates.values().next().value;
-      if (candidateNamespace) {
-        const mapping = this.namespaceIndex.get(candidateNamespace);
-        if (mapping) {
-          this.updateXmlPath(mapping.javaPath, xmlPath);
-          return this.getByJavaPath(mapping.javaPath);
+    if (candidates && candidates.size > 0) {
+      if (candidates.size === 1) {
+        // 只有一个候选
+        const candidateNamespace = candidates.values().next().value;
+        if (candidateNamespace) {
+          const mapping = this.namespaceIndex.get(candidateNamespace);
+          if (mapping) {
+            this.updateXmlPath(mapping.javaPath, xmlPath);
+            return this.getByJavaPath(mapping.javaPath);
+          }
+        }
+      } else {
+        // 多个候选，使用路径相似度选择最佳匹配
+        const bestMatch = this.findBestMatchByPath(
+          Array.from(candidates),
+          xmlPath,
+        );
+        if (bestMatch) {
+          this.updateXmlPath(bestMatch.javaPath, xmlPath);
+          return this.getByJavaPath(bestMatch.javaPath);
         }
       }
     }
