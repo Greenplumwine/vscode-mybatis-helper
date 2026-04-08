@@ -553,7 +553,8 @@ function startFileWatching(): void {
     return;
   }
 
-  const fileWatcher = vscode.workspace.createFileSystemWatcher("**/*.{java,xml}");
+  const fileWatcher =
+    vscode.workspace.createFileSystemWatcher("**/*.{java,xml}");
 
   const handleFileChange = (
     uri: vscode.Uri,

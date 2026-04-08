@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.0.3] - 2026-04-08
+
+### 修复
+
+- **多服务同名 Mapper 跳转问题**: 修复多模块项目中同名 Mapper 接口跳转不准确的问题
+  - 修改 `namespaceIndex` 存储结构，支持同 namespace 多模块存储（`Map<string, MappingIndex[]>`）
+  - 修复 `FastScanner.buildMappingsFromResults` 中相同 namespace 的 XML 互相覆盖问题
+  - 新增路径相似度匹配算法，优先选择同模块的 Java/XML 文件
+  - 修复 `FastNavigationService.navigateXmlToJava` 未传入参考路径的问题
+
 ## [1.0.2] - 2026-04-01
 
 ### 修复
