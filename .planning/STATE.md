@@ -79,7 +79,7 @@ None. Milestone complete.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260401-fjv | 修复 pom.xml 等普通 XML 文件被错误识别为 MyBatis XML 的问题 | 2026-04-01 | 24da72c | [260401-fjv-pom-xml-xml-mybatis-xml](./quick/260401-fjv-pom-xml-xml-mybatis-xml/) ✅ |
-| 260402-ghs | 修复多服务同名 Mapper 跳转不准确的问题 | 2026-04-02 | 36798a6 | [260402-ghs-multiservice-mapper-jump-fix](./quick/260402-ghs-multiservice-mapper-jump-fix/) ✅ |
+| 260402-ghs | 修复多服务同名 Mapper 跳转不准确的问题 | 2026-04-02 | ad27a51 | [260402-ghs-multiservice-mapper-jump-fix](./quick/260402-ghs-multiservice-mapper-jump-fix/) ✅ |
 
 ---
 
