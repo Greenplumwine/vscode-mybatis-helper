@@ -76,3 +76,17 @@ v1.0.0 新增以下配置选项：
 ---
 
 **完整变更日志**: 参见 [CHANGELOG.md](../CHANGELOG.md)
+
+## v1.0.3 - 2026-04-08
+
+### 修复
+- **多服务同名 Mapper 跳转问题**: 修复多模块项目中同名 Mapper 接口跳转不准确的问题
+  - 修改 namespaceIndex 存储结构为数组，支持同 namespace 多模块
+  - 新增路径相似度匹配算法，优先选择同模块文件
+  - 修复扫描和导航中的路径匹配逻辑
+
+**发布平台**:
+- ✅ VS Code Marketplace
+- ✅ Open VSX Registry
+
+**Git Tag**: v1.0.3
