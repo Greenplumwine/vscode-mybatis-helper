@@ -159,8 +159,8 @@ export class FastNavigationService {
           return false;
         }
 
-        // 3. 通过 namespace 查找
-        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace);
+        // 3. 通过 namespace 查找（传入 xmlPath 作为参考路径以选择最佳匹配）
+        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, xmlPath);
 
         // 4. 如果仍未找到，尝试扫描 Java
         if (!mapping) {

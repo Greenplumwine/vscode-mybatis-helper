@@ -671,12 +671,20 @@ export class FastScanner extends EventEmitter {
     const startTime = Date.now();
 
     // 1. 建立 XML namespace 快速查找表
-    const xmlByNamespace = new Map<string, XmlMapperInfo>();
+    // 使用数组存储，支持同 namespace 多模块场景
+    const xmlByNamespace = new Map<string, XmlMapperInfo[]>();
     const xmlBySimpleName = new Map<string, XmlMapperInfo[]>();
 
     for (const xml of xmlMappers) {
-      xmlByNamespace.set(xml.namespace, xml);
+      // namespace 索引 - 使用数组存储相同 namespace 的多个 XML
+      const existingByNs = xmlByNamespace.get(xml.namespace);
+      if (existingByNs) {
+        existingByNs.push(xml);
+      } else {
+        xmlByNamespace.set(xml.namespace, [xml]);
+      }
 
+      // 简单类名索引
       const simpleName = xml.namespace.substring(
         xml.namespace.lastIndexOf(".") + 1,
       );
@@ -694,8 +702,17 @@ export class FastScanner extends EventEmitter {
     const unmatchedJava: JavaMapperInfo[] = [];
 
     for (const java of javaMappers) {
-      // 策略1: namespace 直接匹配
-      let xml = xmlByNamespace.get(java.className);
+      // 策略1: namespace 直接匹配（如果有多个，使用路径相似度选择最佳）
+      let xml: XmlMapperInfo | undefined;
+      const xmlCandidates = xmlByNamespace.get(java.className);
+      if (xmlCandidates) {
+        if (xmlCandidates.length === 1) {
+          xml = xmlCandidates[0];
+        } else if (xmlCandidates.length > 1) {
+          // 多个相同 namespace 的 XML，使用路径相似度选择
+          xml = this.findBestMatchByFileName(java, xmlCandidates);
+        }
+      }
 
       // 策略2: 简单类名匹配（如果有多个，选择文件名最相似的）
       if (!xml) {
@@ -714,8 +731,14 @@ export class FastScanner extends EventEmitter {
       matchedPairs.push({ java, xml });
 
       if (xml) {
-        // 从待匹配列表中移除
-        xmlByNamespace.delete(java.className);
+        // 从待匹配列表中移除该 XML（避免重复匹配）
+        const candidates = xmlByNamespace.get(java.className);
+        if (candidates) {
+          const index = candidates.indexOf(xml);
+          if (index >= 0) {
+            candidates.splice(index, 1);
+          }
+        }
       }
     }
 
