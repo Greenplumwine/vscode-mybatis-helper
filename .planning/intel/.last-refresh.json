@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "generated_at": "2026-04-21T07:05:46.173Z"
+  },
+  "files": {
+    "stack.json": {
+      "hash": "b511a2570d0184c1",
+      "size": 529,
+      "updated_at": "2026-04-21T07:04:41.368Z"
+    },
+    "files.json": {
+      "hash": "7da97f29a6f55248",
+      "size": 19605,
+      "updated_at": "2026-04-21T07:04:41.368Z"
+    },
+    "apis.json": {
+      "hash": "92a37068297b539d",
+      "size": 6574,
+      "updated_at": "2026-04-21T07:04:41.368Z"
+    },
+    "deps.json": {
+      "hash": "7abf2300ea12e565",
+      "size": 3683,
+      "updated_at": "2026-04-21T07:04:41.368Z"
+    },
+    "arch.md": {
+      "hash": "ee508bfb68cfa30b",
+      "size": 3532,
+      "updated_at": "2026-04-21T07:04:41.369Z"
+    }
+  }
+}

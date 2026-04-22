@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-21T07:04:29.959Z",
+    "version": 1
+  },
+  "languages": [
+    "TypeScript"
+  ],
+  "frameworks": [
+    "VS Code Extension API"
+  ],
+  "tools": [
+    "ESLint",
+    "Jest",
+    "TypeScript Compiler",
+    "vsce"
+  ],
+  "build_system": "npm scripts / pnpm",
+  "test_framework": "Jest + @vscode/test-cli",
+  "package_manager": "pnpm",
+  "content_formats": [
+    "Markdown (CLAUDE.md, docs)",
+    "JSON (package.json, l10n bundles, tmLanguage)",
+    "YAML (frontmatter in planning docs)"
+  ]
+}

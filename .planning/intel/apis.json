@@ -1,0 +1,198 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-21T07:04:29.959Z",
+    "version": 1
+  },
+  "entries": {
+    "command: mybatis-helper.showSqlHistory": {
+      "method": "command",
+      "path": "mybatis-helper.showSqlHistory",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Show SQL History panel"
+    },
+    "command: mybatis-helper.jumpToXml": {
+      "method": "command",
+      "path": "mybatis-helper.jumpToXml",
+      "params": [
+        "filePath",
+        "methodName"
+      ],
+      "file": "src/extension.ts",
+      "description": "Jump from Java Mapper to XML"
+    },
+    "command: mybatis-helper.jumpToMapper": {
+      "method": "command",
+      "path": "mybatis-helper.jumpToMapper",
+      "params": [
+        "filePath",
+        "sqlId"
+      ],
+      "file": "src/extension.ts",
+      "description": "Jump from XML to Java Mapper"
+    },
+    "command: mybatis-helper.refreshMappings": {
+      "method": "command",
+      "path": "mybatis-helper.refreshMappings",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Refresh Java-XML mappings"
+    },
+    "command: mybatis-helper.rebuildIndex": {
+      "method": "command",
+      "path": "mybatis-helper.rebuildIndex",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Rebuild class file index cache"
+    },
+    "command: mybatis-helper.refreshSQLHistory": {
+      "method": "command",
+      "path": "mybatis-helper.refreshSQLHistory",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Refresh SQL History tree view"
+    },
+    "command: mybatis-helper.copySqlFromTree": {
+      "method": "command",
+      "path": "mybatis-helper.copySqlFromTree",
+      "params": [
+        "query"
+      ],
+      "file": "src/extension.ts",
+      "description": "Copy SQL from tree view to clipboard"
+    },
+    "command: mybatis-helper.clearSqlHistory": {
+      "method": "command",
+      "path": "mybatis-helper.clearSqlHistory",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Clear SQL history"
+    },
+    "command: mybatis-helper.showSqlDetail": {
+      "method": "command",
+      "path": "mybatis-helper.showSqlDetail",
+      "params": [
+        "query"
+      ],
+      "file": "src/extension.ts",
+      "description": "Show SQL detail panel"
+    },
+    "command: mybatis-helper.openSQLSettings": {
+      "method": "command",
+      "path": "mybatis-helper.openSQLSettings",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Open SQL interceptor settings"
+    },
+    "command: mybatis-helper.pauseSQLInterceptor": {
+      "method": "command",
+      "path": "mybatis-helper.pauseSQLInterceptor",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Pause SQL interceptor"
+    },
+    "command: mybatis-helper.resumeSQLInterceptor": {
+      "method": "command",
+      "path": "mybatis-helper.resumeSQLInterceptor",
+      "params": [],
+      "file": "src/extension.ts",
+      "description": "Resume SQL interceptor"
+    },
+    "command: mybatis-helper.generateXmlMethod": {
+      "method": "command",
+      "path": "mybatis-helper.generateXmlMethod",
+      "params": [
+        "javaPath",
+        "methodName"
+      ],
+      "file": "src/commands/generateXmlMethod.ts",
+      "description": "Generate XML method stub from Java"
+    },
+    "command: mybatis-helper.createMapperXml": {
+      "method": "command",
+      "path": "mybatis-helper.createMapperXml",
+      "params": [
+        "uri"
+      ],
+      "file": "src/commands/createMapperXml.ts",
+      "description": "Create Mapper XML file from Java"
+    },
+    "command: mybatis-helper.showPerformanceStats": {
+      "method": "command",
+      "path": "mybatis-helper.showPerformanceStats",
+      "params": [],
+      "file": "src/commands/showPerformanceStats.ts",
+      "description": "Show performance statistics"
+    },
+    "command: mybatis-helper.showWelcomePage": {
+      "method": "command",
+      "path": "mybatis-helper.showWelcomePage",
+      "params": [],
+      "file": "src/features/welcome/welcomePage.ts",
+      "description": "Show welcome page"
+    },
+    "command: mybatis-helper.configureWizard": {
+      "method": "command",
+      "path": "mybatis-helper.configureWizard",
+      "params": [],
+      "file": "src/commands/configurationWizard.ts",
+      "description": "Run configuration wizard"
+    },
+    "command: mybatis-helper.validateConfiguration": {
+      "method": "command",
+      "path": "mybatis-helper.validateConfiguration",
+      "params": [],
+      "file": "src/commands/validateConfiguration.ts",
+      "description": "Validate extension configuration"
+    },
+    "command: mybatis-helper.diagnose": {
+      "method": "command",
+      "path": "mybatis-helper.diagnose",
+      "params": [],
+      "file": "src/commands/diagnose.ts",
+      "description": "Run system diagnostics"
+    },
+    "provider: CodeLens (Java)": {
+      "method": "provider",
+      "path": "CodeLensProvider for **/*.java",
+      "params": [],
+      "file": "src/features/mapping/fastCodeLensProvider.ts",
+      "description": "Java CodeLens provider for mapper navigation"
+    },
+    "provider: CodeLens (XML)": {
+      "method": "provider",
+      "path": "CodeLensProvider for **/*.xml",
+      "params": [],
+      "file": "src/features/mapping/xmlCodeLensProvider.ts",
+      "description": "XML CodeLens provider for mapper navigation"
+    },
+    "provider: Completion (MyBatis XML)": {
+      "method": "provider",
+      "path": "CompletionItemProvider for mybatis-xml",
+      "params": [],
+      "file": "src/features/completion/unifiedCompletionProvider.ts",
+      "description": "Unified completion provider for MyBatis XML"
+    },
+    "provider: Tag Completion (MyBatis XML)": {
+      "method": "provider",
+      "path": "CompletionItemProvider for mybatis-xml tags",
+      "params": [],
+      "file": "src/features/completion/tagCompletionProvider.ts",
+      "description": "Tag completion provider for MyBatis XML"
+    },
+    "provider: Document Formatting (MyBatis XML)": {
+      "method": "provider",
+      "path": "DocumentFormattingEditProvider for mybatis-xml",
+      "params": [],
+      "file": "src/features/formatting/nestedFormattingProvider.ts",
+      "description": "Nested formatting provider for MyBatis XML"
+    },
+    "view: mybatisSQLHistory": {
+      "method": "view",
+      "path": "mybatisSQLHistory",
+      "params": [],
+      "file": "src/features/sql-interceptor/sqlHistoryTreeProvider.ts",
+      "description": "SQL History TreeView in activity bar"
+    }
+  }
+}

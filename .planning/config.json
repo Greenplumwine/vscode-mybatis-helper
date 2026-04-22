@@ -18,5 +18,11 @@
   "ui": {
     "brandColor": "#007ACC",
     "darkMode": true
+  },
+  "graphify": {
+    "enabled": true
+  },
+  "intel": {
+    "enabled": true
   }
 }

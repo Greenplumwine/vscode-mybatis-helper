@@ -11,3 +11,4 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 .claude/
 .planning/
+graphify-out/

@@ -1,0 +1,828 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-21T07:04:29.959Z",
+    "version": 1
+  },
+  "entries": {
+    "src/extension.ts": {
+      "exports": [
+        "activate",
+        "deactivate"
+      ],
+      "imports": [
+        "fs/promises",
+        "path",
+        "vscode",
+        "./features/sql-interceptor",
+        "./utils/javaExtensionAPI",
+        "./utils/logger",
+        "./services",
+        "./features/completion",
+        "./features/formatting",
+        "./commands",
+        "./features/welcome",
+        "./services/validation",
+        "./features/mapping"
+      ],
+      "type": "entry-point"
+    },
+    "src/commands/index.ts": {
+      "exports": [
+        "generateXmlMethodCommand",
+        "createMapperXmlCommand",
+        "showPerformanceStatsCommand",
+        "runConfigurationWizard",
+        "validateConfigurationCommand",
+        "diagnoseCommand",
+        "commands"
+      ],
+      "imports": [
+        "./generateXmlMethod",
+        "./createMapperXml",
+        "./showPerformanceStats",
+        "./configurationWizard",
+        "./validateConfiguration",
+        "./diagnose"
+      ],
+      "type": "module"
+    },
+    "src/commands/generateXmlMethod.ts": {
+      "exports": [
+        "GenerateXmlMethodCommand",
+        "generateXmlMethodCommand"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/commands/createMapperXml.ts": {
+      "exports": [
+        "CreateMapperXmlCommand",
+        "createMapperXmlCommand"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/commands/showPerformanceStats.ts": {
+      "exports": [
+        "showPerformanceStatsCommand"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/commands/configurationWizard.ts": {
+      "exports": [
+        "runConfigurationWizard"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/commands/validateConfiguration.ts": {
+      "exports": [
+        "validateConfigurationCommand"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/commands/diagnose.ts": {
+      "exports": [
+        "diagnoseCommand"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/index.ts": {
+      "exports": [
+        "FastMappingEngine",
+        "FastScanner",
+        "FastNavigationService",
+        "FastCodeLensProvider",
+        "EnterpriseConfigResolver",
+        "EnterpriseScanner",
+        "UnifiedNavigationService",
+        "XmlCodeLensProvider",
+        "EnhancedJavaAPI",
+        "MyBatisXmlParser",
+        "XmlLocationResolver"
+      ],
+      "imports": [
+        "./types",
+        "./fastMappingEngine",
+        "./fastScanner",
+        "./fastNavigationService",
+        "./fastCodeLensProvider",
+        "./enterpriseConfigResolver",
+        "./enterpriseScanner",
+        "./unifiedNavigationService",
+        "./xmlCodeLensProvider",
+        "./enhancedJavaAPI",
+        "./xmlParser",
+        "./xmlLocationResolver"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/fastMappingEngine.ts": {
+      "exports": [
+        "FastMappingEngine"
+      ],
+      "imports": [
+        "events",
+        "./types",
+        "../../utils/logger",
+        "../../services/types",
+        "../../services/parsing/javaMethodParser"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/fastScanner.ts": {
+      "exports": [
+        "FastScanner"
+      ],
+      "imports": [
+        "vscode",
+        "events",
+        "./fastMappingEngine",
+        "./xmlParser",
+        "./enhancedJavaAPI",
+        "./xmlLocationResolver",
+        "./types",
+        "../../utils/logger",
+        "../../utils/constants"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/enterpriseScanner.ts": {
+      "exports": [
+        "EnterpriseScanner"
+      ],
+      "imports": [
+        "vscode",
+        "events",
+        "./fastMappingEngine",
+        "./enterpriseConfigResolver",
+        "./xmlParser",
+        "./xmlLocationResolver",
+        "./types",
+        "../../utils/logger",
+        "../../utils/constants"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/fastNavigationService.ts": {
+      "exports": [
+        "FastNavigationService"
+      ],
+      "imports": [
+        "vscode",
+        "./fastMappingEngine",
+        "./fastScanner",
+        "./types",
+        "../../utils/logger",
+        "../../utils/constants"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/unifiedNavigationService.ts": {
+      "exports": [
+        "UnifiedNavigationService"
+      ],
+      "imports": [
+        "vscode",
+        "./fastMappingEngine",
+        "./xmlParser",
+        "./types",
+        "../../utils/logger"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/fastCodeLensProvider.ts": {
+      "exports": [
+        "FastCodeLensProvider"
+      ],
+      "imports": [
+        "vscode"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/xmlCodeLensProvider.ts": {
+      "exports": [
+        "XmlCodeLensProvider"
+      ],
+      "imports": [
+        "vscode"
+      ],
+      "type": "module"
+    },
+    "src/features/mapping/enterpriseConfigResolver.ts": {
+      "exports": [
+        "EnterpriseConfigResolver"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/enhancedJavaAPI.ts": {
+      "exports": [
+        "EnhancedJavaAPI"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/xmlParser.ts": {
+      "exports": [
+        "MyBatisXmlParser"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/xmlLocationResolver.ts": {
+      "exports": [
+        "XmlLocationResolver"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/classFileWatcher.ts": {
+      "exports": [
+        "ClassFileWatcher",
+        "classFileWatcher"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/classParsingWorker.ts": {
+      "exports": [],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/indexCache.ts": {
+      "exports": [
+        "IndexCacheManager",
+        "indexCacheManager"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/mapping/types.ts": {
+      "exports": [
+        "Position",
+        "MethodMapping",
+        "MapperMapping",
+        "JavaMapperInfo",
+        "SqlStatementInfo",
+        "XmlMapperInfo",
+        "MapperScanConfig",
+        "ScanProgressEvent"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "src/features/completion/index.ts": {
+      "exports": [
+        "UnifiedCompletionProvider",
+        "CompletionContextBuilder",
+        "BaseCompletionStrategy",
+        "PlaceholderStrategy",
+        "ForeachVariableStrategy",
+        "PropertyStrategy",
+        "TypeStrategy",
+        "TypeHandlerStrategy",
+        "StrategyPriorities",
+        "TagCompletionProvider"
+      ],
+      "imports": [
+        "./types",
+        "./unifiedCompletionProvider",
+        "./contextBuilder",
+        "./strategies",
+        "./tagCompletionProvider"
+      ],
+      "type": "module"
+    },
+    "src/features/completion/unifiedCompletionProvider.ts": {
+      "exports": [
+        "UnifiedCompletionProvider"
+      ],
+      "imports": [
+        "vscode"
+      ],
+      "type": "module"
+    },
+    "src/features/completion/tagCompletionProvider.ts": {
+      "exports": [
+        "TagCompletionProvider"
+      ],
+      "imports": [
+        "vscode"
+      ],
+      "type": "module"
+    },
+    "src/features/completion/contextBuilder.ts": {
+      "exports": [
+        "CompletionContextBuilder"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/completion/types.ts": {
+      "exports": [
+        "CompletionStrategy",
+        "JavaParameter",
+        "JavaMethod",
+        "ForeachContext",
+        "XmlMapperMethod",
+        "XmlMapperInfo",
+        "ClassInfo",
+        "CompletionContext",
+        "StrategyFactory",
+        "ObjectProperty",
+        "JavaMethodParser",
+        "MyBatisXmlParser",
+        "FileMapper"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "src/features/completion/strategies/index.ts": {
+      "exports": [
+        "BaseCompletionStrategy",
+        "PlaceholderStrategy",
+        "ForeachVariableStrategy",
+        "PropertyStrategy",
+        "TypeStrategy",
+        "TypeHandlerStrategy",
+        "ForeachCollectionStrategy",
+        "ForeachItemPropertyStrategy",
+        "StrategyPriorities"
+      ],
+      "imports": [
+        "./baseStrategy",
+        "./placeholderStrategy",
+        "./foreachVariableStrategy",
+        "./propertyStrategy",
+        "./typeStrategy",
+        "./typeHandlerStrategy",
+        "./foreachCollectionStrategy",
+        "./foreachItemPropertyStrategy"
+      ],
+      "type": "module"
+    },
+    "src/features/formatting/index.ts": {
+      "exports": [
+        "NestedFormattingProvider",
+        "FormattingPipeline"
+      ],
+      "imports": [
+        "./types",
+        "./nestedFormattingProvider",
+        "./pipeline"
+      ],
+      "type": "module"
+    },
+    "src/features/formatting/nestedFormattingProvider.ts": {
+      "exports": [
+        "NestedFormattingProvider"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/formatting/pipeline/index.ts": {
+      "exports": [
+        "FormattingPipeline"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/sql-interceptor/index.ts": {
+      "exports": [
+        "SQLInterceptorRule",
+        "SQLQueryRecord",
+        "SQLInterceptorConfig",
+        "LogLineType",
+        "ParsedLogLine",
+        "SQLInterceptorService",
+        "SQLTreeItemType",
+        "SQLTreeItem",
+        "SQLHistoryTreeProvider",
+        "SQLDetailPanel"
+      ],
+      "imports": [
+        "./types",
+        "./sqlInterceptorService",
+        "./sqlHistoryTreeProvider",
+        "./sqlDetailPanel"
+      ],
+      "type": "module"
+    },
+    "src/features/sql-interceptor/sqlInterceptorService.ts": {
+      "exports": [
+        "SQLInterceptorService"
+      ],
+      "imports": [
+        "vscode",
+        "../../language/sqlparser",
+        "../../utils",
+        "../../utils/logger",
+        "../../utils/constants",
+        "../../types",
+        "./types"
+      ],
+      "type": "module"
+    },
+    "src/features/sql-interceptor/sqlHistoryTreeProvider.ts": {
+      "exports": [
+        "SQLTreeItemType",
+        "SQLTreeItem",
+        "SQLHistoryTreeProvider"
+      ],
+      "imports": [
+        "vscode"
+      ],
+      "type": "module"
+    },
+    "src/features/sql-interceptor/sqlDetailPanel.ts": {
+      "exports": [
+        "SQLDetailPanel"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/features/sql-interceptor/types.ts": {
+      "exports": [
+        "SQLInterceptorRule",
+        "SQLQueryRecord",
+        "SQLInterceptorConfig",
+        "LogLineType",
+        "ParsedLogLine"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "src/features/welcome/index.ts": {
+      "exports": [
+        "showWelcomePage",
+        "shouldShowWelcomePage",
+        "getWelcomeContent"
+      ],
+      "imports": [
+        "./welcomePage",
+        "./welcomeContent"
+      ],
+      "type": "module"
+    },
+    "src/services/index.ts": {
+      "exports": [
+        "IDtdLoader",
+        "DtdLoaderResult",
+        "TagHierarchy",
+        "TagHierarchyMap",
+        "MyBatisTagType",
+        "MyBatisAttribute",
+        "SqlStatementInfo",
+        "ResultMapInfo",
+        "SqlFragmentInfo",
+        "MyBatisXmlInfo",
+        "JavaParameter",
+        "JavaMethodInfo",
+        "JavaMapperInfo",
+        "TemplateType",
+        "TemplateContext",
+        "TemplateRenderResult",
+        "ITemplateEngine",
+        "LanguageType",
+        "LanguageDetectionResult",
+        "ILanguageDetectionStrategy",
+        "TagHierarchyResolver",
+        "tagHierarchyResolver",
+        "MyBatisXmlParser",
+        "myBatisXmlParser",
+        "EnhancedJavaMethodParser",
+        "enhancedJavaMethodParser",
+        "JavaMethodParser",
+        "javaMethodParser",
+        "LanguageDetector",
+        "languageDetector",
+        "ExtensionDetectionStrategy",
+        "ContentDetectionStrategy",
+        "MyBatisMapperDetectionStrategy",
+        "TemplateEngine",
+        "templateEngine",
+        "validateConfiguration",
+        "validateBasic",
+        "ValidationIssue",
+        "ValidationResult",
+        "registerRealTimeValidation",
+        "dispose"
+      ],
+      "imports": [
+        "./types",
+        "./parsing",
+        "./language",
+        "./template",
+        "./validation"
+      ],
+      "type": "module"
+    },
+    "src/services/parsing/index.ts": {
+      "exports": [
+        "TagHierarchyResolver",
+        "tagHierarchyResolver",
+        "MyBatisXmlParser",
+        "myBatisXmlParser",
+        "EnhancedJavaMethodParser",
+        "enhancedJavaMethodParser"
+      ],
+      "imports": [
+        "./dtdResolver",
+        "./mybatisXmlParser",
+        "./javaMethodParser"
+      ],
+      "type": "module"
+    },
+    "src/services/parsing/dtdResolver.ts": {
+      "exports": [
+        "TagHierarchyResolver",
+        "tagHierarchyResolver"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/parsing/mybatisXmlParser.ts": {
+      "exports": [
+        "MyBatisXmlParser",
+        "myBatisXmlParser"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/parsing/javaMethodParser.ts": {
+      "exports": [
+        "EnhancedJavaMethodParser",
+        "enhancedJavaMethodParser"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/language/index.ts": {
+      "exports": [
+        "JavaMethodParser",
+        "javaMethodParser",
+        "LanguageDetector",
+        "languageDetector",
+        "ExtensionDetectionStrategy",
+        "ContentDetectionStrategy",
+        "MyBatisMapperDetectionStrategy"
+      ],
+      "imports": [
+        "./javaMethodParser",
+        "./languageDetector"
+      ],
+      "type": "module"
+    },
+    "src/services/language/javaMethodParser.ts": {
+      "exports": [
+        "JavaMethodParser",
+        "javaMethodParser"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/language/languageDetector.ts": {
+      "exports": [
+        "ExtensionDetectionStrategy",
+        "ContentDetectionStrategy",
+        "MyBatisMapperDetectionStrategy",
+        "LanguageDetector",
+        "languageDetector"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/template/index.ts": {
+      "exports": [
+        "TemplateEngine",
+        "templateEngine"
+      ],
+      "imports": [
+        "./templateEngine"
+      ],
+      "type": "module"
+    },
+    "src/services/template/templateEngine.ts": {
+      "exports": [
+        "TemplateEngine",
+        "templateEngine"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/validation/index.ts": {
+      "exports": [
+        "validateConfiguration",
+        "validateBasic",
+        "ValidationIssue",
+        "ValidationResult",
+        "registerRealTimeValidation",
+        "dispose"
+      ],
+      "imports": [
+        "./types",
+        "./configurationValidator",
+        "./realtimeValidator"
+      ],
+      "type": "module"
+    },
+    "src/services/validation/configurationValidator.ts": {
+      "exports": [
+        "validateBasic"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/validation/realtimeValidator.ts": {
+      "exports": [
+        "registerRealTimeValidation",
+        "dispose"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/services/types/index.ts": {
+      "exports": [
+        "IDtdLoader",
+        "DtdLoaderResult",
+        "TagHierarchy",
+        "TagHierarchyMap",
+        "MyBatisTagType",
+        "MyBatisAttribute",
+        "SqlStatementInfo",
+        "ResultMapInfo",
+        "SqlFragmentInfo",
+        "MyBatisXmlInfo",
+        "JavaParameter",
+        "JavaMethodInfo",
+        "JavaMapperInfo",
+        "TemplateType",
+        "TemplateContext",
+        "TemplateRenderResult",
+        "ITemplateEngine",
+        "LanguageType",
+        "LanguageDetectionResult",
+        "ILanguageDetectionStrategy"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "src/types/index.ts": {
+      "exports": [
+        "SQLQuery",
+        "DatabaseType",
+        "FileOpenMode",
+        "NameMatchingRule",
+        "PathPriorityConfig",
+        "PluginConfig"
+      ],
+      "imports": [],
+      "type": "type-def"
+    },
+    "src/utils/index.ts": {
+      "exports": [
+        "RegexUtils",
+        "PerformanceUtils",
+        "JavaExtensionAPI",
+        "Logger",
+        "logger",
+        "TextProcessor",
+        "createTextProcessor",
+        "HttpClient",
+        "httpClient",
+        "HttpClientConfig",
+        "camelToSnakeCase",
+        "snakeToCamelCase",
+        "isEmpty",
+        "defaultIfEmpty",
+        "removePrefix",
+        "sanitizeClassPath",
+        "sanitizeJarPath",
+        "isValidClassName",
+        "sanitizeFilePath",
+        "PerformanceMonitor",
+        "getPluginConfig",
+        "delay",
+        "safeRegexMatch",
+        "formatSQL",
+        "highlightSQL"
+      ],
+      "imports": [
+        "vscode",
+        "../types",
+        "./performanceUtils",
+        "./javaExtensionAPI",
+        "./logger",
+        "./constants",
+        "./textProcessor",
+        "./httpClient",
+        "./stringUtils",
+        "./pathSecurity",
+        "./performanceMonitor"
+      ],
+      "type": "module"
+    },
+    "src/utils/logger.ts": {
+      "exports": [
+        "LogLevel",
+        "Logger",
+        "logger"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/javaExtensionAPI.ts": {
+      "exports": [
+        "JavaExtensionAPI"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/constants.ts": {
+      "exports": [
+        "TIME",
+        "THRESHOLDS",
+        "SCAN_LIMITS",
+        "CACHE_LIMITS",
+        "REGEX"
+      ],
+      "imports": [],
+      "type": "config"
+    },
+    "src/utils/performanceUtils.ts": {
+      "exports": [
+        "PerformanceUtils",
+        "RegexUtils"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/performanceMonitor.ts": {
+      "exports": [
+        "PerformanceMonitor"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/pathSecurity.ts": {
+      "exports": [
+        "sanitizeClassPath",
+        "sanitizeJarPath",
+        "isValidClassName",
+        "sanitizeFilePath"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/stringUtils.ts": {
+      "exports": [
+        "camelToSnakeCase",
+        "snakeToCamelCase",
+        "isEmpty",
+        "defaultIfEmpty",
+        "removePrefix",
+        "extractTableNameFromMethod"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/textProcessor.ts": {
+      "exports": [
+        "TextProcessor",
+        "createTextProcessor"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/utils/httpClient.ts": {
+      "exports": [
+        "HttpClientConfig",
+        "HttpClient",
+        "httpClient"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "src/language/sqlparser.ts": {
+      "exports": [
+        "SQLParser"
+      ],
+      "imports": [],
+      "type": "module"
+    },
+    "package.json": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    },
+    "tsconfig.json": {
+      "exports": [],
+      "imports": [],
+      "type": "config"
+    }
+  }
+}

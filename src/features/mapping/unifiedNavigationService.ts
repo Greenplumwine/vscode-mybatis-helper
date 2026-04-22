@@ -11,6 +11,7 @@ import { MyBatisXmlParser } from "./xmlParser";
 import { MapperMapping, MethodMapping } from "./types";
 import { Logger } from "../../utils/logger";
 import { QueryContextResolver } from "./queryContext";
+import { ModuleResolver } from "./moduleResolver";
 import { THRESHOLDS } from "../../utils/constants";
 
 interface NavigationOptions {
@@ -28,6 +29,7 @@ export class UnifiedNavigationService {
   private logger!: Logger;
   private xmlParser: MyBatisXmlParser;
   private queryContextResolver: QueryContextResolver;
+  private moduleResolver: ModuleResolver;
 
   // 缓存最近使用的映射，加速重复跳转
   private recentMappings: Map<string, string> = new Map(); // javaPath -> xmlPath
@@ -37,6 +39,7 @@ export class UnifiedNavigationService {
     this.mappingEngine = FastMappingEngine.getInstance();
     this.xmlParser = MyBatisXmlParser.getInstance();
     this.queryContextResolver = QueryContextResolver.getInstance();
+    this.moduleResolver = ModuleResolver.getInstance();
   }
 
   public static getInstance(): UnifiedNavigationService {
@@ -324,8 +327,10 @@ export class UnifiedNavigationService {
         }
       }
 
-      // 建立映射
-      return this.mappingEngine.buildMapping(javaInfo, xmlInfo);
+      // 建立映射（解析模块上下文，确保多模块场景正确归属）
+      const moduleCtx = this.moduleResolver.resolveModuleForPath(javaPath);
+      const moduleId = moduleCtx?.moduleId || "default";
+      return this.mappingEngine.buildMapping(javaInfo, xmlInfo, moduleId);
     } catch (error) {
       this.logger?.debug(`[ParseAndMap] Failed to parse ${javaPath}:`, error);
       return null;

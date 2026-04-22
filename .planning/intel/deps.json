@@ -1,0 +1,159 @@
+{
+  "_meta": {
+    "updated_at": "2026-04-21T07:04:29.959Z",
+    "version": 1
+  },
+  "entries": {
+    "vscode": {
+      "version": "^1.93.0",
+      "type": "peer",
+      "used_by": [
+        "src/extension.ts",
+        "src/features/mapping/fastScanner.ts",
+        "src/features/sql-interceptor/sqlInterceptorService.ts",
+        "src/features/completion/tagCompletionProvider.ts"
+      ],
+      "invocation": "implicit"
+    },
+    "fast-xml-parser": {
+      "version": "^5.3.4",
+      "type": "production",
+      "used_by": [
+        "src/services/parsing/mybatisXmlParser.ts",
+        "src/features/mapping/xmlParser.ts"
+      ],
+      "invocation": "require"
+    },
+    "sql-formatter": {
+      "version": "^15.7.2",
+      "type": "production",
+      "used_by": [
+        "src/features/formatting/pipeline/sqlFormatter.ts"
+      ],
+      "invocation": "require"
+    },
+    "xml-formatter": {
+      "version": "^3.6.7",
+      "type": "production",
+      "used_by": [
+        "src/features/formatting/pipeline/xmlFormatter.ts"
+      ],
+      "invocation": "require"
+    },
+    "axios": {
+      "version": "^1.13.6",
+      "type": "production",
+      "used_by": [
+        "src/utils/httpClient.ts"
+      ],
+      "invocation": "require"
+    },
+    "@vscode/codicons": {
+      "version": "^0.0.45",
+      "type": "production",
+      "used_by": [
+        "package.json menus/views"
+      ],
+      "invocation": "implicit"
+    },
+    "redhat.java": {
+      "version": "extension dependency",
+      "type": "peer",
+      "used_by": [
+        "src/extension.ts",
+        "src/utils/javaExtensionAPI.ts"
+      ],
+      "invocation": "implicit"
+    },
+    "typescript": {
+      "version": "^5.9.2",
+      "type": "development",
+      "used_by": [
+        "npm run compile",
+        "npm run watch"
+      ],
+      "invocation": "npm run compile"
+    },
+    "eslint": {
+      "version": "^9.32.0",
+      "type": "development",
+      "used_by": [
+        "npm run lint"
+      ],
+      "invocation": "npm run lint"
+    },
+    "@typescript-eslint/eslint-plugin": {
+      "version": "^8.39.0",
+      "type": "development",
+      "used_by": [
+        "npm run lint"
+      ],
+      "invocation": "npm run lint"
+    },
+    "@typescript-eslint/parser": {
+      "version": "^8.39.0",
+      "type": "development",
+      "used_by": [
+        "npm run lint"
+      ],
+      "invocation": "npm run lint"
+    },
+    "jest": {
+      "version": "^29.7.0",
+      "type": "development",
+      "used_by": [
+        "npm run test:unit",
+        "npm run test:unit:coverage"
+      ],
+      "invocation": "npm run test:unit"
+    },
+    "ts-jest": {
+      "version": "^29.1.0",
+      "type": "development",
+      "used_by": [
+        "npm run test:unit"
+      ],
+      "invocation": "npm run test:unit"
+    },
+    "@types/jest": {
+      "version": "^29.5.0",
+      "type": "development",
+      "used_by": [
+        "npm run test:unit"
+      ],
+      "invocation": "npm run test:unit"
+    },
+    "@types/node": {
+      "version": "22.x",
+      "type": "development",
+      "used_by": [
+        "tsconfig compilation"
+      ],
+      "invocation": "npm run compile"
+    },
+    "@types/vscode": {
+      "version": "^1.93.0",
+      "type": "development",
+      "used_by": [
+        "tsconfig compilation"
+      ],
+      "invocation": "npm run compile"
+    },
+    "@vscode/test-cli": {
+      "version": "^0.0.11",
+      "type": "development",
+      "used_by": [
+        "npm run test"
+      ],
+      "invocation": "npm run test"
+    },
+    "@vscode/test-electron": {
+      "version": "^2.5.2",
+      "type": "development",
+      "used_by": [
+        "npm run test"
+      ],
+      "invocation": "npm run test"
+    }
+  }
+}
