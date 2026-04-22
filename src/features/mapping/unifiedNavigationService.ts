@@ -10,6 +10,7 @@ import { FastMappingEngine } from "./fastMappingEngine";
 import { MyBatisXmlParser } from "./xmlParser";
 import { MapperMapping, MethodMapping } from "./types";
 import { Logger } from "../../utils/logger";
+import { QueryContextResolver } from "./queryContext";
 
 interface NavigationOptions {
   openSideBySide?: boolean;
@@ -25,10 +26,12 @@ export class UnifiedNavigationService {
   private mappingEngine: FastMappingEngine;
   private logger!: Logger;
   private xmlParser: MyBatisXmlParser;
+  private queryContextResolver: QueryContextResolver;
 
   private constructor() {
     this.mappingEngine = FastMappingEngine.getInstance();
     this.xmlParser = MyBatisXmlParser.getInstance();
+    this.queryContextResolver = QueryContextResolver.getInstance();
   }
 
   public static getInstance(): UnifiedNavigationService {
@@ -174,8 +177,9 @@ export class UnifiedNavigationService {
 
         this.logger?.info(`[Navigate] XML namespace: ${xmlInfo.namespace}`);
 
-        // 3. 通过 namespace 查找映射（传入 xmlPath 以支持路径相似度匹配）
-        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, { referencePath: xmlPath });
+        // 3. 通过 namespace 查找映射（使用 QueryContext 自动推断模块上下文）
+        const context = this.queryContextResolver.inferFromFilePath(xmlPath);
+        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, context);
         this.logger?.debug(
           `[Navigate] Mapping found by namespace: ${mapping ? "yes" : "no"}`,
         );
@@ -330,8 +334,11 @@ export class UnifiedNavigationService {
     const simpleClassName = namespace.substring(namespace.lastIndexOf(".") + 1);
 
     // 1. 在索引中查找
-    // 传入参考路径，确保多服务场景下选择正确的映射
-    let mapping = this.mappingEngine.getByClassName(namespace, { referencePath });
+    // 使用 QueryContext 自动推断模块上下文，确保多服务场景下选择正确的映射
+    const context = referencePath
+      ? this.queryContextResolver.inferFromFilePath(referencePath)
+      : this.queryContextResolver.inferFromActiveEditor();
+    let mapping = this.mappingEngine.getByClassName(namespace, context);
     if (mapping) {
       return mapping;
     }
@@ -387,8 +394,11 @@ export class UnifiedNavigationService {
     javaPath?: string,
   ): Promise<string | undefined> {
     // 1. 检查索引
-    // 传入 javaPath 作为参考路径，确保在多服务场景下选择正确的映射
-    const existingMapping = this.mappingEngine.getByNamespace(namespace, { referencePath: javaPath });
+    // 使用 QueryContext 自动推断模块上下文，确保多服务场景下选择正确的映射
+    const context = javaPath
+      ? this.queryContextResolver.inferFromFilePath(javaPath)
+      : this.queryContextResolver.inferFromActiveEditor();
+    const existingMapping = this.mappingEngine.getByNamespace(namespace, context);
     if (existingMapping?.xmlPath) {
       return existingMapping.xmlPath;
     }
@@ -703,7 +713,8 @@ export class UnifiedNavigationService {
       if (!mapping) {
         const xmlInfo = await this.xmlParser.parseXmlMapper(filePath);
         if (xmlInfo?.namespace) {
-          mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, { referencePath: filePath });
+          const context = this.queryContextResolver.inferFromFilePath(filePath);
+          mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, context);
         }
       }
 
