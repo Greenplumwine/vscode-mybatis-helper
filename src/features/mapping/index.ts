@@ -4,7 +4,6 @@ export * from "./types";
 // ========== 高性能新架构（推荐）==========
 export { FastMappingEngine } from "./fastMappingEngine";
 export { FastScanner } from "./fastScanner";
-export { FastNavigationService } from "./fastNavigationService";
 export { FastCodeLensProvider } from "./fastCodeLensProvider";
 
 // ========== 模块感知组件 ==========

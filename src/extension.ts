@@ -5,7 +5,7 @@
  * 优化亮点：
  * 1. 使用 FastMappingEngine - O(1) 索引查找
  * 2. 使用 FastScanner - 分层扫描策略
- * 3. 使用 FastNavigationService - 高性能导航
+ * 3. 使用 UnifiedNavigationService - 模块感知导航
  */
 
 import * as fs from "fs/promises";
@@ -882,7 +882,7 @@ function activatePluginFeatures(context: vscode.ExtensionContext) {
   }
 
   if (!commandsRegistered) {
-    // 注册跳转命令（使用 FastNavigationService）
+    // 注册跳转命令（使用 UnifiedNavigationService）
     const jumpToXmlCommand = vscode.commands.registerCommand(
       "mybatis-helper.jumpToXml",
       async (filePath?: string, methodName?: string) => {

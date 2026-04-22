@@ -11,6 +11,7 @@ import { MyBatisXmlParser } from "./xmlParser";
 import { MapperMapping, MethodMapping } from "./types";
 import { Logger } from "../../utils/logger";
 import { QueryContextResolver } from "./queryContext";
+import { THRESHOLDS } from "../../utils/constants";
 
 interface NavigationOptions {
   openSideBySide?: boolean;
@@ -27,6 +28,10 @@ export class UnifiedNavigationService {
   private logger!: Logger;
   private xmlParser: MyBatisXmlParser;
   private queryContextResolver: QueryContextResolver;
+
+  // 缓存最近使用的映射，加速重复跳转
+  private recentMappings: Map<string, string> = new Map(); // javaPath -> xmlPath
+  private readonly MAX_RECENT = THRESHOLDS.MAX_RECENT_MAPPINGS;
 
   private constructor() {
     this.mappingEngine = FastMappingEngine.getInstance();
@@ -129,6 +134,9 @@ export class UnifiedNavigationService {
         : undefined;
 
       await this.openAndReveal(mapping.xmlPath!, targetPosition, options);
+
+      // 更新最近使用缓存
+      this.updateRecentCache(javaPath, mapping.xmlPath!);
 
       this.logger?.debug(
         `[Navigate] Java→XML completed in ${Date.now() - startTime}ms`,
@@ -670,6 +678,21 @@ export class UnifiedNavigationService {
   }
 
   /**
+   * 更新最近使用缓存
+   */
+  private updateRecentCache(javaPath: string, xmlPath: string): void {
+    this.recentMappings.set(javaPath, xmlPath);
+
+    // 限制缓存大小
+    if (this.recentMappings.size > this.MAX_RECENT) {
+      const firstKey = this.recentMappings.keys().next().value;
+      if (firstKey) {
+        this.recentMappings.delete(firstKey);
+      }
+    }
+  }
+
+  /**
    * 获取导航信息（用于 CodeLens）
    */
   public async getNavigationInfo(
@@ -800,6 +823,7 @@ export class UnifiedNavigationService {
 
   public getDiagnostics(): object {
     return {
+      recentCacheSize: this.recentMappings.size,
       engineDiagnostics: this.mappingEngine.getDiagnostics(),
     };
   }
