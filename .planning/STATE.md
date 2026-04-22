@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0.0
 milestone_name: milestone
-current_phase: null
+current_phase: "06-module-aware-mapping-engine-refactor"
 status: completed
-last_updated: "2026-03-30T18:00:00.000Z"
+last_updated: "2026-04-22T10:30:00.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 21
+  completed_plans: 21
 ---
 
 # Project State: MyBatis Helper
@@ -23,6 +23,16 @@ progress:
 ## Current Status
 
 ✅ **Milestone v1.0.0 Complete - Released**
+
+### Phase 6 Planned (Ready for Execution)
+
+**Phase 6: 模块感知 Mapper 映射引擎重构** 已完成规划，等待执行。
+
+- **目标**: 引入 ModuleResolver 显式识别模块边界，将 FastMappingEngine 索引改造为 (moduleId, namespace) 复合键，从根本上消除多服务同名 Mapper 的歧义
+- **计划数**: 6 个计划（P01-P06）
+- **波次**: 4 个 Wave（Wave 1-4）
+- **依赖链**: P01 → P02 → (P03, P04) → P05 → P06
+- **计划目录**: `.planning/phases/06-module-aware-mapping-engine-refactor/`
 
 ### Completed Milestone Summary
 
@@ -85,11 +95,18 @@ None. Milestone complete.
 
 ## Next Steps
 
-Ready to start next milestone. Options:
+Phase 6 已规划完成，可选择：
 
-1. **/gsd:new-milestone** - Start planning v1.1.0
-2. **/gsd:review-backlog** - Review backlog items first
-3. **Maintenance mode** - Address issues as they arise
+1. **/gsd-execute-phase 06** — 开始执行 Phase 6 重构
+2. **Maintenance mode** — 继续维护模式，按需处理问题
+
+若要开始执行 Phase 6，所有 6 个计划（P01-P06）已就绪，4 个 Wave 的依赖关系已理清。
+
+---
+
+## Roadmap Evolution
+
+- Phase 6 added: 模块感知 Mapper 映射引擎重构（消除多服务同名 Mapper 歧义）
 
 ---
 
