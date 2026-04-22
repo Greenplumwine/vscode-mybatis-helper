@@ -7,6 +7,10 @@ export { FastScanner } from "./fastScanner";
 export { FastNavigationService } from "./fastNavigationService";
 export { FastCodeLensProvider } from "./fastCodeLensProvider";
 
+// ========== 模块感知组件 ==========
+export { ModuleResolver } from "./moduleResolver";
+export { QueryContextResolver } from "./queryContext";
+
 // ========== 企业级架构（微服务/云原生）==========
 export { EnterpriseConfigResolver } from "./enterpriseConfigResolver";
 export { EnterpriseScanner } from "./enterpriseScanner";
