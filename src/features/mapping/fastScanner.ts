@@ -14,6 +14,7 @@ import { FastMappingEngine } from "./fastMappingEngine";
 import { MyBatisXmlParser } from "./xmlParser";
 import { EnhancedJavaAPI } from "./enhancedJavaAPI";
 import { XmlLocationResolver } from "./xmlLocationResolver";
+import { ModuleResolver } from "./moduleResolver";
 import {
   JavaMapperInfo,
   XmlMapperInfo,
@@ -44,6 +45,7 @@ export class FastScanner extends EventEmitter {
   private xmlParser: MyBatisXmlParser;
   private javaAPI: EnhancedJavaAPI;
   private locationResolver: XmlLocationResolver;
+  private moduleResolver: ModuleResolver;
   private logger!: Logger;
   private config: ScanConfig;
   private isScanning: boolean = false;
@@ -55,6 +57,7 @@ export class FastScanner extends EventEmitter {
     this.xmlParser = MyBatisXmlParser.getInstance();
     this.javaAPI = EnhancedJavaAPI.getInstance();
     this.locationResolver = XmlLocationResolver.getInstance();
+    this.moduleResolver = ModuleResolver.getInstance();
   }
 
   public static getInstance(config?: Partial<ScanConfig>): FastScanner {
@@ -72,6 +75,7 @@ export class FastScanner extends EventEmitter {
     await this.xmlParser.initialize();
     await this.javaAPI.initialize();
     await this.locationResolver.initialize();
+    await this.moduleResolver.initialize();
   }
 
   // ========== 主扫描入口 ==========
@@ -696,25 +700,37 @@ export class FastScanner extends EventEmitter {
       }
     }
 
-    // 2. 匹配 Java 和 XML
-    const matchedPairs: Array<{ java: JavaMapperInfo; xml?: XmlMapperInfo }> =
-      [];
+    // 2. 匹配 Java 和 XML（带模块上下文）
+    const matchedPairs: Array<{ java: JavaMapperInfo; xml?: XmlMapperInfo; moduleId?: string }> = [];
     const unmatchedJava: JavaMapperInfo[] = [];
 
     for (const java of javaMappers) {
-      // 策略1: namespace 直接匹配（如果有多个，使用路径相似度选择最佳）
+      // 解析 Java 文件所属模块
+      const module = this.moduleResolver.resolveModuleForPath(java.filePath);
+      const moduleId = module?.moduleId || "default";
+
+      // 策略1: namespace 直接匹配（考虑同 namespace 多模块）
       let xml: XmlMapperInfo | undefined;
       const xmlCandidates = xmlByNamespace.get(java.className);
       if (xmlCandidates) {
         if (xmlCandidates.length === 1) {
           xml = xmlCandidates[0];
         } else if (xmlCandidates.length > 1) {
-          // 多个相同 namespace 的 XML，使用路径相似度选择
-          xml = this.findBestMatchByFileName(java, xmlCandidates);
+          // 多个相同 namespace 的 XML，优先选择与 Java 同模块的
+          const sameModuleXml = xmlCandidates.find((x) => {
+            const xmlModule = this.moduleResolver.resolveModuleForPath(x.filePath);
+            return xmlModule?.moduleId === moduleId;
+          });
+          if (sameModuleXml) {
+            xml = sameModuleXml;
+          } else {
+            //  fallback: 使用路径相似度
+            xml = this.findBestMatchByFileName(java, xmlCandidates);
+          }
         }
       }
 
-      // 策略2: 简单类名匹配（如果有多个，选择文件名最相似的）
+      // 策略2: 简单类名匹配
       if (!xml) {
         const simpleName = java.className.substring(
           java.className.lastIndexOf(".") + 1,
@@ -723,12 +739,20 @@ export class FastScanner extends EventEmitter {
         if (candidates && candidates.length === 1) {
           xml = candidates[0];
         } else if (candidates && candidates.length > 1) {
-          // 选择文件名最匹配的
-          xml = this.findBestMatchByFileName(java, candidates);
+          // 优先选择同模块
+          const sameModuleXml = candidates.find((x) => {
+            const xmlModule = this.moduleResolver.resolveModuleForPath(x.filePath);
+            return xmlModule?.moduleId === moduleId;
+          });
+          if (sameModuleXml) {
+            xml = sameModuleXml;
+          } else {
+            xml = this.findBestMatchByFileName(java, candidates);
+          }
         }
       }
 
-      matchedPairs.push({ java, xml });
+      matchedPairs.push({ java, xml, moduleId });
 
       if (xml) {
         // 从待匹配列表中移除该 XML（避免重复匹配）
@@ -742,7 +766,7 @@ export class FastScanner extends EventEmitter {
       }
     }
 
-    // 3. 批量建立映射
+    // 3. 批量建立映射（传递 moduleId）
     this.mappingEngine.buildMappings(matchedPairs);
 
     this.logger?.debug(`Built mappings in ${Date.now() - startTime}ms`);
@@ -858,7 +882,11 @@ export class FastScanner extends EventEmitter {
           xml = parsedXml ?? undefined;
         }
 
-        this.mappingEngine.buildMapping(mapper, xml);
+        // 解析模块上下文
+        const module = this.moduleResolver.resolveModuleForPath(filePath);
+        const moduleId = module?.moduleId || "default";
+
+        this.mappingEngine.buildMapping(mapper, xml, moduleId);
         this.emit("javaUpdated", mapper);
       } else {
         // 不再是 Mapper，移除映射
@@ -877,11 +905,14 @@ export class FastScanner extends EventEmitter {
     try {
       const mapper = await this.xmlParser.parseXmlMapper(filePath);
       if (mapper && mapper.namespace) {
-        // 查找是否已有对应的 Java
-        // 传入当前 XML 文件路径作为参考路径，确保多服务场景下选择正确的映射
+        // 解析 XML 文件所属模块
+        const xmlModule = this.moduleResolver.resolveModuleForPath(filePath);
+        const xmlModuleId = xmlModule?.moduleId || "default";
+
+        // 尝试通过 namespace + moduleId 精确查找
         const existingMapping = this.mappingEngine.getByNamespace(
           mapper.namespace,
-          { referencePath: filePath },
+          { moduleId: xmlModuleId },
         );
 
         if (existingMapping) {
@@ -894,8 +925,7 @@ export class FastScanner extends EventEmitter {
           );
           this.emit("xmlUpdated", mapper);
         } else {
-          // 尝试找到对应的 Java
-          // 传入当前 XML 文件路径作为参考路径，确保多服务场景下选择正确的映射
+          // fallback: 通过 referencePath 查找
           const javaMapping = this.mappingEngine.getByClassName(
             mapper.namespace,
             { referencePath: filePath },
@@ -905,7 +935,9 @@ export class FastScanner extends EventEmitter {
               javaMapping.javaPath,
             );
             if (javaMapper) {
-              this.mappingEngine.buildMapping(javaMapper, mapper);
+              const javaModule = this.moduleResolver.resolveModuleForPath(javaMapping.javaPath);
+              const moduleId = javaModule?.moduleId || "default";
+              this.mappingEngine.buildMapping(javaMapper, mapper, moduleId);
               this.emit("xmlUpdated", mapper);
             }
           }
