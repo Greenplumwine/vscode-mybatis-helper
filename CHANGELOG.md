@@ -1,5 +1,27 @@
 # Change Log
 
+## [1.0.4] - 2026-04-22
+
+### 重构与改进
+
+- **模块解析器（ModuleResolver）**：新增独立的模块解析逻辑，支持跨多服务/多模块项目的精确文件定位
+  - 新增 `ModuleResolver` 类，处理模块边界识别和文件归属判定
+  - 支持 Maven/Gradle 多模块结构的自动识别
+- **映射引擎索引重构**：`FastMappingEngine` 采用复合键索引结构，提升同名 namespace 场景下的查询准确性
+  - 索引键从单 namespace 升级为 `namespace + moduleContext` 复合键
+  - 优化内存占用和查找性能
+- **查询上下文解析（QueryContextResolver）**：新增查询上下文解析器，为导航和补全提供精准的模块上下文信息
+  - 统一 Java ↔ XML 导航的上下文传递机制
+- **导航服务合并**：移除独立的 `FastNavigationService`，功能合并至 `UnifiedNavigationService`
+  - 简化架构，减少维护成本
+- **扫描器集成增强**：`FastScanner` 和 `EnterpriseScanner` 集成模块解析能力
+  - 扫描结果自动附带模块上下文信息
+
+### 安全与质量
+
+- 完成安全威胁审计：12 项威胁全部关闭，0 项开放
+- 完成用户验收测试（UAT）：5 项通过，0 项问题，1 项跳过
+
 ## [1.0.3] - 2026-04-08
 
 ### 修复
