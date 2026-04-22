@@ -59,8 +59,8 @@ export class XmlCodeLensProvider implements vscode.CodeLensProvider {
     }
 
     // 2. 从 mappingEngine 查找对应的 Java 文件
-    // 传入当前 XML 文件路径作为参考路径，确保多服务场景下选择正确的映射
-    const mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, { referencePath: filePath });
+    // 引擎内部会自动推断模块上下文
+    const mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace);
     const javaPath = mapping?.javaPath;
 
     const codeLenses: vscode.CodeLens[] = [];
