@@ -14,6 +14,7 @@ import { FastMappingEngine } from "./fastMappingEngine";
 import { EnterpriseConfigResolver } from "./enterpriseConfigResolver";
 import { MyBatisXmlParser } from "./xmlParser";
 import { XmlLocationResolver } from "./xmlLocationResolver";
+import { ModuleResolver } from "./moduleResolver";
 import {
   JavaMapperInfo,
   XmlMapperInfo,
@@ -53,6 +54,7 @@ export class EnterpriseScanner extends EventEmitter {
   private configResolver: EnterpriseConfigResolver;
   private xmlParser: MyBatisXmlParser;
   private locationResolver: XmlLocationResolver;
+  private moduleResolver: ModuleResolver;
   private logger!: Logger;
   private config: EnterpriseScanConfig;
   private isScanning: boolean = false;
@@ -64,6 +66,7 @@ export class EnterpriseScanner extends EventEmitter {
     this.configResolver = EnterpriseConfigResolver.getInstance();
     this.xmlParser = MyBatisXmlParser.getInstance();
     this.locationResolver = XmlLocationResolver.getInstance();
+    this.moduleResolver = ModuleResolver.getInstance();
   }
 
   public static getInstance(
@@ -83,6 +86,7 @@ export class EnterpriseScanner extends EventEmitter {
     await this.configResolver.initialize();
     await this.xmlParser.initialize();
     await this.locationResolver.initialize();
+    await this.moduleResolver.initialize();
   }
 
   /**
@@ -488,11 +492,16 @@ export class EnterpriseScanner extends EventEmitter {
     const startTime = Date.now();
 
     // 建立XML索引
-    const xmlByNamespace = new Map<string, XmlMapperInfo>();
+    const xmlByNamespace = new Map<string, XmlMapperInfo[]>();
     const xmlBySimpleName = new Map<string, XmlMapperInfo[]>();
 
     for (const xml of xmlMappers) {
-      xmlByNamespace.set(xml.namespace, xml);
+      const existingByNs = xmlByNamespace.get(xml.namespace);
+      if (existingByNs) {
+        existingByNs.push(xml);
+      } else {
+        xmlByNamespace.set(xml.namespace, [xml]);
+      }
 
       const simpleName = xml.namespace.substring(
         xml.namespace.lastIndexOf(".") + 1,
@@ -505,13 +514,33 @@ export class EnterpriseScanner extends EventEmitter {
       }
     }
 
-    // 匹配Java和XML
-    const matchedPairs: Array<{ java: JavaMapperInfo; xml?: XmlMapperInfo }> =
-      [];
+    // 匹配Java和XML（带模块上下文）
+    const matchedPairs: Array<{ java: JavaMapperInfo; xml?: XmlMapperInfo; moduleId?: string }> = [];
 
     for (const java of javaMappers) {
+      // 解析 Java 文件所属模块
+      const module = this.moduleResolver.resolveModuleForPath(java.filePath);
+      const moduleId = module?.moduleId || "default";
+
       // 策略1: namespace直接匹配
-      let xml = xmlByNamespace.get(java.className);
+      let xml: XmlMapperInfo | undefined;
+      const xmlCandidates = xmlByNamespace.get(java.className);
+      if (xmlCandidates) {
+        if (xmlCandidates.length === 1) {
+          xml = xmlCandidates[0];
+        } else if (xmlCandidates.length > 1) {
+          // 优先选择同模块的 XML
+          const sameModuleXml = xmlCandidates.find((x) => {
+            const xmlModule = this.moduleResolver.resolveModuleForPath(x.filePath);
+            return xmlModule?.moduleId === moduleId;
+          });
+          if (sameModuleXml) {
+            xml = sameModuleXml;
+          } else {
+            xml = this.findBestMatchByFileName(java, xmlCandidates);
+          }
+        }
+      }
 
       // 策略2: 简单类名匹配
       if (!xml) {
@@ -521,18 +550,36 @@ export class EnterpriseScanner extends EventEmitter {
         const candidates = xmlBySimpleName.get(simpleName);
         if (candidates && candidates.length === 1) {
           xml = candidates[0];
+        } else if (candidates && candidates.length > 1) {
+          const sameModuleXml = candidates.find((x) => {
+            const xmlModule = this.moduleResolver.resolveModuleForPath(x.filePath);
+            return xmlModule?.moduleId === moduleId;
+          });
+          if (sameModuleXml) {
+            xml = sameModuleXml;
+          } else {
+            xml = this.findBestMatchByFileName(java, candidates);
+          }
         }
       }
 
-      matchedPairs.push({ java, xml });
+      matchedPairs.push({ java, xml, moduleId });
+
+      if (xml) {
+        const candidates = xmlByNamespace.get(java.className);
+        if (candidates) {
+          const index = candidates.indexOf(xml);
+          if (index >= 0) {
+            candidates.splice(index, 1);
+          }
+        }
+      }
     }
 
     // 批量建立映射
     this.mappingEngine.buildMappings(matchedPairs);
 
-    this.logger?.debug(
-      `Built ${matchedPairs.length} mappings in ${Date.now() - startTime}ms`,
-    );
+    this.logger?.debug(`Built ${matchedPairs.length} mappings in ${Date.now() - startTime}ms`);
   }
 
   /**
@@ -573,7 +620,11 @@ export class EnterpriseScanner extends EventEmitter {
             undefined;
         }
 
-        this.mappingEngine.buildMapping(mapper, xml);
+        // 解析模块上下文
+        const module = this.moduleResolver.resolveModuleForPath(filePath);
+        const moduleId = module?.moduleId || "default";
+
+        this.mappingEngine.buildMapping(mapper, xml, moduleId);
         this.emit("javaUpdated", mapper);
       } else {
         this.mappingEngine.removeMapping(filePath);
@@ -591,10 +642,14 @@ export class EnterpriseScanner extends EventEmitter {
     try {
       const mapper = await this.xmlParser.parseXmlMapper(filePath);
       if (mapper && mapper.namespace) {
-        // 传入当前 XML 文件路径作为参考路径，确保多服务场景下选择正确的映射
+        // 解析 XML 文件所属模块
+        const xmlModule = this.moduleResolver.resolveModuleForPath(filePath);
+        const xmlModuleId = xmlModule?.moduleId || "default";
+
+        // 尝试通过 namespace + moduleId 精确查找
         const existingMapping = this.mappingEngine.getByNamespace(
           mapper.namespace,
-          { referencePath: filePath },
+          { moduleId: xmlModuleId },
         );
 
         if (existingMapping) {
@@ -604,11 +659,118 @@ export class EnterpriseScanner extends EventEmitter {
             mapper.statements,
           );
           this.emit("xmlUpdated", mapper);
+        } else {
+          // fallback: 通过 referencePath 查找
+          const javaMapping = this.mappingEngine.getByClassName(
+            mapper.namespace,
+            { referencePath: filePath },
+          );
+          if (javaMapping) {
+            const javaMapper = await this.parseJavaMapperFast(
+              javaMapping.javaPath,
+            );
+            if (javaMapper) {
+              const javaModule = this.moduleResolver.resolveModuleForPath(javaMapping.javaPath);
+              const moduleId = javaModule?.moduleId || "default";
+              this.mappingEngine.buildMapping(javaMapper, mapper, moduleId);
+              this.emit("xmlUpdated", mapper);
+            }
+          }
         }
       }
     } catch (error) {
       this.logger?.debug(`Failed to rescan XML file ${filePath}:`, error);
     }
+  }
+
+  /**
+   * 通过文件名和路径相似度找到最佳匹配
+   * 支持多模块/多服务项目中的同名 Mapper 匹配
+   */
+  private findBestMatchByFileName(
+    javaInfo: JavaMapperInfo,
+    xmlCandidates: XmlMapperInfo[],
+  ): XmlMapperInfo | undefined {
+    const javaFileName = javaInfo.filePath
+      .substring(javaInfo.filePath.lastIndexOf("/") + 1)
+      .toLowerCase();
+
+    // 规范化并分割 Java 路径
+    const normalizedJavaPath = javaInfo.filePath.replace(/\\/g, "/").toLowerCase();
+    const javaParts = normalizedJavaPath.split("/");
+
+    let bestMatch: XmlMapperInfo | undefined;
+    let bestScore = -1;
+
+    for (const xml of xmlCandidates) {
+      const xmlFileName = xml.filePath
+        .substring(xml.filePath.lastIndexOf("/") + 1)
+        .toLowerCase();
+
+      // 规范化并分割 XML 路径
+      const normalizedXmlPath = xml.filePath.replace(/\\/g, "/").toLowerCase();
+      const xmlParts = normalizedXmlPath.split("/");
+
+      // 计算文件名相似度
+      let fileNameScore = 0;
+      for (
+        let i = 0;
+        i < Math.min(javaFileName.length, xmlFileName.length);
+        i++
+      ) {
+        if (javaFileName[i] === xmlFileName[i]) {
+          fileNameScore++;
+        } else {
+          break;
+        }
+      }
+
+      // 计算路径相似度
+      let pathScore = 0;
+
+      // 1. 检查模块/服务名匹配
+      const javaModuleIndex = javaParts.findIndex(
+        (p) => p === "src" || p === "main" || p === "java",
+      );
+      const xmlModuleIndex = xmlParts.findIndex(
+        (p) => p === "src" || p === "main" || p === "resources",
+      );
+
+      if (javaModuleIndex > 0 && xmlModuleIndex > 0) {
+        // 比较模块/服务名
+        const javaModule = javaParts[javaModuleIndex - 1];
+        const xmlModule = xmlParts[xmlModuleIndex - 1];
+        if (javaModule === xmlModule) {
+          pathScore += 100; // 同模块匹配，高分奖励
+        }
+      }
+
+      // 2. 查找共同路径段
+      const minLen = Math.min(javaParts.length, xmlParts.length);
+      for (let i = 0; i < minLen; i++) {
+        if (javaParts[i] === xmlParts[i]) {
+          pathScore += 5;
+        }
+      }
+
+      // 3. 距离惩罚
+      const pathDiff = Math.abs(javaParts.length - xmlParts.length);
+      pathScore -= pathDiff * 2;
+
+      // 总得分 = 文件名相似度 + 路径相似度
+      const totalScore = fileNameScore + pathScore;
+
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMatch = xml;
+      }
+    }
+
+    this.logger?.debug(
+      `Best match for ${javaInfo.filePath}: ${bestMatch?.filePath || "none"} (score: ${bestScore})`,
+    );
+
+    return bestMatch;
   }
 
   /**
