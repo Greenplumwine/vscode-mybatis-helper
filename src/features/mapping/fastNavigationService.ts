@@ -92,7 +92,7 @@ export class FastNavigationService {
 
       if (!mapping.xmlPath) {
         // 尝试通过 namespace 查找 XML（可能文件路径变更了）
-        const xmlPath = await this.findXmlByNamespace(mapping.namespace);
+        const xmlPath = await this.findXmlByNamespace(mapping.namespace, javaPath);
         if (xmlPath) {
           this.mappingEngine.updateXmlPath(javaPath, xmlPath);
           mapping = this.mappingEngine.getByJavaPath(javaPath)!;
@@ -160,7 +160,7 @@ export class FastNavigationService {
         }
 
         // 3. 通过 namespace 查找（传入 xmlPath 作为参考路径以选择最佳匹配）
-        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, xmlPath);
+        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, { referencePath: xmlPath });
 
         // 4. 如果仍未找到，尝试扫描 Java
         if (!mapping) {
@@ -263,9 +263,11 @@ export class FastNavigationService {
    */
   private async findXmlByNamespace(
     namespace: string,
+    javaPath?: string,
   ): Promise<string | undefined> {
     // 1. 检查是否已有其他 XML 使用此 namespace
-    const existingMapping = this.mappingEngine.getByNamespace(namespace);
+    // 传入 javaPath 作为参考路径，确保在多服务场景下选择正确的映射
+    const existingMapping = this.mappingEngine.getByNamespace(namespace, { referencePath: javaPath });
     if (existingMapping?.xmlPath) {
       return existingMapping.xmlPath;
     }

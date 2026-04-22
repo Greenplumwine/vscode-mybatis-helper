@@ -15,6 +15,7 @@ import {
   JavaMapperInfo,
   XmlMapperInfo,
   Position,
+  QueryContext,
 } from "./types";
 import { Logger } from "../../utils/logger";
 import { JavaParameter } from "../../services/types";
@@ -25,6 +26,7 @@ import { EnhancedJavaMethodParser } from "../../services/parsing/javaMethodParse
  */
 interface MappingIndex {
   namespace: string;
+  moduleId: string;  // 新增：模块标识
   javaPath: string;
   xmlPath?: string;
   className: string;
@@ -49,20 +51,22 @@ export class FastMappingEngine extends EventEmitter {
 
   // ========== 核心索引 ==========
 
-  /** 主索引：namespace -> mapping[] */
-  /** 使用数组存储，支持同 namespace 多模块场景 */
-  private namespaceIndex: Map<string, MappingIndex[]> = new Map();
+  /** 主索引：compositeKey(moduleId::namespace) -> MappingIndex (O(1)) */
+  private moduleNamespaceIndex: Map<string, MappingIndex> = new Map();
 
-  /** 反向索引：javaPath -> namespace */
+  /** 反向索引：namespace -> moduleId[]（用于无模块上下文时的 fallback） */
+  private namespaceToModules: Map<string, string[]> = new Map();
+
+  /** 反向索引：javaPath -> compositeKey */
   private javaPathIndex: Map<string, string> = new Map();
 
-  /** 反向索引：xmlPath -> namespace */
+  /** 反向索引：xmlPath -> compositeKey */
   private xmlPathIndex: Map<string, string> = new Map();
 
-  /** 类名索引：simpleClassName -> Set<namespace> */
+  /** 类名索引：simpleClassName -> Set<compositeKey> */
   private classNameIndex: Map<string, Set<string>> = new Map();
 
-  /** 包名索引：packagePrefix -> Set<namespace>（用于快速过滤） */
+  /** 包名索引：packagePrefix -> Set<compositeKey>（用于快速过滤） */
   private packageIndex: Map<string, Set<string>> = new Map();
 
   // ========== 缓存 ==========
@@ -100,6 +104,10 @@ export class FastMappingEngine extends EventEmitter {
       FastMappingEngine.instance = new FastMappingEngine();
     }
     return FastMappingEngine.instance;
+  }
+
+  private getCompositeKey(moduleId: string, namespace: string): string {
+    return `${moduleId}::${namespace}`;
   }
 
   public async initialize(): Promise<void> {
@@ -142,22 +150,17 @@ export class FastMappingEngine extends EventEmitter {
     let removed = 0;
     const fs = await import("fs/promises");
 
-    for (const [namespace, mappings] of this.namespaceIndex) {
-      for (const mapping of mappings) {
-        try {
-          // Check if Java file still exists
-          if (mapping.javaPath) {
-            await fs.access(mapping.javaPath);
-          }
-          // Check if XML file still exists
-          if (mapping.xmlPath) {
-            await fs.access(mapping.xmlPath);
-          }
-        } catch {
-          // File no longer exists, remove from indexes
-          this.removeMapping(mapping.javaPath);
-          removed++;
+    for (const mapping of this.moduleNamespaceIndex.values()) {
+      try {
+        if (mapping.javaPath) {
+          await fs.access(mapping.javaPath);
         }
+        if (mapping.xmlPath) {
+          await fs.access(mapping.xmlPath);
+        }
+      } catch {
+        this.removeMapping(mapping.javaPath);
+        removed++;
       }
     }
 
@@ -165,9 +168,8 @@ export class FastMappingEngine extends EventEmitter {
       this.logger?.info(`Cleaned up ${removed} stale mappings`);
     }
 
-    // Log current stats
     this.logger?.debug(
-      `Cache stats: ${this.namespaceIndex.size} namespaces, ${this.stats.totalMethods} methods`,
+      `Cache stats: ${this.moduleNamespaceIndex.size} mappings, ${this.stats.totalMethods} methods`,
     );
 
     return removed;
@@ -195,6 +197,7 @@ export class FastMappingEngine extends EventEmitter {
   public buildMapping(
     javaInfo: JavaMapperInfo,
     xmlInfo?: XmlMapperInfo,
+    moduleId: string = "default",
   ): MappingIndex {
     const namespace = xmlInfo?.namespace || javaInfo.className;
     const simpleClassName = javaInfo.className.substring(
@@ -219,6 +222,7 @@ export class FastMappingEngine extends EventEmitter {
 
     const mapping: MappingIndex = {
       namespace,
+      moduleId,
       javaPath: javaInfo.filePath,
       xmlPath: xmlInfo?.filePath,
       className: javaInfo.className,
@@ -247,12 +251,12 @@ export class FastMappingEngine extends EventEmitter {
    * 批量建立映射（用于初始化时）
    */
   public buildMappings(
-    pairs: Array<{ java: JavaMapperInfo; xml?: XmlMapperInfo }>,
+    pairs: Array<{ java: JavaMapperInfo; xml?: XmlMapperInfo; moduleId?: string }>,
   ): void {
     const startTime = Date.now();
 
-    for (const { java, xml } of pairs) {
-      this.buildMapping(java, xml);
+    for (const { java, xml, moduleId } of pairs) {
+      this.buildMapping(java, xml, moduleId || "default");
     }
 
     this.logger?.info(
@@ -271,28 +275,41 @@ export class FastMappingEngine extends EventEmitter {
    */
   public getByNamespace(
     namespace: string,
-    referencePath?: string,
+    context?: QueryContext,
   ): MapperMapping | undefined {
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return undefined;
-    }
-
-    // 如果只有一个映射，直接返回
-    if (mappings.length === 1) {
-      return this.toMapperMapping(mappings[0]);
-    }
-
-    // 如果有多个映射，且有参考路径，使用路径相似度选择最佳匹配
-    if (referencePath && mappings.length > 1) {
-      const bestMatch = this.findBestMatchByPath(mappings, referencePath);
-      if (bestMatch) {
-        return this.toMapperMapping(bestMatch);
+    // 优先使用模块上下文（O(1)）
+    if (context?.moduleId) {
+      const key = this.getCompositeKey(context.moduleId, namespace);
+      const mapping = this.moduleNamespaceIndex.get(key);
+      if (mapping) {
+        return this.toMapperMapping(mapping);
       }
     }
 
-    // 有多个但没有参考路径，返回第一个
-    return this.toMapperMapping(mappings[0]);
+    // Fallback: 使用 referencePath 进行路径相似度匹配
+    if (context?.referencePath) {
+      const modules = this.namespaceToModules.get(namespace);
+      if (modules && modules.length > 0) {
+        const candidates = modules
+          .map((m) => this.moduleNamespaceIndex.get(this.getCompositeKey(m, namespace)))
+          .filter((m): m is MappingIndex => !!m);
+        const bestMatch = this.findBestMatchByPath(candidates, context.referencePath);
+        if (bestMatch) {
+          return this.toMapperMapping(bestMatch);
+        }
+      }
+    }
+
+    // 最后的 fallback: 返回第一个（仅单模块场景）
+    const modules = this.namespaceToModules.get(namespace);
+    if (modules && modules.length > 0) {
+      const first = this.moduleNamespaceIndex.get(this.getCompositeKey(modules[0], namespace));
+      if (first) {
+        return this.toMapperMapping(first);
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -303,18 +320,11 @@ export class FastMappingEngine extends EventEmitter {
    */
   public getByJavaPath(javaPath: string): MapperMapping | undefined {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return undefined;
     }
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return undefined;
-    }
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     return mapping ? this.toMapperMapping(mapping) : undefined;
   }
 
@@ -326,18 +336,11 @@ export class FastMappingEngine extends EventEmitter {
    */
   public getByXmlPath(xmlPath: string): MapperMapping | undefined {
     const normalizedPath = xmlPath.normalize("NFC").toLowerCase();
-    const namespace = this.xmlPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.xmlPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return undefined;
     }
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return undefined;
-    }
-    // 找到与给定 XML 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.xmlPath?.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     return mapping ? this.toMapperMapping(mapping) : undefined;
   }
 
@@ -350,52 +353,68 @@ export class FastMappingEngine extends EventEmitter {
    */
   public getByClassName(
     className: string,
-    referencePath?: string,
+    context?: QueryContext,
   ): MapperMapping | undefined {
-    // 1. 尝试作为全限定类名直接匹配 namespace - O(1)
-    const byNamespace = this.namespaceIndex.get(className);
-    if (byNamespace && byNamespace.length > 0) {
-      // 如果有多个相同 namespace 的映射
-      if (byNamespace.length === 1) {
-        return this.toMapperMapping(byNamespace[0]);
+    // 1. 尝试作为全限定类名直接匹配 namespace
+    const modules = this.namespaceToModules.get(className);
+    if (modules && modules.length > 0) {
+      if (modules.length === 1) {
+        const key = this.getCompositeKey(modules[0], className);
+        const mapping = this.moduleNamespaceIndex.get(key);
+        if (mapping) {
+          return this.toMapperMapping(mapping);
+        }
       }
-      // 多个映射，使用参考路径选择最佳匹配
-      if (referencePath) {
-        const bestMatch = this.findBestMatchByPath(byNamespace, referencePath);
+
+      // 有多个模块，尝试用 context 选择
+      if (context?.moduleId) {
+        const key = this.getCompositeKey(context.moduleId, className);
+        const mapping = this.moduleNamespaceIndex.get(key);
+        if (mapping) {
+          return this.toMapperMapping(mapping);
+        }
+      }
+
+      if (context?.referencePath) {
+        const candidates = modules
+          .map((m) => this.moduleNamespaceIndex.get(this.getCompositeKey(m, className)))
+          .filter((m): m is MappingIndex => !!m);
+        const bestMatch = this.findBestMatchByPath(candidates, context.referencePath);
         if (bestMatch) {
           return this.toMapperMapping(bestMatch);
         }
       }
-      // 没有参考路径，返回第一个
-      return this.toMapperMapping(byNamespace[0]);
+
+      // 无上下文，返回第一个
+      const key = this.getCompositeKey(modules[0], className);
+      const mapping = this.moduleNamespaceIndex.get(key);
+      if (mapping) {
+        return this.toMapperMapping(mapping);
+      }
     }
 
-    // 2. 尝试作为简单类名查找 - O(1) 索引 + O(k) k为同名类数量
-    const namespaces = this.classNameIndex.get(className);
-    if (namespaces && namespaces.size > 0) {
-      // 收集所有候选映射
+    // 2. 尝试作为简单类名查找
+    const compositeKeys = this.classNameIndex.get(className);
+    if (compositeKeys && compositeKeys.size > 0) {
       const candidates: MappingIndex[] = [];
-      for (const namespace of namespaces) {
-        const mappings = this.namespaceIndex.get(namespace);
-        if (mappings) {
-          candidates.push(...mappings);
+      for (const key of compositeKeys) {
+        const mapping = this.moduleNamespaceIndex.get(key);
+        if (mapping) {
+          candidates.push(mapping);
         }
       }
 
-      // 如果只有一个候选，直接返回
       if (candidates.length === 1) {
         return this.toMapperMapping(candidates[0]);
       }
 
-      // 如果有多个，且有参考路径，使用路径相似度选择最佳匹配
-      if (referencePath && candidates.length > 1) {
-        const bestMatch = this.findBestMatchByPath(candidates, referencePath);
+      if (context?.referencePath && candidates.length > 1) {
+        const bestMatch = this.findBestMatchByPath(candidates, context.referencePath);
         if (bestMatch) {
           return this.toMapperMapping(bestMatch);
         }
       }
 
-      // 有多个但没有参考路径，返回第一个
       return this.toMapperMapping(candidates[0]);
     }
 
@@ -492,18 +511,16 @@ export class FastMappingEngine extends EventEmitter {
    * 通过包前缀查找映射
    */
   public findByPackagePrefix(packagePrefix: string): MapperMapping[] {
-    const namespaces = this.packageIndex.get(packagePrefix);
-    if (!namespaces) {
+    const compositeKeys = this.packageIndex.get(packagePrefix);
+    if (!compositeKeys) {
       return [];
     }
 
     const results: MapperMapping[] = [];
-    for (const namespace of namespaces) {
-      const mappings = this.namespaceIndex.get(namespace);
-      if (mappings) {
-        for (const mapping of mappings) {
-          results.push(this.toMapperMapping(mapping));
-        }
+    for (const key of compositeKeys) {
+      const mapping = this.moduleNamespaceIndex.get(key);
+      if (mapping) {
+        results.push(this.toMapperMapping(mapping));
       }
     }
     return results;
@@ -517,19 +534,11 @@ export class FastMappingEngine extends EventEmitter {
     methodName: string,
   ): MethodMapping | undefined {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return undefined;
     }
-
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return undefined;
-    }
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     return mapping?.methods.get(methodName);
   }
 
@@ -543,29 +552,27 @@ export class FastMappingEngine extends EventEmitter {
    * 所以需要做适配匹配
    */
   public hasSqlForMethod(namespace: string, methodName: string): boolean {
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
+    const modules = this.namespaceToModules.get(namespace);
+    if (!modules || modules.length === 0) {
       return false;
     }
-
-    // 遍历所有相同 namespace 的映射，检查是否有 SQL
-    for (const mapping of mappings) {
-      // 1. 首先尝试完全匹配（带参数）
-      const methodWithParams = mapping.methods.get(methodName);
-      if (methodWithParams && methodWithParams.xmlPosition !== undefined) {
-        return true;
-      }
-
-      // 2. 如果失败，尝试去掉参数部分匹配
-      // Java 符号 API 返回："getA00s(String)" 或 "getPersonInfoByImport(List, String, String)"
-      // XML 存储："getA00s" 或 "getPersonInfoByImport"
-      const methodNameWithoutParams = methodName.split("(")[0];
-      const methodWithoutParams = mapping.methods.get(methodNameWithoutParams);
-      if (methodWithoutParams && methodWithoutParams.xmlPosition !== undefined) {
-        return true;
+    // 遍历所有相同 namespace 的映射
+    for (const moduleId of modules) {
+      const key = this.getCompositeKey(moduleId, namespace);
+      const mapping = this.moduleNamespaceIndex.get(key);
+      if (mapping) {
+        // 检查方法是否有 SQL
+        const methodWithParams = mapping.methods.get(methodName);
+        if (methodWithParams && methodWithParams.xmlPosition !== undefined) {
+          return true;
+        }
+        const methodNameWithoutParams = methodName.split("(")[0];
+        const methodWithoutParams = mapping.methods.get(methodNameWithoutParams);
+        if (methodWithoutParams && methodWithoutParams.xmlPosition !== undefined) {
+          return true;
+        }
       }
     }
-
     return false;
   }
 
@@ -578,20 +585,11 @@ export class FastMappingEngine extends EventEmitter {
    */
   public addMethodMapping(javaPath: string, methodName: string): boolean {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return false;
     }
-
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return false;
-    }
-
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     if (!mapping) {
       return false;
     }
@@ -616,7 +614,7 @@ export class FastMappingEngine extends EventEmitter {
     this.stats.totalMethods++;
 
     this.logger?.debug(
-      `[FastMappingEngine] Added method mapping: ${namespace}.${methodName}`,
+      `[FastMappingEngine] Added method mapping: ${mapping.namespace}.${methodName}`,
     );
     this.emit("mappingUpdated", this.toMapperMapping(mapping));
 
@@ -643,33 +641,29 @@ export class FastMappingEngine extends EventEmitter {
       return existing;
     }
 
-    // 2. 通过 namespace 查找，传入 xmlPath 作为参考路径以选择最佳匹配
-    const byNamespace = this.getByNamespace(namespace, xmlPath);
+    // 2. 通过 namespace 查找，传入 xmlPath 作为参考路径
+    const byNamespace = this.getByNamespace(namespace, { referencePath: xmlPath });
     if (byNamespace) {
-      // 更新 XML 路径
       this.updateXmlPath(byNamespace.javaPath, xmlPath);
       return this.getByJavaPath(byNamespace.javaPath);
     }
 
-    // 3. 尝试通过简单类名匹配（使用路径相似度选择最佳匹配）
+    // 3. 尝试通过简单类名匹配
     const simpleClassName = namespace.substring(namespace.lastIndexOf(".") + 1);
-    const candidateNamespaces = this.classNameIndex.get(simpleClassName);
-    if (candidateNamespaces && candidateNamespaces.size > 0) {
-      // 收集所有候选映射
+    const candidateKeys = this.classNameIndex.get(simpleClassName);
+    if (candidateKeys && candidateKeys.size > 0) {
       const candidates: MappingIndex[] = [];
-      for (const candidateNamespace of candidateNamespaces) {
-        const mappings = this.namespaceIndex.get(candidateNamespace);
-        if (mappings) {
-          candidates.push(...mappings);
+      for (const key of candidateKeys) {
+        const mapping = this.moduleNamespaceIndex.get(key);
+        if (mapping) {
+          candidates.push(mapping);
         }
       }
 
       if (candidates.length === 1) {
-        // 只有一个候选
         this.updateXmlPath(candidates[0].javaPath, xmlPath);
         return this.getByJavaPath(candidates[0].javaPath);
       } else if (candidates.length > 1) {
-        // 多个候选，使用路径相似度选择最佳匹配
         const bestMatch = this.findBestMatchByPath(candidates, xmlPath);
         if (bestMatch) {
           this.updateXmlPath(bestMatch.javaPath, xmlPath);
@@ -688,16 +682,14 @@ export class FastMappingEngine extends EventEmitter {
     const results: MapperMapping[] = [];
     const lowerQuery = query.toLowerCase();
 
-    for (const mappings of this.namespaceIndex.values()) {
-      for (const mapping of mappings) {
-        if (
-          mapping.namespace.toLowerCase().includes(lowerQuery) ||
-          mapping.simpleClassName.toLowerCase().includes(lowerQuery) ||
-          mapping.javaPath.toLowerCase().includes(lowerQuery) ||
-          mapping.xmlPath?.toLowerCase().includes(lowerQuery)
-        ) {
-          results.push(this.toMapperMapping(mapping));
-        }
+    for (const mapping of this.moduleNamespaceIndex.values()) {
+      if (
+        mapping.namespace.toLowerCase().includes(lowerQuery) ||
+        mapping.simpleClassName.toLowerCase().includes(lowerQuery) ||
+        mapping.javaPath.toLowerCase().includes(lowerQuery) ||
+        mapping.xmlPath?.toLowerCase().includes(lowerQuery)
+      ) {
+        results.push(this.toMapperMapping(mapping));
       }
     }
 
@@ -711,20 +703,12 @@ export class FastMappingEngine extends EventEmitter {
    */
   public updateXmlPath(javaPath: string, xmlPath: string): boolean {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return false;
     }
 
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return false;
-    }
-
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     if (!mapping) {
       return false;
     }
@@ -739,7 +723,7 @@ export class FastMappingEngine extends EventEmitter {
     mapping.lastUpdated = Date.now();
 
     // 添加新的 xmlPath 索引
-    this.xmlPathIndex.set(xmlPath.normalize("NFC").toLowerCase(), namespace);
+    this.xmlPathIndex.set(xmlPath.normalize("NFC").toLowerCase(), compositeKey);
 
     this.emit("mappingUpdated", this.toMapperMapping(mapping));
     return true;
@@ -754,20 +738,12 @@ export class FastMappingEngine extends EventEmitter {
     xmlStatements: Map<string, Position>,
   ): boolean {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return false;
     }
 
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return false;
-    }
-
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     if (!mapping) {
       return false;
     }
@@ -778,7 +754,6 @@ export class FastMappingEngine extends EventEmitter {
     // 2. 删除 XML 中已不存在的方法映射
     for (const [methodName, methodMapping] of mapping.methods.entries()) {
       if (!xmlMethodNames.has(methodName)) {
-        // 这个方法在 XML 中已不存在，清除其 xmlPosition
         methodMapping.xmlPosition = undefined;
       }
     }
@@ -787,10 +762,8 @@ export class FastMappingEngine extends EventEmitter {
     for (const [methodName, xmlPosition] of xmlStatements.entries()) {
       const methodMapping = mapping.methods.get(methodName);
       if (methodMapping) {
-        // 更新现有方法的位置
         methodMapping.xmlPosition = xmlPosition;
       } else {
-        // 添加新方法映射
         mapping.methods.set(methodName, {
           methodName: methodName,
           sqlId: methodName,
@@ -821,32 +794,29 @@ export class FastMappingEngine extends EventEmitter {
    */
   public removeMapping(javaPath: string): boolean {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return false;
     }
 
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
+    if (!mapping) {
       return false;
     }
 
-    // 找到与给定 Java 路径匹配的映射
-    const mappingIndex = mappings.findIndex(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
-    if (mappingIndex < 0) {
-      return false;
-    }
+    // 从主索引移除
+    this.moduleNamespaceIndex.delete(compositeKey);
 
-    const mapping = mappings[mappingIndex];
-
-    // 从数组中移除该映射
-    mappings.splice(mappingIndex, 1);
-
-    // 如果数组为空，删除整个 namespace 条目
-    if (mappings.length === 0) {
-      this.namespaceIndex.delete(namespace);
+    // 从 namespaceToModules 移除
+    const modules = this.namespaceToModules.get(mapping.namespace);
+    if (modules) {
+      const idx = modules.indexOf(mapping.moduleId);
+      if (idx >= 0) {
+        modules.splice(idx, 1);
+        if (modules.length === 0) {
+          this.namespaceToModules.delete(mapping.namespace);
+        }
+      }
     }
 
     // 清理其他索引
@@ -855,19 +825,17 @@ export class FastMappingEngine extends EventEmitter {
       this.xmlPathIndex.delete(mapping.xmlPath.normalize("NFC").toLowerCase());
     }
 
-    // 清理类名索引（只有当没有其他相同 namespace 的映射时才删除）
-    if (mappings.length === 0) {
-      const classNames = this.classNameIndex.get(mapping.simpleClassName);
-      if (classNames) {
-        classNames.delete(namespace);
-        if (classNames.size === 0) {
-          this.classNameIndex.delete(mapping.simpleClassName);
-        }
+    // 清理类名索引
+    const classNames = this.classNameIndex.get(mapping.simpleClassName);
+    if (classNames) {
+      classNames.delete(compositeKey);
+      if (classNames.size === 0) {
+        this.classNameIndex.delete(mapping.simpleClassName);
       }
-
-      // 清理包名索引
-      this.removeFromPackageIndex(namespace, mapping.packageName);
     }
+
+    // 清理包名索引
+    this.removeFromPackageIndex(compositeKey, mapping.packageName);
 
     this.emit("mappingRemoved", javaPath);
     return true;
@@ -878,20 +846,12 @@ export class FastMappingEngine extends EventEmitter {
    */
   public removeXmlMapping(xmlPath: string): boolean {
     const normalizedPath = xmlPath.normalize("NFC").toLowerCase();
-    const namespace = this.xmlPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.xmlPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return false;
     }
 
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return false;
-    }
-
-    // 找到与给定 XML 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.xmlPath?.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     if (!mapping) {
       return false;
     }
@@ -912,47 +872,41 @@ export class FastMappingEngine extends EventEmitter {
   // ========== 索引维护 ==========
 
   private updateIndexes(mapping: MappingIndex): void {
-    const { namespace, javaPath, xmlPath, simpleClassName, packageName } =
-      mapping;
+    const { namespace, moduleId, javaPath, xmlPath, simpleClassName, packageName } = mapping;
+    const compositeKey = this.getCompositeKey(moduleId, namespace);
 
-    // 主索引 - 使用数组存储，支持同 namespace 多模块
-    const existingMappings = this.namespaceIndex.get(namespace);
-    if (existingMappings) {
-      // 检查是否已存在相同 Java 路径的映射，避免重复
-      const existingIndex = existingMappings.findIndex(
-        (m) => m.javaPath.normalize("NFC").toLowerCase() === javaPath.normalize("NFC").toLowerCase()
-      );
-      if (existingIndex >= 0) {
-        // 更新现有映射
-        existingMappings[existingIndex] = mapping;
-      } else {
-        // 添加新映射到数组
-        existingMappings.push(mapping);
+    // 主索引 - O(1) 直接存储
+    this.moduleNamespaceIndex.set(compositeKey, mapping);
+
+    // namespace -> modules 反向索引
+    const existingModules = this.namespaceToModules.get(namespace);
+    if (existingModules) {
+      if (!existingModules.includes(moduleId)) {
+        existingModules.push(moduleId);
       }
     } else {
-      this.namespaceIndex.set(namespace, [mapping]);
+      this.namespaceToModules.set(namespace, [moduleId]);
     }
 
-    // 反向索引（使用规范化+小写路径以支持各种文件系统）
-    // normalize('NFC') 处理 macOS HFS+ 的 NFD 编码问题
-    this.javaPathIndex.set(javaPath.normalize("NFC").toLowerCase(), namespace);
+    // 反向索引
+    this.javaPathIndex.set(javaPath.normalize("NFC").toLowerCase(), compositeKey);
     if (xmlPath) {
-      this.xmlPathIndex.set(xmlPath.normalize("NFC").toLowerCase(), namespace);
+      this.xmlPathIndex.set(xmlPath.normalize("NFC").toLowerCase(), compositeKey);
     }
 
-    // 类名索引
+    // 类名索引 - 存储 compositeKey
     const existingClasses = this.classNameIndex.get(simpleClassName);
     if (existingClasses) {
-      existingClasses.add(namespace);
+      existingClasses.add(compositeKey);
     } else {
-      this.classNameIndex.set(simpleClassName, new Set([namespace]));
+      this.classNameIndex.set(simpleClassName, new Set([compositeKey]));
     }
 
-    // 包名索引（支持前缀查找）
-    this.addToPackageIndex(namespace, packageName);
+    // 包名索引
+    this.addToPackageIndex(compositeKey, packageName);
   }
 
-  private addToPackageIndex(namespace: string, packageName: string): void {
+  private addToPackageIndex(compositeKey: string, packageName: string): void {
     const parts = packageName.split(".");
     let prefix = "";
 
@@ -960,14 +914,14 @@ export class FastMappingEngine extends EventEmitter {
       prefix = prefix ? `${prefix}.${parts[i]}` : parts[i];
       const existing = this.packageIndex.get(prefix);
       if (existing) {
-        existing.add(namespace);
+        existing.add(compositeKey);
       } else {
-        this.packageIndex.set(prefix, new Set([namespace]));
+        this.packageIndex.set(prefix, new Set([compositeKey]));
       }
     }
   }
 
-  private removeFromPackageIndex(namespace: string, packageName: string): void {
+  private removeFromPackageIndex(compositeKey: string, packageName: string): void {
     const parts = packageName.split(".");
     let prefix = "";
 
@@ -975,7 +929,7 @@ export class FastMappingEngine extends EventEmitter {
       prefix = prefix ? `${prefix}.${parts[i]}` : parts[i];
       const existing = this.packageIndex.get(prefix);
       if (existing) {
-        existing.delete(namespace);
+        existing.delete(compositeKey);
         if (existing.size === 0) {
           this.packageIndex.delete(prefix);
         }
@@ -1116,20 +1070,11 @@ export class FastMappingEngine extends EventEmitter {
     methodName: string,
   ): JavaParameter[] | undefined {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return undefined;
     }
-
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return undefined;
-    }
-
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     return mapping?.methodParameters?.get(methodName);
   }
 
@@ -1142,20 +1087,11 @@ export class FastMappingEngine extends EventEmitter {
     parameters: JavaParameter[],
   ): boolean {
     const normalizedPath = javaPath.normalize("NFC").toLowerCase();
-    const namespace = this.javaPathIndex.get(normalizedPath);
-    if (!namespace) {
+    const compositeKey = this.javaPathIndex.get(normalizedPath);
+    if (!compositeKey) {
       return false;
     }
-
-    const mappings = this.namespaceIndex.get(namespace);
-    if (!mappings || mappings.length === 0) {
-      return false;
-    }
-
-    // 找到与给定 Java 路径匹配的映射
-    const mapping = mappings.find(
-      (m) => m.javaPath.normalize("NFC").toLowerCase() === normalizedPath
-    );
+    const mapping = this.moduleNamespaceIndex.get(compositeKey);
     if (!mapping) {
       return false;
     }
@@ -1179,10 +1115,8 @@ export class FastMappingEngine extends EventEmitter {
 
   public getAllMappings(): MapperMapping[] {
     const results: MapperMapping[] = [];
-    for (const mappings of this.namespaceIndex.values()) {
-      for (const mapping of mappings) {
-        results.push(this.toMapperMapping(mapping));
-      }
+    for (const mapping of this.moduleNamespaceIndex.values()) {
+      results.push(this.toMapperMapping(mapping));
     }
     return results;
   }
@@ -1198,20 +1132,16 @@ export class FastMappingEngine extends EventEmitter {
   public getStats() {
     let withXml = 0;
     let totalMethods = 0;
-    let totalMappings = 0;
 
-    for (const mappings of this.namespaceIndex.values()) {
-      for (const mapping of mappings) {
-        if (mapping.xmlPath) {
-          withXml++;
-        }
-        totalMethods += mapping.methods.size;
-        totalMappings++;
+    for (const mapping of this.moduleNamespaceIndex.values()) {
+      if (mapping.xmlPath) {
+        withXml++;
       }
+      totalMethods += mapping.methods.size;
     }
 
     return {
-      total: totalMappings,
+      total: this.moduleNamespaceIndex.size,
       withXml,
       totalMethods,
       uniqueClassNames: this.classNameIndex.size,
@@ -1221,7 +1151,8 @@ export class FastMappingEngine extends EventEmitter {
   }
 
   public clear(): void {
-    this.namespaceIndex.clear();
+    this.moduleNamespaceIndex.clear();
+    this.namespaceToModules.clear();
     this.javaPathIndex.clear();
     this.xmlPathIndex.clear();
     this.classNameIndex.clear();
@@ -1237,7 +1168,8 @@ export class FastMappingEngine extends EventEmitter {
   public getDiagnostics(): object {
     return {
       indexSizes: {
-        namespace: this.namespaceIndex.size,
+        moduleNamespace: this.moduleNamespaceIndex.size,
+        namespaceToModules: this.namespaceToModules.size,
         javaPath: this.javaPathIndex.size,
         xmlPath: this.xmlPathIndex.size,
         className: this.classNameIndex.size,

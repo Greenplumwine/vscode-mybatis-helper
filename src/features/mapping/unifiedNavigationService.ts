@@ -175,7 +175,7 @@ export class UnifiedNavigationService {
         this.logger?.info(`[Navigate] XML namespace: ${xmlInfo.namespace}`);
 
         // 3. 通过 namespace 查找映射（传入 xmlPath 以支持路径相似度匹配）
-        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, xmlPath);
+        mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, { referencePath: xmlPath });
         this.logger?.debug(
           `[Navigate] Mapping found by namespace: ${mapping ? "yes" : "no"}`,
         );
@@ -186,7 +186,7 @@ export class UnifiedNavigationService {
             `[Navigate] Trying to find Java by namespace: ${xmlInfo.namespace}`,
           );
           mapping =
-            (await this.findJavaByNamespace(xmlInfo.namespace)) ?? undefined;
+            (await this.findJavaByNamespace(xmlInfo.namespace, xmlPath)) ?? undefined;
 
           if (mapping) {
             // 更新 XML 路径到现有映射
@@ -325,11 +325,13 @@ export class UnifiedNavigationService {
    */
   private async findJavaByNamespace(
     namespace: string,
+    referencePath?: string,
   ): Promise<MapperMapping | null> {
     const simpleClassName = namespace.substring(namespace.lastIndexOf(".") + 1);
 
     // 1. 在索引中查找
-    let mapping = this.mappingEngine.getByClassName(namespace);
+    // 传入参考路径，确保多服务场景下选择正确的映射
+    let mapping = this.mappingEngine.getByClassName(namespace, { referencePath });
     if (mapping) {
       return mapping;
     }
@@ -385,7 +387,8 @@ export class UnifiedNavigationService {
     javaPath?: string,
   ): Promise<string | undefined> {
     // 1. 检查索引
-    const existingMapping = this.mappingEngine.getByNamespace(namespace);
+    // 传入 javaPath 作为参考路径，确保在多服务场景下选择正确的映射
+    const existingMapping = this.mappingEngine.getByNamespace(namespace, { referencePath: javaPath });
     if (existingMapping?.xmlPath) {
       return existingMapping.xmlPath;
     }
@@ -700,7 +703,7 @@ export class UnifiedNavigationService {
       if (!mapping) {
         const xmlInfo = await this.xmlParser.parseXmlMapper(filePath);
         if (xmlInfo?.namespace) {
-          mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, filePath);
+          mapping = this.mappingEngine.getByNamespace(xmlInfo.namespace, { referencePath: filePath });
         }
       }
 

@@ -591,8 +591,10 @@ export class EnterpriseScanner extends EventEmitter {
     try {
       const mapper = await this.xmlParser.parseXmlMapper(filePath);
       if (mapper && mapper.namespace) {
+        // 传入当前 XML 文件路径作为参考路径，确保多服务场景下选择正确的映射
         const existingMapping = this.mappingEngine.getByNamespace(
           mapper.namespace,
+          { referencePath: filePath },
         );
 
         if (existingMapping) {
