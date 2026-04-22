@@ -48,6 +48,16 @@
 
 ---
 
+### Phase 6: 模块感知 Mapper 映射引擎重构 — Not planned yet
+- [ ] 引入 ModuleResolver 显式识别模块边界
+- [ ] 改造 FastMappingEngine 索引为 (moduleId, namespace) 复合键
+- [ ] 扫描阶段集成模块上下文
+- [ ] 统一 QueryContext 查询接口
+- [ ] 合并 FastNavigationService 与 UnifiedNavigationService
+- [ ] 清理 referencePath 补丁代码
+
+---
+
 *For detailed milestone information, see .planning/MILESTONES.md*
 
 ## Archived Phase Details

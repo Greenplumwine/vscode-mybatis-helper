@@ -82,3 +82,33 @@ export interface ScanProgressEvent {
   processed: number;
   currentFile?: string;
 }
+
+/**
+ * 模块上下文接口
+ * 表示文件所属的模块边界信息
+ */
+export interface ModuleContext {
+  /** 模块唯一标识（相对于 workspace root 的路径） */
+  moduleId: string;
+  /** 模块根目录的绝对路径 */
+  modulePath: string;
+  /** 模块类型 */
+  type: "maven" | "gradle" | "simple";
+  /** 构建文件路径（如 pom.xml 或 build.gradle） */
+  buildFile?: string;
+  /** 源码根目录列表 */
+  sourceRoots: string[];
+  /** 资源根目录列表 */
+  resourceRoots: string[];
+}
+
+/**
+ * 查询上下文接口
+ * 用于传递模块信息或参考路径以辅助歧义消解
+ */
+export interface QueryContext {
+  /** 模块 ID（优先使用） */
+  moduleId?: string;
+  /** 参考文件路径（fallback 使用） */
+  referencePath?: string;
+}
