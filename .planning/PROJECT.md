@@ -4,8 +4,8 @@
 
 A VS Code extension for MyBatis development that provides SQL log interception, Java-XML bidirectional navigation, intelligent code completion, and SQL/XML formatting.
 
-**Current State:** v1.0.0 Released
-**Version:** 1.0.0
+**Current State:** v1.0.4 Released
+**Version:** 1.0.4
 **Repository:** https://github.com/Greenplumwine/vscode-mybatis-helper
 
 ---
@@ -138,9 +138,14 @@ Key technical achievements:
 ## Current Status
 
 **Phase:** Maintenance & Incremental Improvements
-**Milestone:** v1.0.0 Shipped
+**Milestone:** v1.0.4 Shipped
 
 ### Recent Work (from git history)
+- v1.0.4 release with module-aware mapping engine refactor
+- ModuleResolver for multi-module project boundary detection
+- Composite key indexing (moduleId + namespace) in FastMappingEngine
+- QueryContextResolver for unified navigation context
+- Merged FastNavigationService into UnifiedNavigationService
 - v1.0.0 release with security hardening and performance optimization
 - Enhanced completion system with Java type integration
 - Documentation and sample project
@@ -163,6 +168,7 @@ Key technical achievements:
 | 2024 Q3 | Enterprise scanner, worker threads |
 | 2024 Q4 | Completion system, i18n |
 | 2025 Q1 | Stabilization |
+| 2026-04-22 | **v1.0.4 Released** — Module-aware mapping engine refactor |
 | 2026-03-30 | **v1.0.0 Released** |
 
 ---
@@ -189,4 +195,4 @@ Key technical achievements:
 
 ---
 
-*Last updated: 2026-03-30 after v1.0.0 milestone*
+*Last updated: 2026-04-22 after v1.0.4 milestone*

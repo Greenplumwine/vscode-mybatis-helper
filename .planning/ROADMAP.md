@@ -48,13 +48,33 @@
 
 ---
 
-### Phase 6: 模块感知 Mapper 映射引擎重构 — Not planned yet
-- [ ] 引入 ModuleResolver 显式识别模块边界
-- [ ] 改造 FastMappingEngine 索引为 (moduleId, namespace) 复合键
-- [ ] 扫描阶段集成模块上下文
-- [ ] 统一 QueryContext 查询接口
-- [ ] 合并 FastNavigationService 与 UnifiedNavigationService
-- [ ] 清理 referencePath 补丁代码
+- ✅ **v1.0.4 模块感知重构** — Phase 6 (shipped 2026-04-22)
+
+<details>
+<summary>✅ v1.0.4 模块感知重构 (Phase 6) — SHIPPED 2026-04-22</summary>
+
+### Phase 6: 模块感知 Mapper 映射引擎重构 (6 plans) — completed 2026-04-22
+- [x] P01: 模块解析器（ModuleResolver）— 显式识别 Maven/Gradle 模块边界
+- [x] P02: 索引重构 — FastMappingEngine 复合键索引 (moduleId, namespace)
+- [x] P03: 扫描器集成 — FastScanner/EnterpriseScanner 集成 ModuleResolver
+- [x] P04: 查询上下文 — QueryContextResolver 统一导航上下文传递
+- [x] P05: 导航服务合并 — FastNavigationService 合并至 UnifiedNavigationService
+- [x] P06: 清理 — 移除冗余代码，完成安全审计和 UAT
+
+</details>
+
+---
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+| ----- | --------- | -------------- | ------ | --------- |
+| 1. Security & Stability | v1.0.0 | 3/3 | Complete | 2026-03-25 |
+| 2. Performance Optimization | v1.0.0 | 4/4 | Complete | 2026-03-25 |
+| 3. Developer Experience | v1.0.0 | 3/3 | Complete | 2026-03-26 |
+| 4. Feature Completion | v1.0.0 | 4/4 | Complete | 2026-03-26 |
+| 5. Release Preparation | v1.0.0 | 1/1 | Complete | 2026-03-30 |
+| 6. Module-Aware Mapping Engine | v1.0.4 | 6/6 | Complete | 2026-04-22 |
 
 ---
 

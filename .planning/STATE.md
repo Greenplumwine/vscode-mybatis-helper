@@ -78,6 +78,21 @@ All 5 phases of v1.0.0 have been completed and the extension has been released:
 
 ---
 
+## Deferred Items
+
+Items acknowledged and deferred at milestone close on 2026-04-22:
+
+| Category | Item | Status |
+|----------|------|--------|
+| debug | multi-service-same-namespace | fixed |
+| quick_task | 260401-fjv-pom-xml-xml-mybatis-xml | missing |
+| quick_task | 260402-ghs-multiservice-mapper-jump-fix | missing |
+| todo | JDTLS alternative native parser | pending |
+| todo | MyBatis XML foreach completion | pending |
+| todo | OGNL expression completion | pending |
+| todo | Refactor completion strategy chain | pending |
+| todo | ResultMap navigation | pending |
+
 ## Blockers
 
 None. Milestone complete.
