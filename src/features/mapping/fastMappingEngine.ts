@@ -1044,15 +1044,17 @@ export class FastMappingEngine extends EventEmitter {
     content: string,
     methodName: string,
   ): string | null {
-    // 匹配方法签名，支持多行
+    // 原前缀中的多个空白匹配会在无关的长缩进行上反复回溯。
+    // 原前缀只要求方法名前以一个类型/空白字符和一个空白字符结尾；
+    // 用定长后行断言保留这个条件，避免重复扫描整个前缀。
     const methodPattern = new RegExp(
-      `(?:public|private|protected)?\\s*(?:static|final|abstract)?\\s*([\\w<>,\\s\\[\\]]+?)\\s+${methodName}\\s*\\((.*?)\\)\\s*(?:throws\\s+[\\w,\\s]+)?\\s*[;{]`,
+      `(?<=[\\w<>,\\s\\[\\]]\\s)${methodName}\\s*\\((.*?)\\)\\s*(?:throws\\s+[\\w,\\s]+)?\\s*[;{]`,
       "s",
     );
 
     const match = methodPattern.exec(content);
     if (match) {
-      return `${methodName}(${match[2]})`;
+      return `${methodName}(${match[1]})`;
     }
 
     return null;
